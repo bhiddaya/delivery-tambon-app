@@ -1,0 +1,17 @@
+{
+  "name": "บวรไทย ตำบลบุ่งไหม — Delivery ระดับตำบล",
+  "short_name": "บวรไทย บุ่งไหม",
+  "description": "สั่งอาหาร ส่งของ เรียกรถ ในตำบลเดียวกัน",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eff1ec",
+  "theme_color": "#2e3e68",
+  "orientation": "portrait",
+  "lang": "th",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #eff1ec;
+  --surface: #ffffff;
+  --surface-2: #e7e9e1;
+  --ink: #1c2333;
+  --ink-soft: #5b6478;
+  --border: #dbdfd5;
+  --indigo: #2e3e68;
+  --indigo-deep: #1b2547;
+  --indigo-tint: #e4e7f0;
+  --marigold: #c97418;
+  --marigold-tint: #fbebd6;
+  --jade: #2e6b4c;
+  --jade-tint: #e0ede6;
+  --slateblue: #2e5c7a;
+  --slateblue-tint: #e1eaf0;
+  --clay: #a8452f;
+  --clay-tint: #f5e1dd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #11162a;
+    --surface: #1a2038;
+    --surface-2: #232b4a;
+    --ink: #eceef5;
+    --ink-soft: #a7adc6;
+    --border: #323c5e;
+    --indigo: #8a9ad9;
+    --indigo-deep: #b0bce8;
+    --indigo-tint: #232c4e;
+    --marigold: #e9a855;
+    --marigold-tint: #3a2e1b;
+    --jade: #6fbe94;
+    --jade-tint: #1d3226;
+    --slateblue: #7eafd2;
+    --slateblue-tint: #1e2e3c;
+    --clay: #e08972;
+    --clay-tint: #3a241e;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #11162a;
+  --surface: #1a2038;
+  --surface-2: #232b4a;
+  --ink: #eceef5;
+  --ink-soft: #a7adc6;
+  --border: #323c5e;
+  --indigo: #8a9ad9;
+  --indigo-deep: #b0bce8;
+  --indigo-tint: #232c4e;
+  --marigold: #e9a855;
+  --marigold-tint: #3a2e1b;
+  --jade: #6fbe94;
+  --jade-tint: #1d3226;
+  --slateblue: #7eafd2;
+  --slateblue-tint: #1e2e3c;
+  --clay: #e08972;
+  --clay-tint: #3a241e;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-border: var(--border);
+  --color-indigo: var(--indigo);
+  --color-indigo-deep: var(--indigo-deep);
+  --color-indigo-tint: var(--indigo-tint);
+  --color-marigold: var(--marigold);
+  --color-marigold-tint: var(--marigold-tint);
+  --color-jade: var(--jade);
+  --color-jade-tint: var(--jade-tint);
+  --color-slateblue: var(--slateblue);
+  --color-slateblue-tint: var(--slateblue-tint);
+  --color-clay: var(--clay);
+  --color-clay-tint: var(--clay-tint);
+  --font-display: "Chonburi", "Kanit", sans-serif;
+  --font-head: "Kanit", "IBM Plex Sans Thai", sans-serif;
+  --font-body: "IBM Plex Sans Thai", "Kanit", sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-head);
+}
+
+::selection {
+  background: var(--indigo-tint);
+}
