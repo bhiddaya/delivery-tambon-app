@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# บวรไทย — ระบบ Delivery ระดับตำบล
 
-## Getting Started
+ระบบสั่งอาหาร ส่งของ และเรียกรถ **ภายในตำบลเดียวกัน** โดยคนในตำบล
+ค่าส่งถูกกว่า ถึงเร็วกว่า และเงินหมุนอยู่ในชุมชน
 
-First, run the development server:
+ออกแบบให้รองรับได้ถึงระดับ ~7,000 ตำบลทั่วประเทศ โดยแยกข้อมูลแต่ละตำบลที่ชั้นฐานข้อมูล
+(`tambon_id`) ไม่ใช่ที่ URL — เว็บเดียวจึงเสิร์ฟได้ทุกตำบล
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## เทคโนโลยี
+
+| ส่วน | ใช้ |
+|---|---|
+| Frontend + API | Next.js 16 (App Router) · React 19 · TypeScript |
+| Styling | Tailwind CSS v4 |
+| ฐานข้อมูล + Auth | Supabase (PostgreSQL + Row Level Security) |
+| Hosting | Vercel |
+| ช่องทางผู้ใช้ | PWA + LINE OA / LIFF |
+
+## โครงสร้าง
+
+```
+src/
+├── app/
+│   ├── customer/        ลูกค้า — สั่งอาหาร ส่งของ เรียกรถ ติดตามออร์เดอร์
+│   ├── driver/          ไรเดอร์ — รับงาน ดูรายได้
+│   ├── merchant/        ร้านค้า — คิวออร์เดอร์ เมนู
+│   ├── admin/           ตัวแทนตำบล — อนุมัติสมาชิก ตั้งค่า
+│   ├── t/[slug]/        หน้าสาธารณะของตำบล (ไม่ต้องล็อกอิน แชร์ลิงก์ได้)
+│   └── api/line/        LINE Messaging API webhook
+├── components/          UI ที่ใช้ร่วมกัน + LiffProvider
+├── lib/
+│   ├── supabase/        client (เบราว์เซอร์) · server (session) · admin (service role)
+│   ├── auth-guard.ts    ตรวจบทบาทก่อนเข้าหน้า
+│   └── line.ts          ตรวจลายเซ็น webhook · ส่งข้อความ · สร้างลิงก์ LIFF
+├── proxy.ts             middleware — รีเฟรช session cookie
+└── services/            เรียก API ฝั่ง client
+
+supabase/migrations/     migration ของฐานข้อมูล
+wip/                     โค้ดที่พักไว้ ยังไม่พร้อมใช้ (ดู wip/api-shops/README.md)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| ตัวแปร | จำเป็น | หมายเหตุ |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase → Settings → API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | publishable key — เปิดเผยได้ ความปลอดภัยอยู่ที่ RLS |
+| `LINE_CHANNEL_SECRET` | เฉพาะ LINE OA | ใช้ตรวจว่า request มาจาก LINE จริง |
+| `LINE_CHANNEL_ACCESS_TOKEN` | เฉพาะ LINE OA | ใช้ส่งข้อความกลับ |
+| `NEXT_PUBLIC_LIFF_ID` | เฉพาะ LINE OA | รหัส LIFF app |
+| `SUPABASE_SERVICE_ROLE_KEY` | ❌ | ไม่มีโค้ดส่วนไหนใช้แล้ว — ทุกหน้าใช้สิทธิ์ผู้ใช้/สาธารณะผ่าน RLS |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+> ⚠️ ตัวแปรที่ขึ้นต้น `NEXT_PUBLIC_` ต้องตั้ง Type เป็น **Config** ใน Vercel
+> ถ้าตั้งเป็น Secret จะไม่ถูกส่งให้ build ค่าจึงไม่ถูกฝังลงโค้ด แล้วแอปจะต่อฐานข้อมูลไม่ได้
 
-## Learn More
+## รันในเครื่อง
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+cp .env.example .env.local   # แล้วเติมค่า Supabase
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+เปิด http://localhost:3000
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**ก่อน deploy ควรทดสอบแบบไม่มี env vars ด้วย** เพื่อจำลองสภาพ deploy ครั้งแรก:
 
-## Deploy on Vercel
+```bash
+mv .env.local .env.local.bak && npm run build && mv .env.local.bak .env.local
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+build ต้องผ่าน — โค้ดถูกออกแบบให้สร้าง Supabase client ตอนเรียกใช้จริง ไม่ใช่ตอน import
+เพราะ `next build` จะ evaluate ทุก route module
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> `next build` ผ่านไม่ได้แปลว่าเว็บใช้ได้ — บั๊กบางแบบ (เช่นชื่อ dynamic segment ชนกัน)
+> โผล่ตอนรันเซิร์ฟเวอร์เท่านั้น ควร `npm start` แล้วลองเปิดสักหน้าก่อนเสมอ
+
+## ฐานข้อมูล
+
+migration อยู่ใน `supabase/migrations/` เรียงตามวันที่
+
+RLS เปิดครบทุกตาราง การเข้าถึงคุมที่ policy ไม่ใช่ที่โค้ด:
+
+- ผู้ใช้เห็นออร์เดอร์ของตัวเอง · ไรเดอร์เห็นงานที่รับ · ร้านเห็นออร์เดอร์ของร้าน
+- `order_events` เขียนได้เฉพาะ trigger ของระบบ ผู้ใช้อ่านได้เท่าที่เห็นออร์เดอร์แม่
+- หน้าสาธารณะ `/t/<slug>` อ่านด้วยสิทธิ์ anon และจำกัดคอลัมน์ด้วย GRANT
+
+## เอกสาร
+
+เอกสารสถาปัตยกรรม แผนพัฒนา และคู่มือตัวแทนตำบล อยู่ใน Claude Project
+"โครงการ Delivery" ไม่ได้อยู่ใน repo นี้
