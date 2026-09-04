@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import type { UserRole } from "@/lib/domain";
+import { homePathFor, type UserRole } from "@/lib/domain";
 import type { Tables } from "@/lib/types";
 
 /**
@@ -29,7 +29,14 @@ export async function requireRole(role: UserRole): Promise<{
     .maybeSingle();
 
   if (!profile) redirect("/onboarding");
-  if (profile.role !== role) redirect(`/${profile.role}`);
+
+  // ส่วนกลางดูแลทุกตำบล จึงผ่านด่านของตัวแทนตำบลได้ด้วย
+  // (ไม่ใช่ผ่านทุกด่าน — ส่วนกลางไม่ควรสวมเป็นลูกค้า ไรเดอร์ หรือร้านค้า)
+  //
+  // ระวัง: นี่คุมแค่ "เข้าหน้าไหนได้" เท่านั้น สิทธิ์เห็นข้อมูลข้ามตำบลจริง ๆ
+  // ยังคุมด้วย RLS ที่ฐานข้อมูล ผ่านฟังก์ชัน is_superadmin()
+  const allowed = profile.role === role || (profile.role === "superadmin" && role === "admin");
+  if (!allowed) redirect(homePathFor(profile.role));
 
   return { userId: user.id, email: user.email ?? null, profile };
 }

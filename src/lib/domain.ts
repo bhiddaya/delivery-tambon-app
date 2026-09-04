@@ -44,6 +44,17 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   superadmin: "ส่วนกลาง",
 };
 
+/**
+ * หน้าแรกของแต่ละบทบาท
+ *
+ * ทุกบทบาทมีหน้าเป็นชื่อเดียวกับบทบาท ยกเว้น superadmin ที่ยังไม่มีหน้าจอของตัวเอง
+ * ถ้าปล่อยให้ต่อ path ตรง ๆ จะได้ /superadmin ซึ่งไม่มีอยู่จริง แล้วส่วนกลาง
+ * จะล็อกอินเข้ามาเจอ 404 ทันที — ส่งไปหน้าตัวแทนตำบลไว้ก่อนจนกว่าจะมีหน้าของตัวเอง
+ */
+export function homePathFor(role: UserRole): string {
+  return role === "superadmin" ? "/admin" : `/${role}`;
+}
+
 export function money(n: number): string {
   return Number(n ?? 0).toLocaleString("th-TH") + " บาท";
 }
