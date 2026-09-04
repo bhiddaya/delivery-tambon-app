@@ -44,7 +44,7 @@ wip/                     โค้ดที่พักไว้ ยังไม
 | ตัวแปร | จำเป็น | หมายเหตุ |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase → Settings → API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | publishable key — เปิดเผยได้ ความปลอดภัยอยู่ที่ RLS |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | ใส่ **publishable key** (`sb_publishable_…`) — เปิดเผยได้ ความปลอดภัยอยู่ที่ RLS |
 | `LINE_CHANNEL_SECRET` | เฉพาะ LINE OA | ใช้ตรวจว่า request มาจาก LINE จริง |
 | `LINE_CHANNEL_ACCESS_TOKEN` | เฉพาะ LINE OA | ใช้ส่งข้อความกลับ |
 | `NEXT_PUBLIC_LIFF_ID` | เฉพาะ LINE OA | รหัส LIFF app |
@@ -52,6 +52,22 @@ wip/                     โค้ดที่พักไว้ ยังไม
 
 > ⚠️ ตัวแปรที่ขึ้นต้น `NEXT_PUBLIC_` ต้องตั้ง Type เป็น **Config** ใน Vercel
 > ถ้าตั้งเป็น Secret จะไม่ถูกส่งให้ build ค่าจึงไม่ถูกฝังลงโค้ด แล้วแอปจะต่อฐานข้อมูลไม่ได้
+
+> 🔑 **legacy key ถูกปิดถาวรแล้ว** (4 ก.ย. 2569) — anon/service_role แบบ JWT ใช้ไม่ได้อีก
+> โปรเจกต์นี้ใช้ระบบ key แบบใหม่เท่านั้น (`sb_publishable_…` / `sb_secret_…`)
+> ซึ่งหมุนแยกกันได้ ต่างจาก legacy ที่หมุนทีเดียวโดนทั้งคู่และทำให้เว็บล่ม
+
+## ⚠️ ตั้งค่า Supabase ที่ห้ามแตะ
+
+**Authentication → Sign In / Providers → User Signups → Confirm email ต้อง "ปิด"**
+
+ผู้ใช้ที่สมัครด้วยเบอร์โทรจะได้อีเมลแฝงที่ส่งจริงไม่ได้ (ดู `src/lib/identifier.ts`)
+ถ้าเปิด Confirm email ระบบจะพยายามส่งเมลยืนยันไปยังอีเมลแฝงนั้น แล้ว
+**การสมัครด้วยเบอร์โทรจะพังทั้งระบบ** — พังแบบเงียบ ๆ ไม่มี error ให้เห็นบนหน้าเว็บ
+ผู้ใช้แค่สมัครไม่ผ่านเฉย ๆ และจะโดน rate limit ของผู้ให้บริการเมลตามมา
+
+การยืนยันตัวตนจริงของระบบนี้คือ **ตัวแทนตำบลกดอนุมัติ** (`profiles.approved`)
+ไม่ใช่การยืนยันอีเมล จึงไม่ได้สูญเสียอะไรจากการปิดสวิตช์นี้
 
 ## รันในเครื่อง
 
