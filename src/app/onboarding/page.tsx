@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { phoneFromAuthEmail, formatPhoneLocal } from "@/lib/identifier";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { AuthFrame } from "@/components/AuthFrame";
 import { ROLE_LABEL, VEHICLE_LABEL, type UserRole, type VehicleType } from "@/lib/domain";
@@ -28,6 +29,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     const supabase = createClient();
+
     supabase
       .from("tambons")
       .select("*")
@@ -36,6 +38,14 @@ export default function OnboardingPage() {
         setTambons(data ?? []);
         if (data && data.length) setTambonId(data[0].id);
       });
+
+    // ถ้าสมัครด้วยเบอร์ เติมให้เลย ผู้ใช้จะได้ไม่ต้องพิมพ์เบอร์เดิมซ้ำอีกรอบ
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const fromSignup =
+        (user?.user_metadata?.phone as string | undefined) ??
+        phoneFromAuthEmail(user?.email);
+      if (fromSignup) setPhone(formatPhoneLocal(fromSignup));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

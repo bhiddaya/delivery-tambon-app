@@ -4,12 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { resolveIdentifier, formatPhoneLocal } from "@/lib/identifier";
 import { Button, Field, Input, Card } from "@/components/ui";
 import { AuthFrame } from "@/components/AuthFrame";
 
 export default function SignupPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -17,24 +18,52 @@ export default function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
+
+    // ใช้ช่องเดียวกับหน้าเข้าสู่ระบบ เพื่อให้ "สมัครด้วยอะไร ก็เข้าด้วยอันนั้น"
+    // ไม่ต้องจำว่าตอนสมัครกรอกอะไรไว้ตรงไหน
+    const id = resolveIdentifier(identifier);
+    if (id.kind === "invalid") {
+      setError("กรุณากรอกเบอร์โทร (เช่น 0812345678) หรืออีเมลให้ถูกต้อง");
       return;
     }
+
+    setLoading(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signUp({
+      email: id.authEmail,
+      password,
+      // เก็บเบอร์ไว้กับบัญชี เพื่อเติมให้อัตโนมัติในหน้าถัดไป
+      options: id.kind === "phone" ? { data: { phone: id.phone } } : undefined,
+    });
+    setLoading(false);
+
+    if (error) {
+      setError(
+        /already registered|already exists/i.test(error.message)
+          ? id.kind === "phone"
+            ? "เบอร์นี้สมัครไว้แล้ว ลองเข้าสู่ระบบแทน"
+            : "อีเมลนี้สมัครไว้แล้ว ลองเข้าสู่ระบบแทน"
+          : error.message
+      );
+      return;
+    }
+
     if (data.session) {
       router.push("/onboarding");
       router.refresh();
-    } else {
-      setNotice(
-        "สมัครสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันตัวตน จากนั้นกลับมาเข้าสู่ระบบ"
-      );
+      return;
     }
+
+    // ไม่มี session แปลว่า Supabase ตั้งให้ต้องยืนยันก่อน
+    setNotice(
+      id.kind === "phone"
+        ? "สมัครแล้ว แต่ระบบยังตั้งค่าให้ต้องยืนยันก่อนเข้าใช้งาน กรุณาแจ้งผู้ดูแลระบบ"
+        : "สมัครสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันตัวตน จากนั้นกลับมาเข้าสู่ระบบ"
+    );
   }
+
+  const preview = resolveIdentifier(identifier);
 
   return (
     <AuthFrame>
@@ -52,20 +81,34 @@ export default function SignupPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <Field label="อีเมล">
+            <Field label="เบอร์โทร หรือ อีเมล">
               <Input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                autoComplete="username"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="0812345678"
               />
             </Field>
+
+            {/* บอกให้เห็นทันทีว่าระบบเข้าใจสิ่งที่พิมพ์ว่าอะไร กันพิมพ์ผิดแล้วรู้ตอนหลัง */}
+            {identifier.trim() !== "" && (
+              <p className="text-xs -mt-2 mb-3 text-ink-soft">
+                {preview.kind === "phone"
+                  ? `จะสมัครด้วยเบอร์ ${formatPhoneLocal(preview.phone)}`
+                  : preview.kind === "email"
+                    ? `จะสมัครด้วยอีเมล ${preview.authEmail}`
+                    : "ยังอ่านไม่ออกว่าเป็นเบอร์หรืออีเมล"}
+              </p>
+            )}
+
             <Field label="รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)">
               <Input
                 type="password"
                 required
                 minLength={6}
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -76,6 +119,8 @@ export default function SignupPage() {
               {loading ? "กำลังสมัคร..." : "สมัครสมาชิก"}
             </Button>
             <p className="text-xs text-ink-soft mt-3">
+              ไม่มีอีเมลก็สมัครได้ ใช้เบอร์โทรอย่างเดียวพอ
+              <br />
               ขั้นตอนถัดไปคุณจะเลือกได้ว่าจะเป็นลูกค้า ไรเดอร์ หรือร้านค้า
             </p>
           </form>
