@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { UserRole } from "@/lib/domain";
+import { homePathFor, type UserRole } from "@/lib/domain";
 import {
   BikeIcon,
   CheckBadgeIcon,
@@ -73,7 +73,7 @@ export default function AppShell({ role, children }: { role: UserRole; children:
           style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
         >
           <Link
-            href={`/${role}`}
+            href={homePathFor(role)}
             className="min-w-0 flex-1 truncate font-display text-base text-indigo"
           >
             บวรไทย ตำบลบุ่งไหม
