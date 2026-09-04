@@ -269,6 +269,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          line_user_id: string | null
           phone: string | null
           promptpay_id: string | null
           rating: number
@@ -281,6 +282,7 @@ export type Database = {
           created_at?: string
           full_name: string
           id: string
+          line_user_id?: string | null
           phone?: string | null
           promptpay_id?: string | null
           rating?: number
@@ -293,6 +295,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          line_user_id?: string | null
           phone?: string | null
           promptpay_id?: string | null
           rating?: number
@@ -566,6 +569,10 @@ export type Database = {
     Functions: {
       approve_tambon_application: {
         Args: { app_id: string; review_note?: string; tambon_slug: string }
+        Returns: string
+      }
+      auth_user_id_for_line: {
+        Args: { p_alias_email: string; p_line_user_id: string }
         Returns: string
       }
       is_admin: { Args: never; Returns: boolean }
