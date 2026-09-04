@@ -362,37 +362,198 @@ export type Database = {
           },
         ]
       }
+      tambon_applications: {
+        Row: {
+          applicant_line: string | null
+          applicant_name: string
+          applicant_phone: string
+          applicant_profile_id: string | null
+          created_at: string
+          created_tambon_id: string | null
+          details: Json
+          district: string
+          driver_count: number | null
+          id: string
+          merchant_count: number | null
+          pdpa_consent: boolean
+          province: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          tambon_code: string | null
+          tambon_name: string
+        }
+        Insert: {
+          applicant_line?: string | null
+          applicant_name: string
+          applicant_phone: string
+          applicant_profile_id?: string | null
+          created_at?: string
+          created_tambon_id?: string | null
+          details?: Json
+          district: string
+          driver_count?: number | null
+          id?: string
+          merchant_count?: number | null
+          pdpa_consent?: boolean
+          province: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          tambon_code?: string | null
+          tambon_name: string
+        }
+        Update: {
+          applicant_line?: string | null
+          applicant_name?: string
+          applicant_phone?: string
+          applicant_profile_id?: string | null
+          created_at?: string
+          created_tambon_id?: string | null
+          details?: Json
+          district?: string
+          driver_count?: number | null
+          id?: string
+          merchant_count?: number | null
+          pdpa_consent?: boolean
+          province?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          tambon_code?: string | null
+          tambon_name?: string
+        }
+        Relationships: []
+      }
+      tambon_profiles: {
+        Row: {
+          area_sqkm: number | null
+          attractions: Json
+          budget_total: number | null
+          budget_year: number | null
+          culture: string | null
+          households: number | null
+          local_gov_name: string | null
+          local_gov_website: string | null
+          main_economy: string | null
+          population: number | null
+          products: Json
+          sources: Json
+          tambon_id: string
+          traditions: Json
+          updated_at: string
+          updated_by: string | null
+          villages: number | null
+        }
+        Insert: {
+          area_sqkm?: number | null
+          attractions?: Json
+          budget_total?: number | null
+          budget_year?: number | null
+          culture?: string | null
+          households?: number | null
+          local_gov_name?: string | null
+          local_gov_website?: string | null
+          main_economy?: string | null
+          population?: number | null
+          products?: Json
+          sources?: Json
+          tambon_id: string
+          traditions?: Json
+          updated_at?: string
+          updated_by?: string | null
+          villages?: number | null
+        }
+        Update: {
+          area_sqkm?: number | null
+          attractions?: Json
+          budget_total?: number | null
+          budget_year?: number | null
+          culture?: string | null
+          households?: number | null
+          local_gov_name?: string | null
+          local_gov_website?: string | null
+          main_economy?: string | null
+          population?: number | null
+          products?: Json
+          sources?: Json
+          tambon_id?: string
+          traditions?: Json
+          updated_at?: string
+          updated_by?: string | null
+          villages?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tambon_profiles_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: true
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tambons: {
         Row: {
+          announcement: string | null
           code: string | null
+          contact_line: string | null
+          contact_phone: string | null
+          cover_url: string | null
           created_at: string
+          delivery_fee_base: number | null
+          delivery_fee_per_km: number | null
           district: string | null
           id: string
+          intro: string | null
+          is_active: boolean
           name: string
           name_en: string | null
           note: string | null
+          opened_at: string | null
           province: string | null
           slug: string
         }
         Insert: {
+          announcement?: string | null
           code?: string | null
+          contact_line?: string | null
+          contact_phone?: string | null
+          cover_url?: string | null
           created_at?: string
+          delivery_fee_base?: number | null
+          delivery_fee_per_km?: number | null
           district?: string | null
           id?: string
+          intro?: string | null
+          is_active?: boolean
           name: string
           name_en?: string | null
           note?: string | null
+          opened_at?: string | null
           province?: string | null
           slug: string
         }
         Update: {
+          announcement?: string | null
           code?: string | null
+          contact_line?: string | null
+          contact_phone?: string | null
+          cover_url?: string | null
           created_at?: string
+          delivery_fee_base?: number | null
+          delivery_fee_per_km?: number | null
           district?: string | null
           id?: string
+          intro?: string | null
+          is_active?: boolean
           name?: string
           name_en?: string | null
           note?: string | null
+          opened_at?: string | null
           province?: string | null
           slug?: string
         }
@@ -403,7 +564,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_tambon_application: {
+        Args: { app_id: string; review_note?: string; tambon_slug: string }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
+      is_superadmin: { Args: never; Returns: boolean }
+      is_tambon_admin: { Args: { t: string }; Returns: boolean }
     }
     Enums: {
       order_status:
@@ -413,7 +580,7 @@ export type Database = {
         | "delivered"
         | "cancelled"
       order_type: "food" | "parcel" | "ride"
-      user_role: "customer" | "driver" | "merchant" | "admin"
+      user_role: "customer" | "driver" | "merchant" | "admin" | "superadmin"
       vehicle_type:
         | "motorcycle"
         | "pickup"
@@ -539,7 +706,7 @@ export const Constants = {
         "cancelled",
       ],
       order_type: ["food", "parcel", "ride"],
-      user_role: ["customer", "driver", "merchant", "admin"],
+      user_role: ["customer", "driver", "merchant", "admin", "superadmin"],
       vehicle_type: [
         "motorcycle",
         "pickup",

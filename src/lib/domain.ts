@@ -40,7 +40,8 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   customer: "ลูกค้า",
   driver: "ไรเดอร์",
   merchant: "ร้านค้า",
-  admin: "แอดมิน",
+  admin: "ตัวแทนตำบล",
+  superadmin: "ส่วนกลาง",
 };
 
 export function money(n: number): string {

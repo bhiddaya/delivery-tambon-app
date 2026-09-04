@@ -12,6 +12,15 @@
  *
  * ตัวยืนยันตัวตนจริงของระบบนี้คือการที่ตัวแทนตำบลกดอนุมัติ (profiles.approved)
  * ซึ่ง /driver และ /merchant บังคับใช้อยู่ ไม่ใช่การยืนยันอีเมล
+ *
+ * ⚠️ ขึ้นกับการตั้งค่า Supabase หนึ่งตัว — "Confirm email" ต้องปิดอยู่เสมอ
+ *
+ * ถ้าใครไปเปิดกลับ Supabase จะพยายามส่งเมลยืนยันไปยังอีเมลแฝงที่ส่งไม่ถึงจริง
+ * ผลคือการสมัครด้วยเบอร์โทรพังทั้งระบบ และพังแบบเงียบ ๆ — ไม่มี error บนหน้าเว็บ
+ * (เคยเกิดขึ้นจริง อาการที่เห็นคือ "Email address ... is invalid" บ้าง
+ *  "email rate limit exceeded" บ้าง ซึ่งชี้ไปคนละทางกับสาเหตุจริงทั้งคู่)
+ *
+ * ที่: Authentication → Sign In / Providers → User Signups → Confirm email
  */
 
 const PHONE_ALIAS_DOMAIN = "phone.invalid";
