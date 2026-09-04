@@ -35,6 +35,14 @@ const NAV: Record<UserRole, NavLink[]> = {
     { href: "/admin/approvals", label: "อนุมัติ", icon: CheckBadgeIcon },
     { href: "/admin/settings", label: "ตั้งค่า", icon: SettingsIcon },
   ],
+  // ส่วนกลาง — ดูแลทุกตำบล ต่างจาก admin ที่ผูกกับตำบลเดียว
+  // ยังไม่มีหน้า /superadmin/* จริง จึงชี้ไปหน้าเดิมของตัวแทนตำบลไปก่อน
+  // เพื่อไม่ให้แถบนำทางว่างเปล่า (ดู 31-Opening-New-Tambons.md)
+  superadmin: [
+    { href: "/admin", label: "แดชบอร์ด", icon: GridIcon },
+    { href: "/admin/approvals", label: "อนุมัติ", icon: CheckBadgeIcon },
+    { href: "/admin/settings", label: "ตั้งค่า", icon: SettingsIcon },
+  ],
 };
 
 /**
