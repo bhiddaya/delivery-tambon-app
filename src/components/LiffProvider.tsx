@@ -37,6 +37,14 @@ export type LiffContextValue = {
    * คืน null ถ้ายังไม่ได้ล็อกอิน LINE หรือ LIFF ยังไม่พร้อม
    */
   getIdToken: () => string | null;
+  /**
+   * บังคับขอสิทธิ์จาก LINE ใหม่
+   *
+   * ใช้ตอนล็อกอินอยู่แล้วแต่ไม่มี ID token ซึ่งแปลว่าผู้ใช้ยังไม่เคยอนุญาต
+   * scope `openid` — เกิดได้เมื่อเพิ่ม scope ทีหลัง คนที่เคยกดอนุญาตไว้ก่อนหน้า
+   * จะยังถือสิทธิ์ชุดเก่าอยู่จนกว่าจะอนุญาตใหม่
+   */
+  relogin: () => void;
 };
 
 const LiffContext = createContext<LiffContextValue>({
@@ -48,6 +56,7 @@ const LiffContext = createContext<LiffContextValue>({
   login: () => {},
   logout: () => {},
   getIdToken: () => null,
+  relogin: () => {},
 });
 
 export function useLiff() {
@@ -140,6 +149,17 @@ export default function LiffProvider({
       getIdToken: () => {
         if (!liff || !liff.isLoggedIn()) return null;
         return liff.getIDToken();
+      },
+      relogin: () => {
+        if (!liff) return;
+        // ออกก่อนแล้วเข้าใหม่ เพื่อให้ LINE แสดงหน้าขออนุญาตอีกครั้ง
+        // (ถ้าไม่ออกก่อน LINE จะถือว่าอนุญาตแล้วและข้ามหน้านั้นไป)
+        try {
+          if (liff.isLoggedIn()) liff.logout();
+        } catch {
+          // ในแอป LINE บางรุ่น logout ทำไม่ได้ — ไม่เป็นไร ลอง login ต่อเลย
+        }
+        liff.login({ redirectUri: window.location.href });
       },
     }),
     [status, error, isInClient, isLoggedIn, profile, liff]

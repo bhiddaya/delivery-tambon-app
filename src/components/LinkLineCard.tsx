@@ -17,7 +17,7 @@ import { Button, Card } from "@/components/ui";
  */
 export default function LinkLineCard({ linked }: { linked: boolean }) {
   const router = useRouter();
-  const { status, isLoggedIn, login, getIdToken } = useLiff();
+  const { status, isInClient, isLoggedIn, login, relogin, getIdToken } = useLiff();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -46,7 +46,15 @@ export default function LinkLineCard({ linked }: { linked: boolean }) {
 
     const idToken = getIdToken();
     if (!idToken) {
-      setError("ไม่ได้รับข้อมูลยืนยันจาก LINE กรุณาลองใหม่");
+      // ล็อกอิน LINE อยู่แล้วแต่ไม่มี ID token = ยังไม่ได้อนุญาต scope `openid`
+      // เกิดกับคนที่เคยกดอนุญาตไว้ก่อนที่เราจะเพิ่ม scope นี้ ต้องอนุญาตใหม่
+      if (isInClient) {
+        setError(
+          "ต้องกดอนุญาตให้ LINE แชร์ชื่อโปรไฟล์ก่อน — ปิดหน้านี้แล้วเปิดใหม่จากลิงก์ของแอป LINE ระบบจะขึ้นหน้าขออนุญาตให้กด"
+        );
+      } else {
+        relogin();
+      }
       return;
     }
 

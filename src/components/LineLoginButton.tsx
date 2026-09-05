@@ -17,7 +17,7 @@ import { signInWithLineIdToken, LineSignInError } from "@/lib/line-login";
  */
 export default function LineLoginButton() {
   const router = useRouter();
-  const { status, isLoggedIn, login, getIdToken } = useLiff();
+  const { status, isInClient, isLoggedIn, login, relogin, getIdToken } = useLiff();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +35,14 @@ export default function LineLoginButton() {
 
     const idToken = getIdToken();
     if (!idToken) {
-      setError("ไม่ได้รับข้อมูลยืนยันจาก LINE กรุณาลองใหม่");
+      // ดูคำอธิบายเดียวกันใน LinkLineCard — ยังไม่ได้อนุญาต scope `openid`
+      if (isInClient) {
+        setError(
+          "ต้องกดอนุญาตให้ LINE แชร์ชื่อโปรไฟล์ก่อน — ปิดหน้านี้แล้วเปิดใหม่จากลิงก์ของแอป LINE ระบบจะขึ้นหน้าขออนุญาตให้กด"
+        );
+      } else {
+        relogin();
+      }
       return;
     }
 
