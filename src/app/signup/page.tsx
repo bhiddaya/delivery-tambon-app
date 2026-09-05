@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { resolveIdentifier, formatPhoneLocal } from "@/lib/identifier";
 import { Button, Field, Input, Card } from "@/components/ui";
 import { AuthFrame } from "@/components/AuthFrame";
+import LineLoginButton from "@/components/LineLoginButton";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -124,6 +125,20 @@ export default function SignupPage() {
               ขั้นตอนถัดไปคุณจะเลือกได้ว่าจะเป็นลูกค้า ไรเดอร์ หรือร้านค้า
             </p>
           </form>
+        )}
+
+        {/* เข้าด้วย LINE ใช้ได้ทั้งสมัครใหม่และเข้าบัญชีเดิม — ปุ่มเดียวกัน
+            คนที่ไม่เคยเข้ามาก่อนจะถูกพาไป /onboarding ให้อัตโนมัติ
+            ซ่อนตอนสมัครสำเร็จแล้ว เพราะหน้านั้นมีปุ่มของตัวเองอยู่ */}
+        {!notice && (
+          <>
+            <div className="mt-5 flex items-center gap-3">
+              <span className="h-px flex-1 bg-border" />
+              <span className="font-head text-xs text-ink-soft">หรือ</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <LineLoginButton />
+          </>
         )}
       </Card>
       <p className="text-center text-sm text-ink-soft mt-4">
