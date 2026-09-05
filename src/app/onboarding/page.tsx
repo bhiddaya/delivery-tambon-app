@@ -24,6 +24,7 @@ export default function OnboardingPage() {
   const [shopName, setShopName] = useState("");
   const [shopCategory, setShopCategory] = useState("");
   const [shopAddress, setShopAddress] = useState("");
+  const [lineUserId, setLineUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -39,12 +40,23 @@ export default function OnboardingPage() {
         if (data && data.length) setTambonId(data[0].id);
       });
 
-    // ถ้าสมัครด้วยเบอร์ เติมให้เลย ผู้ใช้จะได้ไม่ต้องพิมพ์เบอร์เดิมซ้ำอีกรอบ
+    // เติมสิ่งที่รู้อยู่แล้วให้ล่วงหน้า ผู้ใช้จะได้พิมพ์น้อยที่สุด
     supabase.auth.getUser().then(({ data: { user } }) => {
+      const meta = user?.user_metadata ?? {};
+
+      // สมัครด้วยเบอร์ — เอาเบอร์เดิมมาใส่ ไม่ต้องพิมพ์ซ้ำ
       const fromSignup =
-        (user?.user_metadata?.phone as string | undefined) ??
-        phoneFromAuthEmail(user?.email);
+        (meta.phone as string | undefined) ?? phoneFromAuthEmail(user?.email);
       if (fromSignup) setPhone(formatPhoneLocal(fromSignup));
+
+      // เข้าด้วย LINE — ใช้ชื่อที่แสดงใน LINE เป็นชื่อเริ่มต้น (แก้ได้)
+      // เบอร์โทรยังต้องกรอกเอง เพราะ LINE ไม่ได้ให้เบอร์มา และไรเดอร์/ร้าน
+      // ต้องมีเบอร์ไว้ให้ลูกค้าติดต่อ
+      const lineName = meta.line_display_name as string | undefined;
+      if (lineName) setFullName((current) => current || lineName);
+
+      const metaLineUserId = meta.line_user_id as string | undefined;
+      if (metaLineUserId) setLineUserId(metaLineUserId);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -71,6 +83,8 @@ export default function OnboardingPage() {
       phone,
       tambon_id: tambonId || null,
       promptpay_id: promptpay || null,
+      // ผูกบัญชี LINE ไว้ตั้งแต่แถวแรก ครั้งหน้าจะกดปุ่ม LINE เข้าบัญชีนี้ได้เลย
+      line_user_id: lineUserId,
     });
     if (profileErr) {
       setError(profileErr.message);
