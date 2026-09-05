@@ -32,6 +32,11 @@ export type LiffContextValue = {
   profile: LiffProfile | null;
   login: () => void;
   logout: () => void;
+  /**
+   * ID token ที่เอาไปแลก session ของ Supabase ได้ (ต้องมี scope `openid`)
+   * คืน null ถ้ายังไม่ได้ล็อกอิน LINE หรือ LIFF ยังไม่พร้อม
+   */
+  getIdToken: () => string | null;
 };
 
 const LiffContext = createContext<LiffContextValue>({
@@ -42,6 +47,7 @@ const LiffContext = createContext<LiffContextValue>({
   profile: null,
   login: () => {},
   logout: () => {},
+  getIdToken: () => null,
 });
 
 export function useLiff() {
@@ -130,6 +136,10 @@ export default function LiffProvider({
           setIsLoggedIn(false);
           setProfile(null);
         }
+      },
+      getIdToken: () => {
+        if (!liff || !liff.isLoggedIn()) return null;
+        return liff.getIDToken();
       },
     }),
     [status, error, isInClient, isLoggedIn, profile, liff]
