@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_scopes: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          note: string | null
+          profile_id: string
+          tambon_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          note?: string | null
+          profile_id: string
+          tambon_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          note?: string | null
+          profile_id?: string
+          tambon_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_scopes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_scopes_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drivers: {
         Row: {
           is_online: boolean
@@ -575,6 +617,12 @@ export type Database = {
         Args: { p_alias_email: string; p_line_user_id: string }
         Returns: string
       }
+      can_admin_profile: { Args: { p: string }; Returns: boolean }
+      can_admin_tambon: { Args: { t: string }; Returns: boolean }
+      has_national_scope: { Args: never; Returns: boolean }
+      is_approved_driver_in: { Args: { t: string }; Returns: boolean }
+      my_tambon_id: { Args: never; Returns: string }
+      shares_order_with: { Args: { p: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_superadmin: { Args: never; Returns: boolean }
       is_tambon_admin: { Args: { t: string }; Returns: boolean }
@@ -586,7 +634,7 @@ export type Database = {
         | "in_progress"
         | "delivered"
         | "cancelled"
-      order_type: "food" | "parcel" | "ride"
+      order_type: "food" | "parcel" | "ride" | "agri_service"
       user_role: "customer" | "driver" | "merchant" | "admin" | "superadmin"
       vehicle_type:
         | "motorcycle"
@@ -595,6 +643,10 @@ export type Database = {
         | "tractor"
         | "bicycle"
         | "other"
+        | "harvester"
+        | "rice_transplanter"
+        | "drone"
+        | "car"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -712,7 +764,7 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
-      order_type: ["food", "parcel", "ride"],
+      order_type: ["food", "parcel", "ride", "agri_service"],
       user_role: ["customer", "driver", "merchant", "admin", "superadmin"],
       vehicle_type: [
         "motorcycle",
@@ -721,6 +773,10 @@ export const Constants = {
         "tractor",
         "bicycle",
         "other",
+        "harvester",
+        "rice_transplanter",
+        "drone",
+        "car",
       ],
     },
   },

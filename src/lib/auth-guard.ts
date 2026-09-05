@@ -40,3 +40,35 @@ export async function requireRole(role: UserRole): Promise<{
 
   return { userId: user.id, email: user.email ?? null, profile };
 }
+
+/**
+ * เหมือน requireRole แต่ไม่สนว่าบทบาทไหน — ขอแค่ล็อกอินและมีโปรไฟล์แล้ว
+ *
+ * ใช้กับหน้าที่ทุกบทบาทเข้าได้เหมือนกัน เช่นหน้าบัญชีของฉัน
+ * แยกออกมาแทนที่จะให้ requireRole รับ array เพราะเจตนาต่างกันชัดเจน:
+ * อันนั้นคือ "หน้านี้ของบทบาทนี้" อันนี้คือ "หน้านี้ของทุกคน"
+ */
+export async function requireSession(): Promise<{
+  userId: string;
+  email: string | null;
+  profile: Tables<"profiles">;
+}> {
+  if (!isSupabaseConfigured()) redirect("/");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile) redirect("/onboarding");
+
+  return { userId: user.id, email: user.email ?? null, profile };
+}

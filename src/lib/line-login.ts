@@ -23,6 +23,8 @@ export type LineSignInResult = {
 
 export class LineSignInError extends Error {}
 
+export type LineLinkResult = { displayName: string | null; pictureUrl: string | null };
+
 function functionsUrl(): string | null {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!base) return null;
@@ -59,5 +61,49 @@ export async function signInWithLineIdToken(idToken: string): Promise<LineSignIn
     hasProfile: Boolean(payload.has_profile),
     isNewUser: Boolean(payload.is_new_user),
     displayName: (payload.display_name as string | null) ?? null,
+  };
+}
+
+/**
+ * ผูกบัญชี LINE เข้ากับบัญชีที่ล็อกอินอยู่แล้ว (ไม่ได้สร้างบัญชีใหม่)
+ *
+ * ใช้กับคนที่สมัครด้วยเบอร์+รหัสผ่านไว้ก่อน เช่น ไรเดอร์ ร้านค้า ตัวแทนตำบล
+ * ผูกแล้วได้สองอย่าง: รับแจ้งเตือนเข้าแชท LINE ได้ และครั้งต่อไปกดปุ่ม LINE
+ * เข้าบัญชีเดิมได้เลยโดยไม่ต้องจำรหัสผ่าน
+ *
+ * ต้องส่ง access token ของ session ไปด้วย เพราะฝั่งเซิร์ฟเวอร์ต้องพิสูจน์ว่า
+ * คนที่ขอผูกคือเจ้าของบัญชีจริง ไม่ใช่ใครก็ได้ที่เดา user id มา
+ */
+export async function linkLineToCurrentAccount(idToken: string): Promise<LineLinkResult> {
+  const endpoint = functionsUrl();
+  if (!endpoint) throw new LineSignInError("ยังไม่ได้ตั้งค่า Supabase");
+
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new LineSignInError("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ id_token: idToken, mode: "link" }),
+  });
+
+  const payload = await res.json().catch(() => null);
+
+  if (!res.ok || !payload?.linked) {
+    console.error("line link failed", payload);
+    throw new LineSignInError(
+      typeof payload?.hint === "string" ? payload.hint : "ผูกบัญชี LINE ไม่สำเร็จ กรุณาลองใหม่"
+    );
+  }
+
+  return {
+    displayName: (payload.display_name as string | null) ?? null,
+    pictureUrl: (payload.picture_url as string | null) ?? null,
   };
 }

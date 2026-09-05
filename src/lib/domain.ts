@@ -25,6 +25,7 @@ export const TYPE_LABEL: Record<OrderType, string> = {
   food: "ส่งอาหาร",
   parcel: "ส่งของ/พัสดุ",
   ride: "เรียกรถ",
+  agri_service: "บริการการเกษตร",
 };
 
 export const VEHICLE_LABEL: Record<VehicleType, string> = {
@@ -33,8 +34,29 @@ export const VEHICLE_LABEL: Record<VehicleType, string> = {
   trike: "สามล้อพ่วง",
   tractor: "รถอีแต๋น",
   bicycle: "จักรยาน",
+  car: "รถยนต์",
+  harvester: "รถเกี่ยวข้าว",
+  rice_transplanter: "รถดำนา",
+  drone: "โดรนเกษตร",
   other: "อื่นๆ",
 };
+
+/** ยานพาหนะที่ใช้รับงานส่งของ/รับส่งคน */
+export const DELIVERY_VEHICLES: VehicleType[] = [
+  "motorcycle",
+  "pickup",
+  "trike",
+  "car",
+  "bicycle",
+];
+
+/** เครื่องจักรที่ใช้รับงานบริการการเกษตร */
+export const AGRI_VEHICLES: VehicleType[] = [
+  "tractor",
+  "harvester",
+  "rice_transplanter",
+  "drone",
+];
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   customer: "ลูกค้า",
@@ -67,7 +89,16 @@ export function dateStr(iso: string): string {
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 }
 
-/** คำนวณส่วนแบ่งรายได้ไรเดอร์ vs รายได้แพลตฟอร์ม (ค่าคอมมิชชัน) จากออเดอร์หนึ่งรายการ */
+/**
+ * คำนวณส่วนแบ่งผู้ให้บริการ vs รายได้แพลตฟอร์ม (ค่าคอมมิชชัน) จากออเดอร์หนึ่งรายการ
+ *
+ * เรียกรถ: ผู้ขับได้ 85% ของค่าโดยสาร
+ * ส่งอาหาร/ส่งของ: ผู้ส่งได้ 85% ของค่าส่ง แพลตฟอร์มได้ส่วนที่เหลือ + 10% ของค่าสินค้า
+ *
+ * ⚠️ บริการการเกษตร (agri_service) ยังไม่มีอัตราค่าคอมของตัวเอง
+ * ตอนนี้จึงตกไปใช้สูตรเดียวกับงานส่งของ ซึ่งอาจไม่ตรงกับที่ตกลงกันจริง
+ * ตัวเลข "ส่วนแบ่งของฉัน" ของงานเกษตรจึงถือเป็นค่าประมาณจนกว่าจะกำหนดอัตราจริง
+ */
 export function econ(order: Pick<OrderRow, "type" | "price" | "delivery_fee" | "items_subtotal">) {
   if (order.type === "ride") {
     const total = order.price;
