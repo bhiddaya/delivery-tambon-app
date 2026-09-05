@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { resolveIdentifier } from "@/lib/identifier";
 import { Button, Field, Input, Card } from "@/components/ui";
 import { AuthFrame } from "@/components/AuthFrame";
+import LineLoginButton from "@/components/LineLoginButton";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -86,6 +87,15 @@ export default function LoginPage() {
             ใช้อันเดียวกับตอนสมัคร — ถ้าสมัครด้วยเบอร์ ให้กรอกเบอร์
           </p>
         </form>
+
+        {/* ทางลัดที่อยากให้คนส่วนใหญ่ใช้ — กดปุ่มเดียว ไม่ต้องมีรหัสผ่าน
+            วางไว้ใต้ฟอร์มเพราะคนที่มีบัญชีเดิมอยู่แล้วจะได้ไม่สับสน */}
+        <div className="mt-5 flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" />
+          <span className="font-head text-xs text-ink-soft">หรือ</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <LineLoginButton />
       </Card>
       <p className="text-center text-sm text-ink-soft mt-4">
         ยังไม่มีบัญชี?{" "}
