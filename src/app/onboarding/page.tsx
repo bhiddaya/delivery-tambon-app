@@ -6,11 +6,20 @@ import { createClient } from "@/lib/supabase/client";
 import { phoneFromAuthEmail, formatPhoneLocal } from "@/lib/identifier";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { AuthFrame } from "@/components/AuthFrame";
-import { ROLE_LABEL, VEHICLE_LABEL, type UserRole, type VehicleType } from "@/lib/domain";
+import {
+  AGRI_VEHICLES,
+  DELIVERY_VEHICLES,
+  ROLE_LABEL,
+  VEHICLE_LABEL,
+  type UserRole,
+  type VehicleType,
+} from "@/lib/domain";
 import type { Tables } from "@/lib/types";
 
 const ROLE_OPTIONS: UserRole[] = ["customer", "driver", "merchant"];
-const VEHICLE_OPTIONS: VehicleType[] = ["motorcycle", "pickup", "trike", "tractor", "bicycle"];
+// รวมทั้งรถส่งของและเครื่องจักรเกษตร เพราะผู้ให้บริการเกษตรก็ลงทะเบียนเป็น
+// บทบาท "ไรเดอร์" เหมือนกัน ต่างกันแค่ยานพาหนะที่เลือก
+const VEHICLE_OPTIONS: VehicleType[] = [...DELIVERY_VEHICLES, ...AGRI_VEHICLES, "other"];
 
 export default function OnboardingPage() {
   const router = useRouter();
