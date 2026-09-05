@@ -125,9 +125,11 @@ Deno.serve(async (req: Request) => {
   }
 
   let idToken = "";
+  let mode: "login" | "link" = "login";
   try {
     const body = await req.json();
     idToken = typeof body?.id_token === "string" ? body.id_token : "";
+    if (body?.mode === "link") mode = "link";
   } catch {
     return json({ error: "bad_request", hint: "body ต้องเป็น JSON" }, 400);
   }
@@ -166,6 +168,59 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, secretKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  // โหมด "ผูกบัญชี" — ผู้ใช้ล็อกอินด้วยเบอร์/อีเมลอยู่แล้ว แล้วมาผูก LINE เพิ่ม
+  // ต่างจากโหมดล็อกอินตรงที่ไม่สร้างบัญชีใหม่และไม่ออก session ใหม่
+  // แค่เขียน line_user_id ลงโปรไฟล์เดิม เพื่อให้ส่งแจ้งเตือนเข้า LINE ได้
+  // และครั้งต่อไปกดปุ่ม LINE จะเข้าบัญชีเดิมนี้
+  if (mode === "link") {
+    // ต้องพิสูจน์ว่าคนเรียกคือเจ้าของ session จริง ไม่ใช่ใครก็ได้ที่ส่ง id มา
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!jwt) return json({ error: "missing_session", hint: "ต้องล็อกอินก่อนจึงจะผูกบัญชีได้" }, 401);
+
+    const { data: caller, error: callerErr } = await admin.auth.getUser(jwt);
+    if (callerErr || !caller?.user) {
+      return json({ error: "invalid_session", hint: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่" }, 401);
+    }
+    const callerId = caller.user.id;
+
+    // บัญชี LINE หนึ่งอันผูกได้กับผู้ใช้คนเดียว — กันคนสวมรอยบัญชีคนอื่น
+    const { data: taken } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("line_user_id", lineUserId)
+      .maybeSingle();
+
+    if (taken && taken.id !== callerId) {
+      return json(
+        { error: "line_already_linked", hint: "บัญชี LINE นี้ถูกผูกกับผู้ใช้อื่นอยู่แล้ว" },
+        409,
+      );
+    }
+
+    const { error: updErr } = await admin
+      .from("profiles")
+      .update({ line_user_id: lineUserId })
+      .eq("id", callerId);
+    if (updErr) return json({ error: "link_failed", detail: updErr.message }, 500);
+
+    await admin.auth.admin.updateUserById(callerId, {
+      user_metadata: {
+        provider: "line",
+        line_user_id: lineUserId,
+        line_display_name: payload.name ?? null,
+        line_picture: payload.picture ?? null,
+      },
+    });
+
+    return json({
+      ok: true,
+      linked: true,
+      display_name: payload.name ?? null,
+      picture_url: payload.picture ?? null,
+    });
+  }
 
   const aliasEmail = `${lineUserId}@${ALIAS_DOMAIN}`;
   const lineMeta = {
