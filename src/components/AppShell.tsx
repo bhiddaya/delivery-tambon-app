@@ -15,6 +15,8 @@ import {
   ReceiptIcon,
   SettingsIcon,
   StoreIcon,
+  UserIcon,
+  WalletIcon,
 } from "@/components/icons";
 
 type NavIcon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -24,16 +26,24 @@ const NAV: Record<UserRole, NavLink[]> = {
   customer: [
     { href: "/customer", label: "หน้าแรก", icon: HomeIcon },
     { href: "/customer/orders", label: "ออเดอร์ของฉัน", icon: ListIcon },
+    { href: "/account", label: "บัญชี", icon: UserIcon },
   ],
-  driver: [{ href: "/driver", label: "งานในตำบล", icon: BikeIcon }],
+  driver: [
+    { href: "/driver", label: "งานในตำบล", icon: BikeIcon },
+    { href: "/driver/earnings", label: "รายรับ", icon: WalletIcon },
+    { href: "/account", label: "บัญชี", icon: UserIcon },
+  ],
   merchant: [
     { href: "/merchant", label: "ร้านของฉัน", icon: StoreIcon },
     { href: "/merchant/orders", label: "ออเดอร์เข้าร้าน", icon: ReceiptIcon },
+    { href: "/merchant/earnings", label: "รายรับ", icon: WalletIcon },
+    { href: "/account", label: "บัญชี", icon: UserIcon },
   ],
   admin: [
     { href: "/admin", label: "แดชบอร์ด", icon: GridIcon },
     { href: "/admin/approvals", label: "อนุมัติ", icon: CheckBadgeIcon },
     { href: "/admin/settings", label: "ตั้งค่า", icon: SettingsIcon },
+    { href: "/account", label: "บัญชี", icon: UserIcon },
   ],
   // ส่วนกลาง — ดูแลทุกตำบล ต่างจาก admin ที่ผูกกับตำบลเดียว
   // ยังไม่มีหน้า /superadmin/* จริง จึงชี้ไปหน้าเดิมของตัวแทนตำบลไปก่อน
@@ -42,6 +52,7 @@ const NAV: Record<UserRole, NavLink[]> = {
     { href: "/admin", label: "แดชบอร์ด", icon: GridIcon },
     { href: "/admin/approvals", label: "อนุมัติ", icon: CheckBadgeIcon },
     { href: "/admin/settings", label: "ตั้งค่า", icon: SettingsIcon },
+    { href: "/account", label: "บัญชี", icon: UserIcon },
   ],
 };
 

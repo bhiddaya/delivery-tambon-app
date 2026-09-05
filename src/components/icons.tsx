@@ -110,3 +110,24 @@ export function LogOutIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** กระเป๋าเงิน — ใช้กับหน้ารายรับ */
+export function WalletIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H18a2 2 0 0 1 2 2v1" />
+      <path d="M3 7.5V17a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" />
+      <path d="M21 11h-4a2 2 0 0 0 0 4h4z" />
+    </svg>
+  );
+}
+
+/** คน — ใช้กับหน้าบัญชีของฉัน */
+export function UserIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+    </svg>
+  );
+}
