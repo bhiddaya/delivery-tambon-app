@@ -633,6 +633,18 @@ export type Database = {
       is_superadmin: { Args: never; Returns: boolean }
       is_tambon_admin: { Args: { t: string }; Returns: boolean }
       session_used_password: { Args: never; Returns: boolean | null }
+      search_menu: {
+        Args: { p_query: string; p_tambon?: string | null }
+        Returns: {
+          merchant_id: string
+          merchant_name: string
+          merchant_category: string | null
+          item_id: string
+          item_name: string
+          price: number
+          photo_url: string | null
+        }[]
+      }
     }
     Enums: {
       order_status:
