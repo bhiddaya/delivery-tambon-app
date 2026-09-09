@@ -31,6 +31,7 @@ export default function MerchantMenuPage() {
           .select("*")
           .eq("merchant_id", id)
           .eq("is_available", true)
+          .eq("is_hidden", false)
           .order("created_at"),
       ]);
       setMerchant(m ?? null);
