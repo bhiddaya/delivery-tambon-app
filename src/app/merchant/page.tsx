@@ -26,6 +26,7 @@ export default function MerchantHomePage() {
   // รูปที่กำลังอัป — เก็บเป็น id ของเมนู เพื่อขึ้นสถานะเฉพาะแถวนั้น
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [menuError, setMenuError] = useState<string | null>(null);
 
   async function load() {
     const supabase = createClient();
@@ -85,9 +86,59 @@ export default function MerchantHomePage() {
     load();
   }
 
-  async function removeItem(id: string) {
+  /**
+   * เลิกขายเมนู — ซ่อนแทนการลบ
+   *
+   * ลบตรง ๆ ไม่ได้ถ้าเมนูนั้นเคยมีคนสั่ง เพราะ order_items อ้างถึงอยู่
+   * (ตั้งใจกันไว้ ไม่งั้นประวัติการขายจะหายไปพร้อมเมนู) การซ่อนจึงเป็น
+   * ค่าตั้งต้น — ได้ผลที่ร้านต้องการจริง ๆ คือเมนูพ้นสายตาลูกค้าและพ้น
+   * รายการหลักของร้าน โดยไม่แตะประวัติ
+   */
+  async function setHidden(item: Tables<"menu_items">, hidden: boolean) {
+    setBusy(true);
+    setMenuError(null);
     const supabase = createClient();
-    await supabase.from("menu_items").delete().eq("id", id);
+    const { data, error } = await supabase
+      .from("menu_items")
+      .update({ is_hidden: hidden })
+      .eq("id", item.id)
+      .select("id");
+    setBusy(false);
+
+    if (error) {
+      setMenuError(`ไม่สำเร็จ: ${error.message}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      setMenuError("ไม่สำเร็จ — ไม่มีสิทธิ์แก้เมนูนี้ หรือเมนูถูกลบไปแล้ว");
+      return;
+    }
+    load();
+  }
+
+  /**
+   * ลบถาวร — ใช้ได้เฉพาะเมนูที่ยังไม่เคยมีใครสั่ง เช่นพิมพ์ผิดแล้วอยากลบทิ้ง
+   *
+   * ไม่ถามฐานข้อมูลก่อนว่า "เคยถูกสั่งไหม" แต่ลองลบแล้วอ่าน error เอา
+   * เพราะคำตอบที่ถูกต้องที่สุดคือคำตอบของฐานข้อมูลเองตอนนั้น การถามก่อน
+   * แล้วค่อยลบเปิดช่องให้สถานะเปลี่ยนระหว่างสองคำสั่ง
+   */
+  async function deleteForever(item: Tables<"menu_items">) {
+    setBusy(true);
+    setMenuError(null);
+    const supabase = createClient();
+    const { error } = await supabase.from("menu_items").delete().eq("id", item.id);
+    setBusy(false);
+
+    if (error) {
+      // 23503 = foreign key violation — แปลว่าเมนูนี้เคยถูกสั่งไปแล้ว
+      setMenuError(
+        error.code === "23503"
+          ? `ลบ "${item.name}" ถาวรไม่ได้ เพราะเคยมีลูกค้าสั่งไปแล้ว — เก็บไว้เป็นประวัติการขาย ซ่อนไว้อย่างนี้พอครับ`
+          : `ลบไม่สำเร็จ: ${error.message}`
+      );
+      return;
+    }
     load();
   }
 
@@ -204,6 +255,9 @@ export default function MerchantHomePage() {
     load();
   }
 
+  const activeMenu = menu.filter((it) => !it.is_hidden);
+  const hiddenMenu = menu.filter((it) => it.is_hidden);
+
   return (
     <div>
       <Card className="flex items-center justify-between mb-6">
@@ -218,8 +272,9 @@ export default function MerchantHomePage() {
 
       <h2 className="font-head font-semibold text-sm mb-2">เมนู</h2>
       {photoError && <p className="text-clay text-sm mb-2">{photoError}</p>}
+      {menuError && <p className="text-clay text-sm mb-2">{menuError}</p>}
       <Card className="!p-0 divide-y divide-border mb-4">
-        {menu.map((it) =>
+        {activeMenu.map((it) =>
           editingId === it.id ? (
             <div key={it.id} className="px-4 py-3">
               <Field label="ชื่อเมนู">
@@ -303,13 +358,19 @@ export default function MerchantHomePage() {
               >
                 {it.is_available ? "พร้อมขาย" : "หมด"}
               </button>
-              <button onClick={() => removeItem(it.id)} className="text-clay text-xs font-head font-semibold">
-                ลบ
+              <button
+                onClick={() => setHidden(it, true)}
+                disabled={busy}
+                className="text-clay text-xs font-head font-semibold disabled:opacity-40"
+              >
+                เลิกขาย
               </button>
             </div>
           )
         )}
-        {menu.length === 0 && <p className="p-4 text-ink-soft text-sm">ยังไม่มีเมนู เพิ่มด้านล่างได้เลย</p>}
+        {activeMenu.length === 0 && (
+          <p className="p-4 text-ink-soft text-sm">ยังไม่มีเมนู เพิ่มด้านล่างได้เลย</p>
+        )}
       </Card>
 
       <Card>
@@ -331,6 +392,44 @@ export default function MerchantHomePage() {
           </Button>
         </form>
       </Card>
+
+      {/* เมนูที่เลิกขายแล้ว — ไว้ท้ายสุดและสีจาง เพราะไม่ใช่ของที่ต้องดูทุกวัน
+          แต่ต้องยังหาเจอ ไม่งั้นร้านที่กดผิดจะเอากลับมาไม่ได้ */}
+      {hiddenMenu.length > 0 && (
+        <>
+          <h2 className="font-head font-semibold text-sm mb-2 mt-6 text-ink-soft">
+            เลิกขายแล้ว ({hiddenMenu.length})
+          </h2>
+          <Card className="!p-0 divide-y divide-border">
+            {hiddenMenu.map((it) => (
+              <div key={it.id} className="flex items-center gap-3 px-4 py-3 opacity-60">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm truncate line-through">{it.name}</div>
+                  <div className="text-ink-soft text-xs">{money(Number(it.price))}</div>
+                </div>
+                <button
+                  onClick={() => setHidden(it, false)}
+                  disabled={busy}
+                  className="text-indigo text-xs font-head font-semibold disabled:opacity-40"
+                >
+                  กลับมาขาย
+                </button>
+                <button
+                  onClick={() => deleteForever(it)}
+                  disabled={busy}
+                  className="text-clay text-xs font-head font-semibold disabled:opacity-40"
+                >
+                  ลบถาวร
+                </button>
+              </div>
+            ))}
+          </Card>
+          <p className="text-ink-soft text-xs mt-2">
+            เมนูที่เคยมีลูกค้าสั่งไปแล้วจะลบถาวรไม่ได้ เพราะต้องเก็บไว้เป็นประวัติการขาย
+            ซ่อนไว้อย่างนี้ลูกค้าก็ไม่เห็นแล้ว
+          </p>
+        </>
+      )}
     </div>
   );
 }
