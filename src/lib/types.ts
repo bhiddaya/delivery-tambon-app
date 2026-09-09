@@ -96,6 +96,7 @@ export type Database = {
           created_at: string
           id: string
           is_available: boolean
+          is_hidden: boolean
           merchant_id: string
           name: string
           photo_url: string | null
@@ -105,6 +106,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_available?: boolean
+          is_hidden?: boolean
           merchant_id: string
           name: string
           photo_url?: string | null
@@ -114,6 +116,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_available?: boolean
+          is_hidden?: boolean
           merchant_id?: string
           name?: string
           photo_url?: string | null
