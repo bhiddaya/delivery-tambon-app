@@ -67,7 +67,6 @@ export default function OnboardingPage() {
       const metaLineUserId = meta.line_user_id as string | undefined;
       if (metaLineUserId) setLineUserId(metaLineUserId);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

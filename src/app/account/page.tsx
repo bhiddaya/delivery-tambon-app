@@ -3,6 +3,7 @@
 import { useSession } from "@/lib/session-context";
 import { Card, PageHeading } from "@/components/ui";
 import LinkLineCard from "@/components/LinkLineCard";
+import ChangePasswordCard from "@/components/ChangePasswordCard";
 import { ROLE_LABEL } from "@/lib/domain";
 import { formatPhoneLocal, isPhoneAuthEmail, normalizePhone } from "@/lib/identifier";
 
@@ -49,6 +50,7 @@ export default function AccountPage() {
       </Card>
 
       <LinkLineCard linked={Boolean(profile.line_user_id)} />
+      <ChangePasswordCard />
     </div>
   );
 }

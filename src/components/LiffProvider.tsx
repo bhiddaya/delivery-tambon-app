@@ -81,6 +81,9 @@ export default function LiffProvider({
     const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
     if (!liffId) {
+      // อ่าน env ตอน render ไม่ได้อย่างปลอดภัยเพราะหน้าเหล่านี้ prerender
+      // ตั้งครั้งเดียวตอน mount ไม่ใช่ cascading render ที่กฎนี้กันอยู่
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot config check on mount
       setStatus("disabled");
       return;
     }

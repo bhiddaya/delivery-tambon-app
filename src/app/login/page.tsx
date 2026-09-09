@@ -83,9 +83,14 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </Button>
-          <p className="text-xs text-ink-soft mt-3">
-            ใช้อันเดียวกับตอนสมัคร — ถ้าสมัครด้วยเบอร์ ให้กรอกเบอร์
-          </p>
+          <div className="mt-3 flex items-baseline justify-between gap-3">
+            <p className="text-xs text-ink-soft">
+              ใช้อันเดียวกับตอนสมัคร — ถ้าสมัครด้วยเบอร์ ให้กรอกเบอร์
+            </p>
+            <Link href="/forgot-password" className="shrink-0 text-xs font-semibold text-indigo">
+              ลืมรหัสผ่าน?
+            </Link>
+          </div>
         </form>
 
         {/* ทางลัดที่อยากให้คนส่วนใหญ่ใช้ — กดปุ่มเดียว ไม่ต้องมีรหัสผ่าน

@@ -1,0 +1,83 @@
+{
+  "name": "บวรไทย — เฝ้าดูระบบ",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 1 }] }
+      },
+      "id": "schedule",
+      "name": "ทุกชั่วโมง",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kaeoxqiqonwjoqjoiiho.supabase.co/functions/v1/notify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-notify-secret", "value": "PUT_NOTIFY_SECRET_HERE" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"action\":\"health\"}",
+        "options": { "timeout": 20000, "response": { "response": { "neverError": true, "fullResponse": true } } }
+      },
+      "id": "check",
+      "name": "เช็คสถานะระบบ",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "version": 2 },
+          "combinator": "or",
+          "conditions": [
+            {
+              "operator": { "type": "number", "operation": "gte" },
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 400
+            },
+            {
+              "operator": { "type": "number", "operation": "gt" },
+              "leftValue": "={{ $json.body.total_pending_now }}",
+              "rightValue": 10
+            },
+            {
+              "operator": { "type": "boolean", "operation": "false" },
+              "leftValue": "={{ $json.body.line_configured }}"
+            }
+          ]
+        }
+      },
+      "id": "gate",
+      "name": "มีอะไรผิดปกติไหม",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [440, 0],
+      "notes": "เตือนเมื่อ: endpoint ตอบ error / งานค้างเกิน 10 รายการ / LINE token หลุดหาย\nปรับตัวเลข 10 ได้ตามจริงเมื่อรู้ปริมาณงานปกติแล้ว"
+    },
+    {
+      "parameters": {
+        "content": "=🚨 บวรไทย — ระบบผิดปกติ\n\nสถานะ: {{ $json.statusCode }}\nงานค้าง: {{ $json.body.total_pending_now }}\nLINE พร้อมใช้: {{ $json.body.line_configured }}\nรออนุมัติ: {{ $json.body.total_waiting_approval }}\n\nเวลา: {{ $now.setZone('Asia/Bangkok').toFormat('dd/MM/yyyy HH:mm') }}"
+      },
+      "id": "alert",
+      "name": "แจ้งเตือน (ต่อช่องทางที่ต้องการ)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [660, -80],
+      "notes": "แทนโหนดนี้ด้วยช่องทางที่ใช้จริง เช่น LINE Notify, Telegram, อีเมล หรือ Slack"
+    }
+  ],
+  "connections": {
+    "ทุกชั่วโมง": { "main": [[{ "node": "เช็คสถานะระบบ", "type": "main", "index": 0 }]] },
+    "เช็คสถานะระบบ": { "main": [[{ "node": "มีอะไรผิดปกติไหม", "type": "main", "index": 0 }]] },
+    "มีอะไรผิดปกติไหม": { "main": [[{ "node": "แจ้งเตือน (ต่อช่องทางที่ต้องการ)", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "timezone": "Asia/Bangkok" }
+}

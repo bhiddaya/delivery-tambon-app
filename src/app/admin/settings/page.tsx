@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Card, Field, Input, PageHeading } from "@/components/ui";
 import type { Tables } from "@/lib/types";
+import MemberPasswordReset from "@/components/MemberPasswordReset";
 
 export default function AdminSettingsPage() {
   const [tambons, setTambons] = useState<Tables<"tambons">[]>([]);
@@ -41,6 +42,10 @@ export default function AdminSettingsPage() {
   return (
     <div>
       <PageHeading title="ตั้งค่าตำบล" subtitle="แก้ไขชื่อตำบล/อำเภอ/จังหวัดที่ใช้แสดงในระบบ" />
+
+      <MemberPasswordReset />
+
+      <h2 className="font-head font-semibold text-sm mb-2 mt-6">ข้อมูลตำบล</h2>
       {tambons.map((t) => (
         <Card key={t.id} className="mb-4">
           <Field label="ชื่อตำบล">

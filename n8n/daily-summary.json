@@ -1,0 +1,48 @@
+{
+  "name": "บวรไทย — สรุปรายวันส่งตัวแทนตำบล",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 11 * * *" }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "ทุกวัน 18:00 น. (ไทย)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "notes": "n8n Cloud ใช้เวลา UTC — 11:00 UTC = 18:00 ตามเวลาไทย ถ้าตั้ง timezone ของ workflow เป็น Asia/Bangkok แล้ว ให้เปลี่ยนเป็น 0 18 * * *"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kaeoxqiqonwjoqjoiiho.supabase.co/functions/v1/notify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-notify-secret", "value": "={{ $credentials ? '' : '' }}PUT_NOTIFY_SECRET_HERE" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"action\":\"daily_summary\",\"dry_run\":false}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "send",
+      "name": "สั่งส่งสรุปรายวัน",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "notes": "แทน PUT_NOTIFY_SECRET_HERE ด้วยค่า NOTIFY_SECRET ที่ตั้งไว้ใน Supabase\nอยากทดสอบก่อนโดยไม่เสียโควตา LINE ให้เปลี่ยน dry_run เป็น true"
+    }
+  ],
+  "connections": {
+    "ทุกวัน 18:00 น. (ไทย)": {
+      "main": [[{ "node": "สั่งส่งสรุปรายวัน", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "timezone": "Asia/Bangkok" }
+}

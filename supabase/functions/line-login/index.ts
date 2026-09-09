@@ -267,15 +267,46 @@ Deno.serve(async (req: Request) => {
   }
 
   // ผู้ใช้มีโปรไฟล์แล้วหรือยัง — หน้าเว็บจะได้รู้ว่าควรพาไป /onboarding ไหม
-  const { data: profile } = await admin
+  //
+  // เดิมโค้ดตรงนี้ทิ้ง error ของทั้ง select และ update ทำให้การผูก line_user_id
+  // ที่ล้มเหลวเงียบสนิท — ผู้ใช้ 4 คนล็อกอิน LINE สำเร็จตั้งแต่ 5 ก.ย. แต่โปรไฟล์
+  // ไม่เคยได้ line_user_id เลยสักคน และไม่มีอะไรบอกว่าพลาด ผลคือระบบแจ้งเตือน
+  // ส่งหา 0 คน ทั้งที่ทุกอย่างดู "สำเร็จ" หมด
+  const { data: profile, error: profileErr } = await admin
     .from("profiles")
     .select("id, role, line_user_id")
     .eq("id", userId)
     .maybeSingle();
 
-  // ผูก line_user_id ให้โปรไฟล์เดิมที่ยังไม่มี (เช่นคนที่สมัครด้วยเบอร์มาก่อน)
-  if (profile && !profile.line_user_id) {
-    await admin.from("profiles").update({ line_user_id: lineUserId }).eq("id", userId);
+  // ผูก line_user_id ให้โปรไฟล์ที่ยังไม่มี (เช่นคนที่สมัครด้วยเบอร์มาก่อน)
+  //
+  // ต้องนับแถวที่เขียนได้จริงด้วย ไม่ใช่ดูแค่ error — update ที่ไม่โดนแถวไหนเลย
+  // ไม่ถือเป็น error ใน PostgREST ซึ่งเป็นความเงียบแบบเดียวกับที่ทำให้พลาดมาแล้ว
+  let linkState: string;
+  if (profileErr) {
+    linkState = `profile_read_failed: ${profileErr.message}`;
+  } else if (!profile) {
+    // ผู้ใช้ใหม่ที่ยังไม่ได้กรอกโปรไฟล์ — จะถูกผูกตอนสร้างโปรไฟล์ที่ /onboarding
+    linkState = "no_profile_yet";
+  } else if (profile.line_user_id === lineUserId) {
+    linkState = "already_linked";
+  } else {
+    const { data: updated, error: updErr } = await admin
+      .from("profiles")
+      .update({ line_user_id: lineUserId })
+      .eq("id", userId)
+      .select("id");
+    linkState = updErr
+      ? `update_failed: ${updErr.message}`
+      : (updated?.length ?? 0) === 0
+        ? "update_matched_no_rows"
+        : "linked";
+  }
+
+  // เขียนลง log เมื่อผูกไม่ได้ เพื่อให้ครั้งหน้าหาสาเหตุได้จาก function logs
+  // ไม่ log ตัว lineUserId เพราะเป็นตัวระบุตัวตนของผู้ใช้
+  if (linkState !== "linked" && linkState !== "already_linked") {
+    console.error("line-login: ผูก line_user_id ไม่สำเร็จ", { userId, linkState });
   }
 
   return json({
@@ -284,6 +315,7 @@ Deno.serve(async (req: Request) => {
     email: aliasEmail,
     is_new_user: isNew,
     has_profile: Boolean(profile),
+    link_state: linkState,
     display_name: payload.name ?? null,
     picture_url: payload.picture ?? null,
   });
