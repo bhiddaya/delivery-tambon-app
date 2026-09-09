@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { money } from "@/lib/domain";
+import { resizeImage } from "@/lib/image";
 import type { Tables } from "@/lib/types";
 
 export default function MerchantHomePage() {
@@ -14,6 +15,17 @@ export default function MerchantHomePage() {
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // เมนูที่กำลังแก้อยู่ — เก็บค่าที่พิมพ์ไว้ต่างหาก ไม่แก้ทับ menu ตรง ๆ
+  // เพื่อให้กด "ยกเลิก" แล้วกลับไปค่าเดิมได้ โดยไม่ต้องโหลดใหม่จากเซิร์ฟเวอร์
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // รูปที่กำลังอัป — เก็บเป็น id ของเมนู เพื่อขึ้นสถานะเฉพาะแถวนั้น
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   async function load() {
     const supabase = createClient();
@@ -85,6 +97,113 @@ export default function MerchantHomePage() {
     load();
   }
 
+  /**
+   * อัปรูปเมนู
+   *
+   * path ต้องเป็น <merchant_id>/<ชื่อไฟล์> เพราะ policy ที่ storage ตรวจว่า
+   * โฟลเดอร์ชั้นแรกเป็นร้านของผู้เรียกจริงไหม ส่งชื่ออื่นมาจะถูกปฏิเสธ
+   *
+   * ตั้งชื่อไฟล์ใหม่ทุกครั้งด้วย uuid แทนการเขียนทับชื่อเดิม เพราะรูปที่ทับ
+   * ชื่อเดิมจะติด cache ของเบราว์เซอร์และ CDN ร้านจะเปลี่ยนรูปแล้วยังเห็นรูปเก่า
+   * แล้วนึกว่าอัปไม่สำเร็จ
+   */
+  async function uploadPhoto(item: Tables<"menu_items">, file: File) {
+    if (!merchant) return;
+    setPhotoError(null);
+    setUploadingId(item.id);
+
+    try {
+      const { blob, ext } = await resizeImage(file);
+      const path = `${merchant.id}/${crypto.randomUUID()}.${ext}`;
+      const supabase = createClient();
+
+      const { error: upErr } = await supabase.storage
+        .from("menu-photos")
+        .upload(path, blob, { contentType: "image/jpeg" });
+      if (upErr) throw new Error(upErr.message);
+
+      const { data: pub } = supabase.storage.from("menu-photos").getPublicUrl(path);
+
+      const { data: saved, error: dbErr } = await supabase
+        .from("menu_items")
+        .update({ photo_url: pub.publicUrl })
+        .eq("id", item.id)
+        .select("id");
+      if (dbErr) throw new Error(dbErr.message);
+      if (!saved || saved.length === 0) throw new Error("บันทึกรูปกับเมนูไม่สำเร็จ");
+
+      // ลบรูปเก่าทิ้ง ไม่ให้กินที่เก็บไปเรื่อย ๆ ทุกครั้งที่เปลี่ยนรูป
+      // ทำหลังบันทึกสำเร็จเท่านั้น และถ้าลบไม่ได้ก็ไม่ถือว่าล้มเหลว
+      const oldPath = item.photo_url?.split("/menu-photos/")[1];
+      if (oldPath) await supabase.storage.from("menu-photos").remove([oldPath]);
+
+      load();
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "อัปโหลดรูปไม่สำเร็จ");
+    } finally {
+      setUploadingId(null);
+    }
+  }
+
+  function startEdit(item: Tables<"menu_items">) {
+    setEditingId(item.id);
+    setEditName(item.name);
+    setEditPrice(String(Number(item.price)));
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditError(null);
+  }
+
+  /**
+   * บันทึกชื่อ/ราคาใหม่ของเมนู
+   *
+   * แก้ราคาย้อนหลังไม่ทำให้ประวัติเพี้ยน เพราะ order_items เก็บชื่อกับราคา
+   * ไว้เป็นสำเนาของตัวเองตั้งแต่ตอนสั่ง ออเดอร์เก่าจึงยังแสดงราคาที่ลูกค้า
+   * จ่ายจริง ไม่ใช่ราคาวันนี้ — ถ้าวันหน้าเปลี่ยนให้ไปดึงราคาจากเมนูแทน
+   * การแก้ราคาจะกลายเป็นการแก้บิลย้อนหลังทันที
+   */
+  async function saveEdit(id: string) {
+    const name = editName.trim();
+    const price = Number(editPrice);
+
+    if (!name) {
+      setEditError("กรุณาใส่ชื่อเมนู");
+      return;
+    }
+    if (!Number.isFinite(price) || price < 0) {
+      setEditError("ราคาต้องเป็นตัวเลขและไม่ติดลบ");
+      return;
+    }
+
+    setBusy(true);
+    setEditError(null);
+    const supabase = createClient();
+
+    // ตรวจ error และนับแถวที่เขียนได้จริง — update ที่ไม่โดนแถวไหนเลย
+    // ไม่ถือเป็น error ใน PostgREST ถ้าดูแค่ error จะได้ปุ่มที่กดแล้วเงียบ
+    const { data: updated, error } = await supabase
+      .from("menu_items")
+      .update({ name, price })
+      .eq("id", id)
+      .select("id");
+    setBusy(false);
+
+    if (error) {
+      setEditError(`บันทึกไม่สำเร็จ: ${error.message}`);
+      return;
+    }
+    if (!updated || updated.length === 0) {
+      setEditError("บันทึกไม่สำเร็จ — ไม่มีสิทธิ์แก้เมนูนี้ หรือเมนูถูกลบไปแล้ว");
+      return;
+    }
+
+    setEditingId(null);
+    load();
+  }
+
   return (
     <div>
       <Card className="flex items-center justify-between mb-6">
@@ -98,26 +217,98 @@ export default function MerchantHomePage() {
       </Card>
 
       <h2 className="font-head font-semibold text-sm mb-2">เมนู</h2>
+      {photoError && <p className="text-clay text-sm mb-2">{photoError}</p>}
       <Card className="!p-0 divide-y divide-border mb-4">
-        {menu.map((it) => (
-          <div key={it.id} className="flex items-center gap-3 px-4 py-3">
-            <div className="flex-1">
-              <div className="font-semibold text-sm">{it.name}</div>
-              <div className="text-ink-soft text-xs">{money(Number(it.price))}</div>
+        {menu.map((it) =>
+          editingId === it.id ? (
+            <div key={it.id} className="px-4 py-3">
+              <Field label="ชื่อเมนู">
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="เช่น ผัดกะเพราหมู"
+                />
+              </Field>
+              <Field label="ราคา">
+                <Input
+                  type="number"
+                  min={0}
+                  inputMode="decimal"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  placeholder="45"
+                />
+              </Field>
+              {editError && <p className="text-clay text-sm mb-3">{editError}</p>}
+              <div className="flex gap-2">
+                <Button onClick={() => saveEdit(it.id)} disabled={busy} className="flex-1">
+                  {busy ? "กำลังบันทึก..." : "บันทึก"}
+                </Button>
+                <Button variant="secondary" onClick={cancelEdit} disabled={busy}>
+                  ยกเลิก
+                </Button>
+              </div>
             </div>
-            <button
-              onClick={() => toggleAvailable(it)}
-              className={`text-xs font-head font-semibold rounded-full px-2.5 py-1 ${
-                it.is_available ? "bg-jade-tint text-jade" : "bg-surface-2 text-ink-soft"
-              }`}
-            >
-              {it.is_available ? "พร้อมขาย" : "หมด"}
-            </button>
-            <button onClick={() => removeItem(it.id)} className="text-clay text-xs font-head font-semibold">
-              ลบ
-            </button>
-          </div>
-        ))}
+          ) : (
+            <div key={it.id} className="flex items-center gap-3 px-4 py-3">
+              {/* แตะรูปเพื่อเปลี่ยนรูป — label ครอบ input ที่ซ่อนไว้
+                  เพราะ input[type=file] จัดสไตล์ให้สวยตรง ๆ ไม่ได้ */}
+              <label className="relative shrink-0 cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  disabled={uploadingId !== null}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = ""; // เลือกไฟล์เดิมซ้ำได้
+                    if (f) uploadPhoto(it, f);
+                  }}
+                />
+                {it.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- รูปมาจาก Supabase Storage ไม่ได้ตั้ง loader ไว้
+                  <img
+                    src={it.photo_url}
+                    alt={it.name}
+                    className="h-14 w-14 rounded-lg object-cover bg-surface-2"
+                  />
+                ) : (
+                  <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-border text-[10px] text-ink-soft text-center leading-tight">
+                    เพิ่ม<br />รูป
+                  </span>
+                )}
+                {uploadingId === it.id && (
+                  <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-ink/60 text-[10px] font-head font-semibold text-white">
+                    กำลังอัป
+                  </span>
+                )}
+              </label>
+
+              {/* กดที่ชื่อ/ราคาเพื่อแก้ — ปุ่มแก้แยกอีกปุ่มจะเบียดจนกดยากบนมือถือ */}
+              <button
+                onClick={() => startEdit(it)}
+                className="flex-1 text-left"
+                aria-label={`แก้ไข ${it.name}`}
+              >
+                <div className="font-semibold text-sm">{it.name}</div>
+                <div className="text-ink-soft text-xs">
+                  {money(Number(it.price))} · <span className="text-indigo">แตะเพื่อแก้</span>
+                </div>
+              </button>
+              <button
+                onClick={() => toggleAvailable(it)}
+                className={`text-xs font-head font-semibold rounded-full px-2.5 py-1 ${
+                  it.is_available ? "bg-jade-tint text-jade" : "bg-surface-2 text-ink-soft"
+                }`}
+              >
+                {it.is_available ? "พร้อมขาย" : "หมด"}
+              </button>
+              <button onClick={() => removeItem(it.id)} className="text-clay text-xs font-head font-semibold">
+                ลบ
+              </button>
+            </div>
+          )
+        )}
         {menu.length === 0 && <p className="p-4 text-ink-soft text-sm">ยังไม่มีเมนู เพิ่มด้านล่างได้เลย</p>}
       </Card>
 
