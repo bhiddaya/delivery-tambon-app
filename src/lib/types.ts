@@ -98,6 +98,7 @@ export type Database = {
           is_available: boolean
           merchant_id: string
           name: string
+          photo_url: string | null
           price: number
         }
         Insert: {
@@ -106,6 +107,7 @@ export type Database = {
           is_available?: boolean
           merchant_id: string
           name: string
+          photo_url?: string | null
           price: number
         }
         Update: {
@@ -114,6 +116,7 @@ export type Database = {
           is_available?: boolean
           merchant_id?: string
           name?: string
+          photo_url?: string | null
           price?: number
         }
         Relationships: [
