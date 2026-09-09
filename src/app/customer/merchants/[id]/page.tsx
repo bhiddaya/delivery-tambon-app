@@ -105,6 +105,17 @@ export default function MerchantMenuPage() {
       <Card className="!p-0 divide-y divide-border mb-5">
         {menu.map((it) => (
           <div key={it.id} className="flex items-center gap-3 px-4 py-3">
+            {/* แสดงรูปเฉพาะเมนูที่ร้านใส่ไว้ ไม่ใส่รูปแทนว่าง ๆ ให้ทุกแถว
+                เพราะกรอบเปล่าเรียงกันยาว ๆ ทำให้เมนูอ่านยากกว่าเดิม */}
+            {it.photo_url && (
+              // eslint-disable-next-line @next/next/no-img-element -- รูปมาจาก Supabase Storage ไม่ได้ตั้ง loader ไว้
+              <img
+                src={it.photo_url}
+                alt={it.name}
+                loading="lazy"
+                className="h-14 w-14 shrink-0 rounded-lg object-cover bg-surface-2"
+              />
+            )}
             <div className="flex-1">
               <div className="font-semibold text-sm">{it.name}</div>
               <div className="text-ink-soft text-xs">{money(Number(it.price))}</div>
