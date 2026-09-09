@@ -626,6 +626,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_superadmin: { Args: never; Returns: boolean }
       is_tambon_admin: { Args: { t: string }; Returns: boolean }
+      session_used_password: { Args: never; Returns: boolean | null }
     }
     Enums: {
       order_status:
