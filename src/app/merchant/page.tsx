@@ -28,6 +28,13 @@ export default function MerchantHomePage() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
 
+  // แก้ข้อมูลร้าน — เก็บค่าที่พิมพ์แยกจาก merchant เพื่อให้กดยกเลิกแล้วคืนค่าเดิมได้
+  const [editingShop, setEditingShop] = useState(false);
+  const [shopName, setShopName] = useState("");
+  const [shopCategory, setShopCategory] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
+  const [shopError, setShopError] = useState<string | null>(null);
+
   async function load() {
     const supabase = createClient();
     const { data: m } = await supabase.from("merchants").select("*").eq("profile_id", profile.id).maybeSingle();
@@ -67,6 +74,62 @@ export default function MerchantHomePage() {
     const supabase = createClient();
     await supabase.from("merchants").update({ is_open: !merchant.is_open }).eq("id", merchant.id);
     setBusy(false);
+    load();
+  }
+
+  function startEditShop() {
+    if (!merchant) return;
+    setShopName(merchant.name);
+    setShopCategory(merchant.category ?? "");
+    setShopAddress(merchant.address ?? "");
+    setShopError(null);
+    setEditingShop(true);
+  }
+
+  /**
+   * บันทึกข้อมูลร้าน
+   *
+   * ที่อยู่กับประเภทเป็นข้อความอิสระเหมือนตอนสมัคร ไม่บังคับเลือกจากรายการ
+   * เพราะร้านในตำบลอธิบายตัวเองด้วยคำของตัวเอง ("ข้าวแกงป้าน้อย ข้างวัด")
+   * ซึ่งคนในพื้นที่เข้าใจดีกว่าหมวดหมู่มาตรฐานที่เราคิดแทน
+   */
+  async function saveShop(e: React.FormEvent) {
+    e.preventDefault();
+    if (!merchant) return;
+
+    const name = shopName.trim();
+    if (!name) {
+      setShopError("กรุณาใส่ชื่อร้าน");
+      return;
+    }
+
+    setBusy(true);
+    setShopError(null);
+    const supabase = createClient();
+
+    // ที่อยู่/ประเภทที่เว้นว่างให้เก็บเป็น null ไม่ใช่สตริงว่าง
+    // จะได้ไม่มีสองค่าที่แปลว่า "ไม่ได้กรอก" ปนกันในฐานข้อมูล
+    const { data, error } = await supabase
+      .from("merchants")
+      .update({
+        name,
+        category: shopCategory.trim() || null,
+        address: shopAddress.trim() || null,
+      })
+      .eq("id", merchant.id)
+      .select("id");
+    setBusy(false);
+
+    if (error) {
+      setShopError(`บันทึกไม่สำเร็จ: ${error.message}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      setShopError("บันทึกไม่สำเร็จ — ไม่มีสิทธิ์แก้ข้อมูลร้านนี้");
+      return;
+    }
+
+    setEditingShop(false);
     load();
   }
 
@@ -260,15 +323,63 @@ export default function MerchantHomePage() {
 
   return (
     <div>
-      <Card className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-lg font-semibold">{merchant.name}</h1>
-          <p className="text-ink-soft text-sm">{merchant.category}</p>
-        </div>
-        <Button variant={merchant.is_open ? "primary" : "secondary"} onClick={toggleOpen} disabled={busy}>
-          {merchant.is_open ? "เปิดร้าน" : "ปิดร้าน"}
-        </Button>
-      </Card>
+      {editingShop ? (
+        <Card className="mb-6">
+          <p className="font-head font-semibold mb-3">ข้อมูลร้าน</p>
+          <form onSubmit={saveShop}>
+            <Field label="ชื่อร้าน">
+              <Input required value={shopName} onChange={(e) => setShopName(e.target.value)} />
+            </Field>
+            <Field label="ประเภทร้าน">
+              <Input
+                placeholder="เช่น อาหารตามสั่ง, ของชำ, เครื่องดื่ม"
+                value={shopCategory}
+                onChange={(e) => setShopCategory(e.target.value)}
+              />
+            </Field>
+            <Field label="ที่อยู่ร้าน">
+              <Input
+                placeholder="เช่น ข้างวัดบ้านท่า หมู่ 3"
+                value={shopAddress}
+                onChange={(e) => setShopAddress(e.target.value)}
+              />
+            </Field>
+            {shopError && <p className="text-clay text-sm mb-3">{shopError}</p>}
+            <div className="flex gap-2">
+              <Button type="submit" className="flex-1" disabled={busy}>
+                {busy ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setEditingShop(false)} disabled={busy}>
+                ยกเลิก
+              </Button>
+            </div>
+          </form>
+        </Card>
+      ) : (
+        <Card className="mb-6">
+          <div className="flex items-center justify-between gap-3">
+            {/* แตะที่ชื่อร้านเพื่อแก้ — รูปแบบเดียวกับการแก้เมนู
+                จะได้ไม่ต้องเรียนรู้สองวิธีในหน้าเดียว */}
+            <button onClick={startEditShop} className="min-w-0 flex-1 text-left" aria-label="แก้ไขข้อมูลร้าน">
+              <h1 className="text-lg font-semibold truncate">{merchant.name}</h1>
+              <p className="text-ink-soft text-sm truncate">
+                {merchant.category || "ยังไม่ได้ระบุประเภท"} · <span className="text-indigo">แตะเพื่อแก้</span>
+              </p>
+            </button>
+            <Button
+              variant={merchant.is_open ? "primary" : "secondary"}
+              onClick={toggleOpen}
+              disabled={busy}
+              className="shrink-0"
+            >
+              {merchant.is_open ? "เปิดร้าน" : "ปิดร้าน"}
+            </Button>
+          </div>
+          {merchant.address && (
+            <p className="text-ink-soft text-xs mt-2 border-t border-border pt-2">{merchant.address}</p>
+          )}
+        </Card>
+      )}
 
       <h2 className="font-head font-semibold text-sm mb-2">เมนู</h2>
       {photoError && <p className="text-clay text-sm mb-2">{photoError}</p>}
