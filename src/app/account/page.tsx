@@ -1,14 +1,37 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { useSession } from "@/lib/session-context";
 import { Card, PageHeading } from "@/components/ui";
 import LinkLineCard from "@/components/LinkLineCard";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
+import SetPhonePasswordCard from "@/components/SetPhonePasswordCard";
 import { ROLE_LABEL } from "@/lib/domain";
 import { formatPhoneLocal, isPhoneAuthEmail, normalizePhone } from "@/lib/identifier";
 
+/** โดเมนอีเมลแฝงของบัญชีที่เกิดจากปุ่ม LINE — ต้องตรงกับ ALIAS_DOMAIN ใน Edge Function */
+const LINE_ALIAS_DOMAIN = "@line.invalid";
+
 export default function AccountPage() {
+  return (
+    // useSearchParams ต้องอยู่ใน Suspense เสมอ ไม่งั้น build จะไม่ผ่าน
+    <Suspense fallback={null}>
+      <AccountView />
+    </Suspense>
+  );
+}
+
+function AccountView() {
   const { profile, email } = useSession();
+  const searchParams = useSearchParams();
+
+  // มาจาก guard ของหน้าหลังบ้าน แปลว่าเข้ามาด้วยปุ่ม LINE แล้วเปิดหน้านั้นไม่ได้
+  const needsPassword = searchParams.get("need") === "password";
+
+  // บัญชีที่เกิดจากปุ่ม LINE ยังไม่มีชื่อบัญชีที่เจ้าตัวพิมพ์ได้ จึงเข้าหลังบ้านไม่ได้
+  const lineOnlyAccount = Boolean(email?.endsWith(LINE_ALIAS_DOMAIN));
+  const needsBackOffice = profile.role !== "customer";
 
   // อีเมลแฝงของผู้ที่สมัครด้วยเบอร์ไม่ใช่อีเมลจริง อย่าเอาไปโชว์ให้สับสน
   const realEmail = isPhoneAuthEmail(email) ? null : email;
@@ -49,8 +72,26 @@ export default function AccountPage() {
         </dl>
       </Card>
 
+      {needsPassword && (
+        <Card className="mb-4 border-marigold">
+          <p className="font-head font-semibold mb-1">หน้านั้นต้องเข้าด้วยรหัสผ่าน</p>
+          <p className="text-ink-soft text-sm">
+            หน้ารับงาน หน้าร้าน และหน้าตัวแทนตำบล มีทั้งเงินและราคาสินค้าอยู่ จึงเปิดให้เฉพาะ
+            คนที่เข้าสู่ระบบด้วยเบอร์โทรหรืออีเมลพร้อมรหัสผ่าน — ปุ่ม LINE ใช้ดูหน้าบ้านได้ตามปกติ
+          </p>
+        </Card>
+      )}
+
       <LinkLineCard linked={Boolean(profile.line_user_id)} />
-      <ChangePasswordCard />
+
+      {lineOnlyAccount && needsBackOffice ? (
+        <SetPhonePasswordCard
+          lineUserId={profile.line_user_id}
+          highlight={needsPassword}
+        />
+      ) : (
+        <ChangePasswordCard />
+      )}
     </div>
   );
 }
