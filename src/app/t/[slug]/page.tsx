@@ -396,13 +396,13 @@ export default async function TambonPublicPage({
         {feeNote && <p className="text-ink-soft text-xs mt-2">{feeNote}</p>}
         <div className="flex gap-2 mt-4">
           <Link
-            href="/signup"
+            href={`/signup?t=${encodeURIComponent(slug)}`}
             className="flex-1 text-center bg-indigo text-white rounded-xl py-2.5 text-sm font-semibold"
           >
             สมัครใช้งาน
           </Link>
           <Link
-            href="/login"
+            href={`/login?t=${encodeURIComponent(slug)}`}
             className="flex-1 text-center border border-border rounded-xl py-2.5 text-sm font-semibold"
           >
             เข้าสู่ระบบ
