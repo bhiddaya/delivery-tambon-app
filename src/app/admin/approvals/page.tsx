@@ -6,6 +6,7 @@ import { Button, Card, EmptyState, PageHeading } from "@/components/ui";
 import { ROLE_LABEL, VEHICLE_LABEL } from "@/lib/domain";
 import type { Tables } from "@/lib/types";
 import { TambonApplications } from "./TambonApplications";
+import { AdminTambonPicker, tambonName, useAdminTambon } from "@/components/AdminTambonPicker";
 
 type PendingDriver = { profile: Tables<"profiles">; driver: Tables<"drivers"> };
 type PendingMerchant = { profile: Tables<"profiles">; merchant: Tables<"merchants"> };
@@ -14,6 +15,11 @@ export default function ApprovalsPage() {
   const [pendingDrivers, setPendingDrivers] = useState<PendingDriver[]>([]);
   const [pendingMerchants, setPendingMerchants] = useState<PendingMerchant[]>([]);
   const [busy, setBusy] = useState(false);
+  const { tambons, slug, setSlug, selected } = useAdminTambon();
+  const tambonOf = (id: string | null) => tambonName(tambons.find((t) => t.id === id));
+  const inTambon = (id: string | null) => !selected || id === selected.id;
+  const shownDrivers = pendingDrivers.filter(({ profile }) => inTambon(profile.tambon_id));
+  const shownMerchants = pendingMerchants.filter(({ profile, merchant }) => inTambon(merchant.tambon_id ?? profile.tambon_id));
 
   async function load() {
     const supabase = createClient();
@@ -72,18 +78,19 @@ export default function ApprovalsPage() {
   return (
     <div>
       <PageHeading title="รออนุมัติ" subtitle="ไรเดอร์และร้านค้าที่สมัครใหม่ ต้องอนุมัติก่อนจึงจะรับงาน/ขายของได้" />
+      <AdminTambonPicker tambons={tambons} slug={slug} onChange={setSlug} />
 
-      <h2 className="font-head font-semibold text-sm mb-2">{ROLE_LABEL.driver} ({pendingDrivers.length})</h2>
-      {pendingDrivers.length === 0 ? (
+      <h2 className="font-head font-semibold text-sm mb-2">{ROLE_LABEL.driver} ({shownDrivers.length})</h2>
+      {shownDrivers.length === 0 ? (
         <EmptyState>ไม่มีไรเดอร์รออนุมัติ</EmptyState>
       ) : (
         <div className="flex flex-col gap-2 mb-6">
-          {pendingDrivers.map(({ profile, driver }) => (
+          {shownDrivers.map(({ profile, driver }) => (
             <Card key={profile.id} className="flex items-center justify-between">
               <div>
                 <div className="font-head font-semibold text-sm">{profile.full_name}</div>
                 <div className="text-ink-soft text-xs">
-                  {VEHICLE_LABEL[driver.vehicle_type]} · {profile.phone}
+                  {tambonOf(profile.tambon_id)} · {VEHICLE_LABEL[driver.vehicle_type]} · {profile.phone}
                 </div>
               </div>
               <Button onClick={() => approve(profile.id)} disabled={busy}>
@@ -94,17 +101,18 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      <h2 className="font-head font-semibold text-sm mb-2">{ROLE_LABEL.merchant} ({pendingMerchants.length})</h2>
-      {pendingMerchants.length === 0 ? (
+      <h2 className="font-head font-semibold text-sm mb-2">{ROLE_LABEL.merchant} ({shownMerchants.length})</h2>
+      {shownMerchants.length === 0 ? (
         <EmptyState>ไม่มีร้านค้ารออนุมัติ</EmptyState>
       ) : (
         <div className="flex flex-col gap-2">
-          {pendingMerchants.map(({ profile, merchant }) => (
+          {shownMerchants.map(({ profile, merchant }) => (
             <Card key={profile.id} className="flex items-center justify-between">
               <div>
                 <div className="font-head font-semibold text-sm">{merchant.name}</div>
                 <div className="text-ink-soft text-xs">
-                  {merchant.category} · เจ้าของ: {profile.full_name} · {profile.phone}
+                  {tambonOf(merchant.tambon_id ?? profile.tambon_id)} · {merchant.category} · เจ้าของ: {profile.full_name} ·{" "}
+                  {profile.phone}
                 </div>
               </div>
               <Button onClick={() => approve(profile.id)} disabled={busy}>
