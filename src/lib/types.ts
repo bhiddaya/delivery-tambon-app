@@ -56,6 +56,27 @@ export type Database = {
           },
         ]
       }
+      carts: {
+        Row: {
+          items: Json
+          line_user_id: string
+          merchant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          items?: Json
+          line_user_id: string
+          merchant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          items?: Json
+          line_user_id?: string
+          merchant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           is_online: boolean
