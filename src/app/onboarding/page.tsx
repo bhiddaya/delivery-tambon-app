@@ -15,6 +15,7 @@ import {
   type VehicleType,
 } from "@/lib/domain";
 import type { Tables } from "@/lib/types";
+import { readChosenTambonSlug, tambonDisplayName } from "@/lib/tambon-choice";
 
 const ROLE_OPTIONS: UserRole[] = ["customer", "driver", "merchant"];
 // รวมทั้งรถส่งของและเครื่องจักรเกษตร เพราะผู้ให้บริการเกษตรก็ลงทะเบียนเป็น
@@ -46,7 +47,10 @@ export default function OnboardingPage() {
       .order("created_at")
       .then(({ data }) => {
         setTambons(data ?? []);
-        if (data && data.length) setTambonId(data[0].id);
+        // ตำบลที่กดมาจากหน้า /t/[slug] ก่อน ไม่ใช่ตำบลแรกในรายการ
+        const slug = readChosenTambonSlug();
+        const chosen = (data ?? []).find((t) => slug && t.slug === slug) ?? (data ?? [])[0];
+        if (chosen) setTambonId(chosen.id);
       });
 
     // เติมสิ่งที่รู้อยู่แล้วให้ล่วงหน้า ผู้ใช้จะได้พิมพ์น้อยที่สุด
@@ -134,7 +138,9 @@ export default function OnboardingPage() {
   return (
     <AuthFrame maxWidth="max-w-md">
       <div className="text-center mb-6">
-        <h1 className="font-display text-3xl text-indigo">บวรไทย ตำบลบุ่งไหม</h1>
+        <h1 className="font-display text-3xl text-indigo">
+          บวรไทย {tambonDisplayName(tambons.find((t) => t.id === tambonId)?.name ?? "บุ่งไหม")}
+        </h1>
         <p className="text-ink-soft text-sm mt-1">บอกเราหน่อยว่าคุณจะใช้งานแบบไหน</p>
       </div>
       <Card>

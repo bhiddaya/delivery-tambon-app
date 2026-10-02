@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { resolveIdentifier } from "@/lib/identifier";
 import { Button, Field, Input, Card } from "@/components/ui";
 import { AuthFrame } from "@/components/AuthFrame";
+import { TambonHeading } from "@/components/TambonHeading";
 import LineLoginButton from "@/components/LineLoginButton";
 
 export default function LoginPage() {
@@ -54,7 +55,7 @@ export default function LoginPage() {
   return (
     <AuthFrame>
       <div className="text-center mb-6">
-        <h1 className="font-display text-3xl text-indigo">บวรไทย ตำบลบุ่งไหม</h1>
+        <TambonHeading />
         <p className="text-ink-soft text-sm mt-1">เข้าสู่ระบบเพื่อสั่ง/รับงานในตำบลของคุณ</p>
       </div>
       <Card>
