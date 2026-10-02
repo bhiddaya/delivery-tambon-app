@@ -37,7 +37,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       if (error) throw error;
 
       set({
-        items: data?.items || [],
+        items: (data?.items as CartItem[] | undefined) ?? [],
         loading: false,
       });
     } catch (err) {
