@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, PageHeading, StatusChip } from "@/components/ui";
 import { TYPE_LABEL, econ, money, timeStr, type OrderRow, type OrderStatus } from "@/lib/domain";
 import type { Tables } from "@/lib/types";
+import { AdminTambonPicker, tambonName, useAdminTambon } from "@/components/AdminTambonPicker";
 
 const FILTERS: { key: OrderStatus | "all"; label: string }[] = [
   { key: "all", label: "ทั้งหมด" },
@@ -20,6 +21,7 @@ export default function AdminDashboardPage() {
   const [merchants, setMerchants] = useState<Tables<"merchants">[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Tables<"profiles">>>({});
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
+  const { tambons, slug, setSlug, selected } = useAdminTambon();
 
   useEffect(() => {
     const supabase = createClient();
@@ -55,32 +57,42 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
-  const onlineDrivers = drivers.filter((d) => d.is_online).length;
-  const openMerchants = merchants.filter((m) => m.is_open).length;
-  const revenue = orders
+  // กรองตามตำบลที่เลือก (ไม่เลือก = ทุกตำบลที่บัญชีนี้เห็นตาม RLS)
+  const inTambon = (tambonId: string | null | undefined) => !selected || tambonId === selected.id;
+  const tOrders = orders.filter((o) => inTambon(o.tambon_id));
+  const tDrivers = drivers.filter((d) => inTambon(profiles[d.profile_id]?.tambon_id));
+  const tMerchants = merchants.filter((m) => inTambon(m.tambon_id));
+
+  const onlineDrivers = tDrivers.filter((d) => d.is_online).length;
+  const openMerchants = tMerchants.filter((m) => m.is_open).length;
+  const revenue = tOrders
     .filter((o) => o.status === "delivered")
     .reduce((s, o) => s + econ(o).platform, 0);
-  const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
+  const filtered = filter === "all" ? tOrders : tOrders.filter((o) => o.status === filter);
+  const subtitle = selected
+    ? `${tambonName(selected)}${selected.is_active ? "" : " · ยังไม่เปิดบริการ"}`
+    : "ทุกตำบล";
 
   return (
     <div>
-      <PageHeading title="แดชบอร์ด" subtitle="ภาพรวมตำบลนำร่อง" />
+      <PageHeading title="แดชบอร์ด" subtitle={subtitle} />
+      <AdminTambonPicker tambons={tambons} slug={slug} onChange={setSlug} />
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         <Card>
           <div className="text-ink-soft text-xs font-head font-semibold mb-1">ออเดอร์ทั้งหมด</div>
-          <div className="font-head text-2xl font-bold tabular-nums">{orders.length}</div>
+          <div className="font-head text-2xl font-bold tabular-nums">{tOrders.length}</div>
         </Card>
         <Card>
           <div className="text-ink-soft text-xs font-head font-semibold mb-1">ไรเดอร์ออนไลน์</div>
           <div className="font-head text-2xl font-bold tabular-nums">
-            {onlineDrivers}/{drivers.length}
+            {onlineDrivers}/{tDrivers.length}
           </div>
         </Card>
         <Card>
           <div className="text-ink-soft text-xs font-head font-semibold mb-1">ร้านค้าเปิดขาย</div>
           <div className="font-head text-2xl font-bold tabular-nums">
-            {openMerchants}/{merchants.length}
+            {openMerchants}/{tMerchants.length}
           </div>
         </Card>
         <Card>
