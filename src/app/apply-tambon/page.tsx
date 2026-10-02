@@ -41,6 +41,12 @@ export default function ApplyTambonPage() {
       setError("กรุณายินยอมให้เก็บข้อมูลเพื่อติดต่อกลับก่อนส่ง");
       return;
     }
+    const thai = /[฀-๿]/;
+    if (!thai.test(form.tambon_name) || !thai.test(form.district) || !thai.test(form.province)) {
+      setError("กรุณาเขียนชื่อตำบล อำเภอ และจังหวัดเป็นภาษาไทย");
+      return;
+    }
+    const strip = (v: string, prefix: RegExp) => v.trim().replace(prefix, "").trim();
     const phone = form.applicant_phone.replace(/\D/g, "");
     if (phone.length < 9 || phone.length > 10) {
       setError("กรุณากรอกเบอร์โทรให้ถูกต้อง (เช่น 0812345678)");
@@ -51,9 +57,9 @@ export default function ApplyTambonPage() {
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.from("tambon_applications").insert({
-      tambon_name: form.tambon_name.trim(),
-      district: form.district.trim(),
-      province: form.province.trim(),
+      tambon_name: strip(form.tambon_name, /^(ตำบล|ต\.|แขวง)\s*/),
+      district: strip(form.district, /^(อำเภอ|อ\.|เขต)\s*/),
+      province: strip(form.province, /^(จังหวัด|จ\.)\s*/),
       applicant_name: form.applicant_name.trim(),
       applicant_phone: phone,
       applicant_line: form.applicant_line.trim() || null,
@@ -95,14 +101,15 @@ export default function ApplyTambonPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <Field label="ชื่อตำบล">
-              <Input required value={form.tambon_name} onChange={set("tambon_name")} placeholder="เช่น บุ่งไหม" />
+            <Field label="ชื่อตำบล (ภาษาไทย)">
+              <Input required value={form.tambon_name} onChange={set("tambon_name")} placeholder="เช่น คลองกุ่ม (ไม่ต้องพิมพ์คำว่า ตำบล)" />
             </Field>
-            <Field label="อำเภอ">
-              <Input required value={form.district} onChange={set("district")} />
+            <p className="text-ink-soft text-xs -mt-2 mb-3">ลูกค้าจะเห็นชื่อนี้ในหน้าเว็บและใน LINE</p>
+            <Field label="อำเภอ / เขต (ภาษาไทย)">
+              <Input required value={form.district} onChange={set("district")} placeholder="เช่น บึงกุ่ม" />
             </Field>
-            <Field label="จังหวัด">
-              <Input required value={form.province} onChange={set("province")} />
+            <Field label="จังหวัด (ภาษาไทย)">
+              <Input required value={form.province} onChange={set("province")} placeholder="เช่น กรุงเทพมหานคร" />
             </Field>
             <Field label="ชื่อผู้ยื่น (ตัวแทนตำบล)">
               <Input required value={form.applicant_name} onChange={set("applicant_name")} />

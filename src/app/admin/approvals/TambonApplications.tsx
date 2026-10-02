@@ -7,6 +7,9 @@ import type { Tables } from "@/lib/types";
 
 type Application = Tables<"tambon_applications">;
 
+const SITE = "delivery-tambon-app-v3.vercel.app";
+const hasThai = (text: string) => /[฀-๿]/.test(text);
+
 /**
  * ใบขอเปิดตำบลใหม่ (จากหน้า /apply-tambon)
  *
@@ -38,7 +41,9 @@ export function TambonApplications() {
   async function approve(app: Application) {
     const slug = (slugs[app.id] ?? "").trim().toLowerCase();
     if (!/^[a-z0-9-]{2,40}$/.test(slug)) {
-      setMessage("กรุณาตั้งชื่อลิงก์ตำบลเป็นภาษาอังกฤษตัวเล็ก ตัวเลข หรือขีด เช่น bung-mai");
+      setMessage(
+        "ชื่อลิงก์หน้าเว็บต้องเป็นภาษาอังกฤษตัวเล็ก ตัวเลข หรือขีด (-) ยาว 2–40 ตัว เช่น khlong-kum — ชื่อตำบลภาษาไทยไม่ต้องแก้"
+      );
       return;
     }
     if (!window.confirm(`อนุมัติเปิดตำบล${app.tambon_name}?\nตำบลจะถูกสร้างแบบ "ยังไม่เปิดบริการ"`)) return;
@@ -72,7 +77,10 @@ export function TambonApplications() {
 
   return (
     <section className="mt-6">
-      <h2 className="font-head font-semibold text-sm mb-2">ใบขอเปิดตำบลใหม่ ({apps.length})</h2>
+      <h2 className="font-head font-semibold text-sm mb-1">ใบขอเปิดตำบลใหม่ ({apps.length})</h2>
+      <p className="text-ink-soft text-xs mb-2">
+        ขั้นตอน: ตั้งชื่อลิงก์ภาษาอังกฤษ → กด “อนุมัติ” → กด “ตกลง” ในกล่องยืนยัน. ตำบลที่อนุมัติจะยังไม่เปิดบริการจนกว่าจะเปิดเอง
+      </p>
       {message && <p className="text-sm text-ink mb-2">{message}</p>}
       {apps.length === 0 ? (
         <EmptyState>ไม่มีใบขอเปิดตำบลที่รอพิจารณา</EmptyState>
@@ -88,12 +96,25 @@ export function TambonApplications() {
                 {app.applicant_line ? ` · LINE ${app.applicant_line}` : ""} · ร้าน {app.merchant_count ?? "-"} · ไรเดอร์{" "}
                 {app.driver_count ?? "-"}
               </div>
-              <div className="flex gap-2 items-center">
-                <Input
-                  placeholder="ชื่อลิงก์ตำบล เช่น bung-mai"
-                  value={slugs[app.id] ?? ""}
-                  onChange={(e) => setSlugs((s) => ({ ...s, [app.id]: e.target.value }))}
-                />
+              {!hasThai(app.tambon_name) && (
+                <p className="text-clay text-xs mb-2">
+                  ชื่อตำบลในใบนี้ไม่ใช่ภาษาไทย — ลูกค้าจะเห็นชื่อนี้ ถ้าต้องการชื่อไทย ให้กด “ไม่อนุมัติ” แล้วให้ยื่นใหม่
+                  หรือแก้ชื่อที่หน้าตั้งค่าหลังอนุมัติ
+                </p>
+              )}
+              <label className="block text-xs text-ink mb-1">
+                ชื่อลิงก์หน้าเว็บตำบล <span className="text-ink-soft">(ภาษาอังกฤษตัวเล็ก ใช้ทำที่อยู่เว็บเท่านั้น)</span>
+              </label>
+              <Input
+                placeholder="เช่น khlong-kum"
+                value={slugs[app.id] ?? ""}
+                onChange={(e) => setSlugs((s) => ({ ...s, [app.id]: e.target.value }))}
+              />
+              <p className="text-ink-soft text-xs mt-1 mb-2">
+                หน้าเว็บตำบลจะเป็น {SITE}/t/{(slugs[app.id] ?? "").trim().toLowerCase() || "…"} · ชื่อที่ลูกค้าเห็นยังเป็น
+                “ตำบล{app.tambon_name}”
+              </p>
+              <div className="flex gap-2">
                 <Button onClick={() => approve(app)} disabled={busy}>
                   อนุมัติ
                 </Button>
