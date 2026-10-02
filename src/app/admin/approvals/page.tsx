@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button, Card, EmptyState, PageHeading } from "@/components/ui";
 import { ROLE_LABEL, VEHICLE_LABEL } from "@/lib/domain";
 import type { Tables } from "@/lib/types";
+import { TambonApplications } from "./TambonApplications";
 
 type PendingDriver = { profile: Tables<"profiles">; driver: Tables<"drivers"> };
 type PendingMerchant = { profile: Tables<"profiles">; merchant: Tables<"merchants"> };
@@ -113,6 +114,8 @@ export default function ApprovalsPage() {
           ))}
         </div>
       )}
+
+      <TambonApplications />
     </div>
   );
 }
