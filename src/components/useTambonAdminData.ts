@@ -37,12 +37,23 @@ export function useTambonAdminData(selectedId: string | null) {
     }
     const since = new Date();
     since.setDate(since.getDate() - 30);
+    // เลือกตำบลแล้วให้ฐานข้อมูลกรองเลย ไม่ดึงทั้งประเทศมากรองในเบราว์เซอร์
+    let oq = supabase.from("orders").select("*").gte("created_at", since.toISOString()).order("created_at", { ascending: false });
+    let sq = supabase.from("settlements").select("*").is("paid_out_at", null);
+    let mq = supabase.from("merchants").select("*").order("name");
+    let pq = supabase.from("profiles").select("*");
+    if (selectedId) {
+      oq = oq.eq("tambon_id", selectedId);
+      sq = sq.eq("tambon_id", selectedId);
+      mq = mq.eq("tambon_id", selectedId);
+      pq = pq.eq("tambon_id", selectedId);
+    }
     const [{ data: o }, { data: s }, { data: m }, { data: d }, { data: p }, { data: mi }] = await Promise.all([
-      supabase.from("orders").select("*").gte("created_at", since.toISOString()).order("created_at", { ascending: false }),
-      supabase.from("settlements").select("*").is("paid_out_at", null),
-      supabase.from("merchants").select("*").order("name"),
+      oq,
+      sq,
+      mq,
       supabase.from("drivers").select("*"),
-      supabase.from("profiles").select("*"),
+      pq,
       supabase.from("menu_items").select("merchant_id").eq("is_hidden", false),
     ]);
     const counts: Record<string, number> = {};
@@ -58,7 +69,7 @@ export function useTambonAdminData(selectedId: string | null) {
     setMenuCounts(counts);
     setNow(Date.now());
     setLoading(false);
-  }, [profile.id, profile.role, profile.tambon_id]);
+  }, [profile.id, profile.role, profile.tambon_id, selectedId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load on mount
