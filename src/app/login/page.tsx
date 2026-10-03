@@ -21,14 +21,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
 
-    // อ่านค่าจากฟอร์มจริง ไม่ใช่แค่ state: รหัสที่เบราว์เซอร์/ตัวจัดการรหัสผ่านเติมให้อัตโนมัติ
-    // บางครั้งไม่ยิง onChange ทำให้ state ว่างแม้ช่องจะมีรหัสอยู่
-    const form = new FormData(e.currentTarget as HTMLFormElement);
-    const idValue = String(form.get("username") ?? identifier);
-    const pwValue = String(form.get("password") ?? password);
-
     // ตัดสินจากสิ่งที่ผู้ใช้พิมพ์ว่าเป็นเบอร์หรืออีเมล แล้วแปลงเป็นอีเมลที่ auth ใช้
-    const id = resolveIdentifier(idValue);
+    const id = resolveIdentifier(identifier);
     if (id.kind === "invalid") {
       setError("กรุณากรอกเบอร์โทร (เช่น 0812345678) หรืออีเมลให้ถูกต้อง");
       return;
@@ -38,7 +32,7 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
       email: id.authEmail,
-      password: pwValue,
+      password,
     });
     setLoading(false);
 
@@ -65,12 +59,10 @@ export default function LoginPage() {
         <p className="text-ink-soft text-sm mt-1">เข้าสู่ระบบเพื่อสั่ง/รับงานในตำบลของคุณ</p>
       </div>
       <Card>
-        <form onSubmit={handleSubmit} method="post" action="#">
+        <form onSubmit={handleSubmit}>
           <Field label="เบอร์โทร หรือ อีเมล">
             <Input
               type="text"
-              id="username"
-              name="username"
               required
               autoComplete="username"
               value={identifier}
@@ -81,8 +73,6 @@ export default function LoginPage() {
           <Field label="รหัสผ่าน">
             <Input
               type="password"
-              id="password"
-              name="password"
               required
               autoComplete="current-password"
               value={password}
