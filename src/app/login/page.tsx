@@ -54,19 +54,6 @@ export default function LoginPage() {
       return;
     }
 
-    // ขอให้เบราว์เซอร์บันทึกรหัสผ่านไว้ (Chrome/Edge มี PasswordCredential) — ครั้งหน้าจะเติมให้เอง
-    // หน้านี้เปลี่ยนหน้าด้วย router ไม่ได้โหลดหน้าใหม่ เบราว์เซอร์บางตัวจึงไม่ถามบันทึกรหัสเอง
-    // ระบบไม่ได้เก็บรหัสผ่าน รหัสอยู่ในตัวจัดการรหัสผ่านของเบราว์เซอร์ผู้ใช้เท่านั้น
-    try {
-      const PC = (window as unknown as { PasswordCredential?: new (data: { id: string; password: string }) => Credential })
-        .PasswordCredential;
-      if (PC && navigator.credentials?.store) {
-        await navigator.credentials.store(new PC({ id: idValue.trim(), password: pwValue }));
-      }
-    } catch {
-      // เบราว์เซอร์ไม่รองรับหรือผู้ใช้ปฏิเสธ — เข้าสู่ระบบต่อได้ตามปกติ
-    }
-
     router.push("/");
     router.refresh();
   }
