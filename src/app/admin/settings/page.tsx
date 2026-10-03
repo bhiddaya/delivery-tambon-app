@@ -22,7 +22,10 @@ export default function AdminSettingsPage() {
   async function load() {
     const supabase = createClient();
     const { data } = await supabase.from("tambons").select("*").order("created_at");
-    setTambons(data ?? []);
+    // ?t=<slug> (มาจากหน้า บัญชีตำบล) — แสดงตำบลนั้นก่อน จะได้ไม่กรอกผิดตำบล
+    const focus = new URLSearchParams(window.location.search).get("t");
+    const list = data ?? [];
+    setTambons(focus ? [...list.filter((t) => t.slug === focus), ...list.filter((t) => t.slug !== focus)] : list);
   }
 
   useEffect(() => {
@@ -133,7 +136,7 @@ export default function AdminSettingsPage() {
       {tambons.map((t) => (
         <Card key={t.id} className="mb-4">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="font-head font-semibold text-sm">{tambonName(t)}</div>
+            <div className="font-head font-semibold text-base">{tambonName(t)}</div>
             <span
               className={`text-[11px] font-head font-semibold rounded-full px-2.5 py-1 ${
                 t.is_active ? "bg-indigo text-white" : "bg-surface-2 text-ink-soft"
@@ -168,7 +171,7 @@ export default function AdminSettingsPage() {
           </Field>
 
           <div className="rounded-xl border border-border p-3 mb-3">
-            <div className="font-head font-semibold text-sm mb-1">การเงินตำบล (ตัวแทนตำบลตั้งเอง)</div>
+            <div className="font-head font-semibold text-sm mb-1">การเงินของ{tambonName(t)} (ตัวแทนตำบลตั้งเอง)</div>
             <p className="text-ink-soft text-xs mb-3">
               ลูกค้าโอนเข้าพร้อมเพย์ของตำบล แล้วตัวแทนโอนต่อให้ร้านและไรเดอร์ในหน้า{" "}
               <Link href={t.slug ? `/admin/accounts?t=${t.slug}` : "/admin/accounts"} className="text-indigo font-semibold">

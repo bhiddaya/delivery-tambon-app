@@ -91,9 +91,13 @@ export default function AdminAccountsPage() {
       />
       <AdminTambonPicker tambons={tambons} slug={slug} onChange={setSlug} />
 
+      {!selected && tambons.length > 1 && (
+        <p className="text-ink-soft text-sm mb-4">เลือกตำบลด้านบนเพื่อดูบัญชีรับเงินและตั้งค่าการเงินของตำบลนั้น</p>
+      )}
+
       {selected && (
         <Card className="mb-4">
-          <div className="font-head font-semibold text-sm mb-1">{tambonName(selected)}</div>
+          <div className="font-head font-semibold text-sm mb-1">กำลังดู: {tambonName(selected)}</div>
           <p className="text-ink-soft text-xs">
             บัญชีรับเงินของตำบล:{" "}
             {selected.settlement_promptpay_id
@@ -105,8 +109,11 @@ export default function AdminAccountsPage() {
           {selected.intake_blocked && (
             <p className="text-sm text-ink mt-2">⛔ หยุดรับออเดอร์ใหม่อยู่: {selected.intake_blocked_reason}</p>
           )}
-          <Link href="/admin/settings" className="text-indigo font-semibold text-sm">
-            ตั้งค่าการเงินตำบล
+          <Link
+            href={selected.slug ? `/admin/settings?t=${selected.slug}` : "/admin/settings"}
+            className="text-indigo font-semibold text-sm"
+          >
+            ตั้งค่าการเงินของ{tambonName(selected)}
           </Link>
         </Card>
       )}
