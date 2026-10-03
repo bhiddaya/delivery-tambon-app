@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
-import { useSession } from "@/lib/session-context";
-import { tambonDisplayName } from "@/lib/tambon-choice";
+import { useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { homePathFor, type UserRole } from "@/lib/domain";
 import {
@@ -81,29 +79,6 @@ export default function AppShell({ role, children }: { role: UserRole; children:
     router.refresh();
   }
 
-  // หัวหน้า: ชื่อหลัก "บวรไทย" ชื่อเดียว + บรรทัดย่อยเป็นตำบลของบัญชีนี้ (เดิมเขียนตายตัวว่า บุ่งไหม)
-  const { profile } = useSession();
-  const [tambonLabel, setTambonLabel] = useState<string | null>(null);
-  useEffect(() => {
-    if (role === "superadmin" || !profile.tambon_id) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- label depends on the signed-in profile only
-      setTambonLabel(role === "superadmin" ? "ส่วนกลาง (ทุกตำบล)" : null);
-      return;
-    }
-    let cancelled = false;
-    createClient()
-      .from("tambons")
-      .select("name")
-      .eq("id", profile.tambon_id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!cancelled && data) setTambonLabel(tambonDisplayName(data.name));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [role, profile.tambon_id]);
-
   return (
     <div className="min-h-dvh bg-paper sm:bg-surface-2">
       <div className="mx-auto flex h-dvh w-full max-w-[440px] flex-col overflow-hidden bg-paper sm:my-6 sm:h-[min(880px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-border sm:shadow-2xl">
@@ -111,9 +86,9 @@ export default function AppShell({ role, children }: { role: UserRole; children:
           className="flex flex-none items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3"
           style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
         >
-          <Link href={homePathFor(role)} className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate font-display text-base text-indigo">บวรไทย</span>
-            {tambonLabel && <span className="block truncate text-xs text-ink-soft">{tambonLabel}</span>}
+          {/* หัวแอปมีแค่ชื่อแบรนด์ — ชื่อตำบลอยู่ในหน้าแต่ละหน้า (รองรับตำบลจำนวนมาก ไม่ผูกหัวแอปกับตำบลใด) */}
+          <Link href={homePathFor(role)} className="min-w-0 flex-1 py-0.5">
+            <span className="block truncate font-display text-lg leading-normal text-indigo">บวรไทย</span>
           </Link>
           <button
             onClick={signOut}

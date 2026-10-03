@@ -7,7 +7,7 @@ import { Button, Card, Field, Input, PageHeading } from "@/components/ui";
 import type { Tables } from "@/lib/types";
 import MemberPasswordReset from "@/components/MemberPasswordReset";
 import { useSession } from "@/lib/session-context";
-import { tambonName } from "@/components/AdminTambonPicker";
+import { tambonName, useManagedTambons } from "@/components/AdminTambonPicker";
 import { TambonShareCard } from "@/components/TambonShareCard";
 import { TambonAgentsCard } from "@/components/TambonAgentsCard";
 import { AgentShareFields } from "@/components/AgentShareFields";
@@ -22,9 +22,16 @@ export default function AdminSettingsPage() {
   const [confirmToggle, setConfirmToggle] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, string>>({});
 
+  // ตัวแทนเห็นเฉพาะตำบลที่ดูแล (ตาราง tambons อ่านได้ทุกคน และทั้งประเทศมีกว่า 7,000 ตำบล)
+  const managed = useManagedTambons();
+  const managedIds = managed?.map((t) => t.id).join(",") ?? null;
+
   async function load() {
+    if (managedIds === null) return;
     const supabase = createClient();
-    const { data } = await supabase.from("tambons").select("*").order("created_at");
+    let query = supabase.from("tambons").select("*").order("created_at");
+    if (!isSuperadmin) query = query.in("id", managedIds ? managedIds.split(",") : ["00000000-0000-0000-0000-000000000000"]);
+    const { data } = await query;
     // ?t=<slug> (มาจากหน้า บัญชีตำบล) — แสดงตำบลนั้นก่อน จะได้ไม่กรอกผิดตำบล
     const focus = new URLSearchParams(window.location.search).get("t");
     const list = data ?? [];
@@ -32,9 +39,10 @@ export default function AdminSettingsPage() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load on mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load once the managed tambons are known
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load reads managedIds/isSuperadmin only
+  }, [managedIds, isSuperadmin]);
 
   function updateField(
     id: string,
