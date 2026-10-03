@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import SetupRequired from "@/components/SetupRequired";
 import { Card, EmptyState } from "@/components/ui";
-import { tambonLineLink } from "@/lib/tambon-links";
+import { lineOaTextLink, tambonLineLink } from "@/lib/tambon-links";
 
 /**
  * หน้าสาธารณะของตำบล — /t/<slug>
@@ -34,9 +34,18 @@ type TambonPublic = {
   announcement: string | null;
   contact_line: string | null;
   contact_phone: string | null;
+  cover_url: string | null;
   delivery_fee_base: number | null;
   delivery_fee_per_km: number | null;
   is_active: boolean;
+};
+
+type PostPublic = {
+  id: number;
+  title: string;
+  body: string;
+  pinned: boolean;
+  created_at: string;
 };
 
 type MerchantPublic = {
@@ -70,7 +79,7 @@ type TambonProfile = {
 };
 
 const TAMBON_COLUMNS =
-  "id, name, district, province, intro, announcement, contact_line, contact_phone, delivery_fee_base, delivery_fee_per_km, is_active";
+  "id, name, district, province, intro, announcement, contact_line, contact_phone, cover_url, delivery_fee_base, delivery_fee_per_km, is_active";
 
 const PROFILE_COLUMNS =
   "local_gov_name, local_gov_website, population, households, villages, area_sqkm, main_economy, culture, attractions, traditions, products, budget_year, budget_total, sources";
@@ -354,6 +363,20 @@ export default async function TambonPublicPage({
     merchants.push(...((merchantRows ?? []) as MerchantPublic[]));
   }
 
+  // ข่าว/ประกาศของตำบล (ตัวแทนโพสต์เอง · RLS ให้ anon เห็นเฉพาะที่เผยแพร่)
+  const { data: postRows, error: postError } = await supabase
+    .from("tambon_posts")
+    .select("id, title, body, pinned, created_at")
+    .eq("tambon_id", tambon.id)
+    .eq("is_published", true)
+    .order("pinned", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (postError) {
+    console.error("[/t/%s] posts failed:", slug, postError.message);
+  }
+  const posts = (postRows ?? []) as PostPublic[];
+
   const place = fullPlace(tambon);
   const label = tambonLabel(tambon);
 
@@ -367,6 +390,14 @@ export default async function TambonPublicPage({
 
   return (
     <main className="mx-auto max-w-lg px-4 py-8">
+      {tambon.cover_url && (
+        // eslint-disable-next-line @next/next/no-img-element -- รูปปกจาก Supabase Storage (tambon-media) ที่ตัวแทนอัปโหลด
+        <img
+          src={tambon.cover_url}
+          alt={`รูปปก${tambonLabel(tambon)}`}
+          className="w-full h-44 object-cover rounded-2xl mb-4"
+        />
+      )}
       <header className="mb-6">
         <p className="text-ink-soft text-xs">บวรไทย · ระบบส่งของระดับตำบล</p>
         <h1 className="text-2xl font-head font-bold mt-1">{label}</h1>
@@ -386,6 +417,20 @@ export default async function TambonPublicPage({
             {label}อยู่ระหว่างรวบรวมร้านค้าและไรเดอร์
             สมัครไว้ตั้งแต่ตอนนี้ได้เลย จะได้เริ่มพร้อมกันวันแรก
           </p>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <a
+              href={lineOaTextLink("สมัครร้านค้า")}
+              className="text-center bg-[#06C755] text-white rounded-xl py-2.5 text-sm font-semibold"
+            >
+              สมัครเป็นร้านค้า
+            </a>
+            <a
+              href={lineOaTextLink("สมัครไรเดอร์")}
+              className="text-center bg-[#06C755] text-white rounded-xl py-2.5 text-sm font-semibold"
+            >
+              สมัครเป็นไรเดอร์
+            </a>
+          </div>
         </div>
       )}
 
@@ -402,6 +447,18 @@ export default async function TambonPublicPage({
           >
             สั่งผ่าน LINE บวรไทย
           </a>
+        )}
+        {tambon.is_active && (
+          <p className="text-center text-xs mt-2">
+            มีร้านหรือรถในตำบลนี้?{" "}
+            <a href={lineOaTextLink("สมัครร้านค้า")} className="text-indigo font-semibold">
+              สมัครเป็นร้านค้า
+            </a>
+            {" · "}
+            <a href={lineOaTextLink("สมัครไรเดอร์")} className="text-indigo font-semibold">
+              สมัครเป็นไรเดอร์
+            </a>
+          </p>
         )}
         <div className="flex gap-2 mt-4">
           <Link
@@ -424,6 +481,26 @@ export default async function TambonPublicPage({
           </p>
         )}
       </Card>
+
+      {posts.length > 0 && (
+        <section className="mb-6">
+          <h2 className="font-head font-semibold text-sm mb-2">ข่าวและประกาศของตำบล</h2>
+          <div className="flex flex-col gap-2">
+            {posts.map((p) => (
+              <Card key={p.id}>
+                <div className="font-head font-semibold text-sm">
+                  {p.pinned ? "📌 " : ""}
+                  {p.title}
+                </div>
+                <div className="text-ink-soft text-xs">
+                  {new Date(p.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
+                </div>
+                {p.body && <p className="text-sm leading-relaxed mt-1 whitespace-pre-line">{p.body}</p>}
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
 
       {tambon.is_active && (
         <>

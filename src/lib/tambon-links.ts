@@ -13,6 +13,11 @@ export function tambonLineLink(name: string, slug: string): string {
   return `https://line.me/R/oaMessage/${LINE_OA_ID}/?${encodeURIComponent(text)}`;
 }
 
+/** เปิดแชท OA พร้อมข้อความที่ระบุ เช่น "สมัครร้านค้า" ให้ LINE หลักเปิดฟอร์มสมัคร */
+export function lineOaTextLink(text: string): string {
+  return `https://line.me/R/oaMessage/${LINE_OA_ID}/?${encodeURIComponent(text)}`;
+}
+
 export function tambonWebLink(slug: string): string {
   return `${SITE}/t/${slug}`;
 }
