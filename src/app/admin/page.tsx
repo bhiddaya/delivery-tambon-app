@@ -1,157 +1,99 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Card, PageHeading, StatusChip } from "@/components/ui";
-import { TYPE_LABEL, econ, money, timeStr, type OrderRow, type OrderStatus } from "@/lib/domain";
-import type { Tables } from "@/lib/types";
+import Link from "next/link";
+import { Card, PageHeading } from "@/components/ui";
 import { AdminTambonPicker, tambonName, useAdminTambon } from "@/components/AdminTambonPicker";
+import { useTambonAdminData } from "@/components/useTambonAdminData";
+import { econ, money } from "@/lib/domain";
+import { bangkokDayStart, todoItems } from "@/lib/tambon-admin";
 
-const FILTERS: { key: OrderStatus | "all"; label: string }[] = [
-  { key: "all", label: "ทั้งหมด" },
-  { key: "pending", label: "รอคนขับ" },
-  { key: "accepted", label: "รับงานแล้ว" },
-  { key: "in_progress", label: "กำลังดำเนินการ" },
-  { key: "delivered", label: "สำเร็จ" },
-];
-
-export default function AdminDashboardPage() {
-  const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [drivers, setDrivers] = useState<Tables<"drivers">[]>([]);
-  const [merchants, setMerchants] = useState<Tables<"merchants">[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, Tables<"profiles">>>({});
-  const [filter, setFilter] = useState<OrderStatus | "all">("all");
+/**
+ * หลังบ้านตัวแทนตำบล — หน้า วันนี้: เรื่องที่ต้องทำตอนนี้ก่อน แล้วจึงเป็นตัวเลขของวัน
+ * ตัวแทนเห็นเฉพาะตำบลที่ได้รับแต่งตั้ง ส่วนกลางเห็นทุกตำบล (เลือกตำบลด้านบนได้)
+ */
+export default function AdminTodayPage() {
   const { tambons, slug, setSlug, selected } = useAdminTambon();
+  const data = useTambonAdminData(selected?.id ?? null);
+  const q = selected?.slug ? `?t=${selected.slug}` : "";
+  const todo = todoItems({
+    tambon: selected,
+    orders: data.orders,
+    settlements: data.settlements,
+    merchants: data.merchants,
+    drivers: data.drivers,
+    now: data.now,
+    q,
+  });
 
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    async function load() {
-      const [{ data: o }, { data: d }, { data: m }, { data: p }] = await Promise.all([
-        supabase.from("orders").select("*").order("created_at", { ascending: false }),
-        supabase.from("drivers").select("*"),
-        supabase.from("merchants").select("*"),
-        supabase.from("profiles").select("*"),
-      ]);
-      if (cancelled) return;
-      setOrders(o ?? []);
-      setDrivers(d ?? []);
-      setMerchants(m ?? []);
-      const map: Record<string, Tables<"profiles">> = {};
-      (p ?? []).forEach((x) => (map[x.id] = x));
-      setProfiles(map);
-    }
-    load();
-
-    const channel = supabase
-      .channel("admin-dashboard")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "drivers" }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "merchants" }, load)
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  // กรองตามตำบลที่เลือก (ไม่เลือก = ทุกตำบลที่บัญชีนี้เห็นตาม RLS)
-  const inTambon = (tambonId: string | null | undefined) => !selected || tambonId === selected.id;
-  const tOrders = orders.filter((o) => inTambon(o.tambon_id));
-  const tDrivers = drivers.filter((d) => inTambon(profiles[d.profile_id]?.tambon_id));
-  const tMerchants = merchants.filter((m) => inTambon(m.tambon_id));
-
-  const onlineDrivers = tDrivers.filter((d) => d.is_online).length;
-  const openMerchants = tMerchants.filter((m) => m.is_open).length;
-  const revenue = tOrders
-    .filter((o) => o.status === "delivered")
-    .reduce((s, o) => s + econ(o).platform, 0);
-  const filtered = filter === "all" ? tOrders : tOrders.filter((o) => o.status === filter);
+  const dayStart = bangkokDayStart(data.now);
+  const today = data.orders.filter((o) => new Date(o.created_at).getTime() >= dayStart && !o.is_test);
+  const deliveredToday = today.filter((o) => o.status === "delivered");
+  const platformToday = deliveredToday.reduce((s, o) => s + econ(o).platform, 0);
+  const online = data.drivers.filter((d) => d.profile.approved && d.driver?.is_online).length;
+  const approvedDrivers = data.drivers.filter((d) => d.profile.approved).length;
+  const openShops = data.merchants.filter((m) => m.merchant.is_open).length;
   const subtitle = selected
     ? `${tambonName(selected)}${selected.is_active ? "" : " · ยังไม่เปิดบริการ"}`
-    : "ทุกตำบล";
+    : "ทุกตำบลที่ดูแล";
 
   return (
     <div>
-      <PageHeading title="แดชบอร์ด" subtitle={subtitle} />
+      <PageHeading title="วันนี้" subtitle={subtitle} />
       <AdminTambonPicker tambons={tambons} slug={slug} onChange={setSlug} />
 
+      <h2 className="font-head font-semibold text-sm mb-2">ต้องทำตอนนี้</h2>
+      {data.loading ? (
+        <p className="text-ink-soft text-sm mb-6">กำลังโหลด…</p>
+      ) : todo.length === 0 ? (
+        <Card className="mb-6">
+          <p className="text-sm text-ink">ไม่มีเรื่องค้าง ✓</p>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-2 mb-6">
+          {todo.map((t) => (
+            <Link key={t.key} href={t.href}>
+              <Card className={`flex items-center justify-between gap-2 ${t.urgent ? "border-clay" : ""}`}>
+                <span className="text-sm text-ink">
+                  {t.urgent ? "⚠️ " : ""}
+                  {t.text}
+                </span>
+                <span className="text-indigo text-sm font-semibold">ไปดู ›</span>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <h2 className="font-head font-semibold text-sm mb-2">ตัวเลขวันนี้</h2>
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <Card>
-          <div className="text-ink-soft text-xs font-head font-semibold mb-1">ออเดอร์ทั้งหมด</div>
-          <div className="font-head text-2xl font-bold tabular-nums">{tOrders.length}</div>
-        </Card>
-        <Card>
-          <div className="text-ink-soft text-xs font-head font-semibold mb-1">ไรเดอร์ออนไลน์</div>
-          <div className="font-head text-2xl font-bold tabular-nums">
-            {onlineDrivers}/{tDrivers.length}
-          </div>
-        </Card>
-        <Card>
-          <div className="text-ink-soft text-xs font-head font-semibold mb-1">ร้านค้าเปิดขาย</div>
-          <div className="font-head text-2xl font-bold tabular-nums">
-            {openMerchants}/{tMerchants.length}
-          </div>
-        </Card>
-        <Card>
-          <div className="text-ink-soft text-xs font-head font-semibold mb-1">รายได้แพลตฟอร์ม</div>
-          <div className="font-head text-2xl font-bold tabular-nums">{revenue.toLocaleString("th-TH")}</div>
-        </Card>
+        <Stat label="ออเดอร์วันนี้" value={`${today.length}`} sub={`ส่งสำเร็จ ${deliveredToday.length}`} />
+        <Stat label="รายได้แพลตฟอร์มวันนี้" value={money(platformToday)} sub="จากออเดอร์ที่ส่งสำเร็จ" />
+        <Stat label="ไรเดอร์ออนไลน์" value={`${online}/${approvedDrivers}`} sub="ที่อนุมัติแล้ว" />
+        <Stat label="ร้านเปิดขาย" value={`${openShops}/${data.merchants.length}`} sub="ในตำบลที่ดูแล" />
       </div>
 
-      <div className="flex gap-1.5 flex-wrap mb-3">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`text-xs font-head font-semibold rounded-full px-3 py-1.5 border ${
-              filter === f.key ? "bg-indigo text-white border-indigo" : "border-border text-ink-soft"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <Link href={`/admin/orders${q}`} className="text-indigo font-semibold">
+          ออเดอร์ทั้งหมด
+        </Link>
+        <Link href={`/admin/people${q}`} className="text-indigo font-semibold">
+          ร้านและไรเดอร์
+        </Link>
+        <Link href={`/admin/approvals${q}`} className="text-indigo font-semibold">
+          อนุมัติ
+        </Link>
       </div>
-
-      <Card className="!p-0 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-ink-soft text-[11px] uppercase font-head">
-              <th className="px-4 py-2">#</th>
-              <th className="px-4 py-2">ประเภท</th>
-              <th className="px-4 py-2">ลูกค้า</th>
-              <th className="px-4 py-2">คนขับ</th>
-              <th className="px-4 py-2">สถานะ</th>
-              <th className="px-4 py-2">ยอด</th>
-              <th className="px-4 py-2">เวลา</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((o) => (
-              <tr key={o.id} className="border-t border-border">
-                <td className="px-4 py-2.5">#{o.id}</td>
-                <td className="px-4 py-2.5">{TYPE_LABEL[o.type]}</td>
-                <td className="px-4 py-2.5">{profiles[o.customer_id]?.full_name ?? "-"}</td>
-                <td className="px-4 py-2.5">{o.driver_id ? profiles[o.driver_id]?.full_name ?? "-" : "—"}</td>
-                <td className="px-4 py-2.5">
-                  <StatusChip status={o.status} />
-                </td>
-                <td className="px-4 py-2.5 tabular-nums">{money(Number(o.price))}</td>
-                <td className="px-4 py-2.5">{timeStr(o.created_at)}</td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center py-8 text-ink-soft">
-                  ไม่มีออเดอร์ในหมวดนี้
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </Card>
+      <p className="text-ink-soft text-xs mt-2">ไม่นับออเดอร์ทดสอบ · อัปเดตเองเมื่อมีออเดอร์ใหม่</p>
     </div>
+  );
+}
+
+function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
+  return (
+    <Card>
+      <div className="text-ink-soft text-xs font-head font-semibold mb-1">{label}</div>
+      <div className="font-head text-2xl font-bold tabular-nums">{value}</div>
+      <div className="text-ink-soft text-[11px]">{sub}</div>
+    </Card>
   );
 }
