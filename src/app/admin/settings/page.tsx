@@ -8,6 +8,7 @@ import type { Tables } from "@/lib/types";
 import MemberPasswordReset from "@/components/MemberPasswordReset";
 import { useSession } from "@/lib/session-context";
 import { tambonName } from "@/components/AdminTambonPicker";
+import { TambonShareCard } from "@/components/TambonShareCard";
 
 export default function AdminSettingsPage() {
   const { profile } = useSession();
@@ -159,6 +160,8 @@ export default function AdminSettingsPage() {
               </Link>
             </div>
           )}
+
+          {t.slug && <TambonShareCard name={t.name} slug={t.slug} active={t.is_active} />}
 
           <Field label="ชื่อตำบล (ภาษาไทย)">
             <Input value={t.name} onChange={(e) => updateField(t.id, "name", e.target.value)} />

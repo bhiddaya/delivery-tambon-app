@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import SetupRequired from "@/components/SetupRequired";
 import { Card, EmptyState } from "@/components/ui";
+import { tambonLineLink } from "@/lib/tambon-links";
 
 /**
  * หน้าสาธารณะของตำบล — /t/<slug>
@@ -394,6 +395,14 @@ export default async function TambonPublicPage({
             "สั่งอาหารจากร้านในตำบล ส่งของ หรือเรียกรถ โดยคนในตำบลเดียวกัน — ค่าส่งถูกกว่า ถึงเร็วกว่า และเงินหมุนอยู่ในชุมชน"}
         </p>
         {feeNote && <p className="text-ink-soft text-xs mt-2">{feeNote}</p>}
+        {tambon.is_active && (
+          <a
+            href={tambonLineLink(tambon.name, slug)}
+            className="block text-center bg-[#06C755] text-white rounded-xl py-2.5 text-sm font-semibold mt-4"
+          >
+            สั่งผ่าน LINE บวรไทย
+          </a>
+        )}
         <div className="flex gap-2 mt-4">
           <Link
             href={`/signup?t=${encodeURIComponent(slug)}`}
