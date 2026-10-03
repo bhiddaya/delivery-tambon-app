@@ -244,6 +244,9 @@ export type Database = {
           line_user_id: string
           occurred_on: string | null
           place: string | null
+          public_title: string | null
+          public_title_at: string | null
+          public_title_by: string | null
           raw_text: string | null
           reporter_name: string | null
           reporter_phone: string | null
@@ -268,6 +271,9 @@ export type Database = {
           line_user_id: string
           occurred_on?: string | null
           place?: string | null
+          public_title?: string | null
+          public_title_at?: string | null
+          public_title_by?: string | null
           raw_text?: string | null
           reporter_name?: string | null
           reporter_phone?: string | null
@@ -292,6 +298,9 @@ export type Database = {
           line_user_id?: string
           occurred_on?: string | null
           place?: string | null
+          public_title?: string | null
+          public_title_at?: string | null
+          public_title_by?: string | null
           raw_text?: string | null
           reporter_name?: string | null
           reporter_phone?: string | null
@@ -305,6 +314,20 @@ export type Database = {
           urgency?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "complaints_public_title_by_fkey"
+            columns: ["public_title_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_public_title_by_fkey"
+            columns: ["public_title_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "complaints_tambon_id_fkey"
             columns: ["tambon_id"]
@@ -1493,6 +1516,183 @@ export type Database = {
           },
         ]
       }
+      tambon_board_contacts: {
+        Row: {
+          contact_email: string | null
+          contact_name: string
+          contact_phone: string | null
+          employer_line_user_id: string | null
+          link_code: string
+          linked_at: string | null
+          post_id: number
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_name: string
+          contact_phone?: string | null
+          employer_line_user_id?: string | null
+          link_code: string
+          linked_at?: string | null
+          post_id: number
+        }
+        Update: {
+          contact_email?: string | null
+          contact_name?: string
+          contact_phone?: string | null
+          employer_line_user_id?: string | null
+          link_code?: string
+          linked_at?: string | null
+          post_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tambon_board_contacts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: true
+            referencedRelation: "tambon_board_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tambon_board_posts: {
+        Row: {
+          body: string
+          created_at: string
+          expires_at: string | null
+          id: number
+          job_location: string | null
+          job_positions: number | null
+          job_wage: string | null
+          kind: string
+          link_url: string | null
+          org_name: string
+          org_type: string
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          tambon_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: never
+          job_location?: string | null
+          job_positions?: number | null
+          job_wage?: string | null
+          kind: string
+          link_url?: string | null
+          org_name: string
+          org_type?: string
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          tambon_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: never
+          job_location?: string | null
+          job_positions?: number | null
+          job_wage?: string | null
+          kind?: string
+          link_url?: string | null
+          org_name?: string
+          org_type?: string
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          tambon_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tambon_board_posts_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_board_posts_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_board_posts_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tambon_job_applications: {
+        Row: {
+          applicant_name: string
+          applicant_phone: string
+          created_at: string
+          forwarded_at: string | null
+          id: number
+          line_user_id: string
+          note: string
+          post_id: number
+          status: string
+          tambon_id: string
+        }
+        Insert: {
+          applicant_name: string
+          applicant_phone: string
+          created_at?: string
+          forwarded_at?: string | null
+          id?: never
+          line_user_id: string
+          note?: string
+          post_id: number
+          status?: string
+          tambon_id: string
+        }
+        Update: {
+          applicant_name?: string
+          applicant_phone?: string
+          created_at?: string
+          forwarded_at?: string | null
+          id?: never
+          line_user_id?: string
+          note?: string
+          post_id?: number
+          status?: string
+          tambon_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tambon_job_applications_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "tambon_board_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_job_applications_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tambon_posts: {
         Row: {
           body: string
@@ -1807,6 +2007,10 @@ export type Database = {
         Args: { p_order_id: number; p_reason: string }
         Returns: undefined
       }
+      admin_review_board_post: {
+        Args: { p_action: string; p_id: number; p_reason?: string }
+        Returns: undefined
+      }
       admin_set_agent_share: {
         Args: {
           p_commission_pct: number
@@ -1824,6 +2028,36 @@ export type Database = {
         Returns: undefined
       }
       admin_stats_snapshot: { Args: never; Returns: Json }
+      admin_tambon_complaints: {
+        Args: { p_tambon_id: string }
+        Returns: {
+          ai_summary: string
+          category: string
+          created_at: string
+          detail: string
+          id: string
+          is_test: boolean
+          place: string
+          public_title: string
+          reporter_name: string
+          reporter_phone: string
+          status: string
+          subject: string
+          suggested_agency: string
+          ticket_no: string
+          updated_at: string
+          urgency: string
+        }[]
+      }
+      admin_update_complaint: {
+        Args: {
+          p_id: string
+          p_note?: string
+          p_public_title?: string
+          p_status: string
+        }
+        Returns: undefined
+      }
       ai_upsert_tambon_items: {
         Args: { p_items: Json; p_run: Json; p_tambon_id: string }
         Returns: Json
@@ -1897,6 +2131,24 @@ export type Database = {
       is_approved_driver_in: { Args: { t: string }; Returns: boolean }
       is_superadmin: { Args: never; Returns: boolean }
       is_tambon_admin: { Args: { t: string }; Returns: boolean }
+      line_job_application_forwarded: {
+        Args: { p_application_id: number }
+        Returns: undefined
+      }
+      line_job_apply: {
+        Args: {
+          p_line_user_id: string
+          p_name: string
+          p_note?: string
+          p_phone: string
+          p_post_id: number
+        }
+        Returns: Json
+      }
+      line_link_board_employer: {
+        Args: { p_code: string; p_line_user_id: string }
+        Returns: Json
+      }
       line_slip_target: {
         Args: { p_line_user_id: string }
         Returns: {
@@ -1956,6 +2208,10 @@ export type Database = {
       session_used_password: { Args: never; Returns: boolean }
       shares_order_with: { Args: { p: string }; Returns: boolean }
       slip_order_id: { Args: { p_name: string }; Returns: number }
+      submit_board_post: {
+        Args: { p_post: Json; p_tambon_slug: string }
+        Returns: Json
+      }
       submit_payment_slip: {
         Args: { p_order_id: number; p_slip_path: string }
         Returns: undefined
@@ -1968,6 +2224,7 @@ export type Database = {
         Args: { p_note?: string; p_profile_id: string; p_tambon_id: string }
         Returns: boolean
       }
+      tambon_complaint_stats: { Args: { p_tambon_id: string }; Returns: Json }
       tambon_daily_stats: {
         Args: never
         Returns: {
