@@ -33,6 +33,8 @@ export default function MerchantMenuPage() {
   const [address, setAddress] = useState("");
   const [payment, setPayment] = useState<"เงินสดปลายทาง" | "พร้อมเพย์">("เงินสดปลายทาง");
   const [submitting, setSubmitting] = useState(false);
+  // แสดงข้อความผิดพลาดบนหน้าแทน alert() เพราะเบราว์เซอร์ใน LINE บล็อก alert/confirm
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   useEffect(() => {
     // Check for LIFF context
@@ -116,16 +118,16 @@ export default function MerchantMenuPage() {
   async function placeOrder() {
     if (!merchant || cartCount === 0) return;
     setSubmitting(true);
+    setOrderError(null);
 
     try {
       if (isLiffContext && lineUserId) {
         // LIFF mode: save cart to Supabase
         const saved = await liffSaveCart(lineUserId, merchant.id);
         if (saved) {
-          alert("บันทึกตะกร้าเรียบร้อย");
           router.push("/customer");
         } else {
-          alert("ไม่สามารถบันทึกตะกร้าได้");
+          setOrderError("ไม่สามารถบันทึกตะกร้าได้ ลองใหม่อีกครั้ง");
         }
       } else {
         // Regular mode: create order immediately
@@ -148,7 +150,7 @@ export default function MerchantMenuPage() {
           .single();
 
         if (error || !order) {
-          alert("สั่งซื้อไม่สำเร็จ: " + (error?.message ?? "unknown error"));
+          setOrderError("สั่งซื้อไม่สำเร็จ: " + (error?.message ?? "ไม่ทราบสาเหตุ"));
           setSubmitting(false);
           return;
         }
@@ -259,6 +261,7 @@ export default function MerchantMenuPage() {
               ? `บันทึกตะกร้า · ${money(subtotal)}`
               : `สั่งซื้อ · ${money(subtotal + DELIVERY_FEE)}`}
           </Button>
+          {orderError && <p className="text-clay text-sm mt-2">{orderError}</p>}
         </>
       )}
     </div>

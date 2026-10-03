@@ -27,6 +27,7 @@ export default function MerchantHomePage() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
 
   // แก้ข้อมูลร้าน — เก็บค่าที่พิมพ์แยกจาก merchant เพื่อให้กดยกเลิกแล้วคืนค่าเดิมได้
   const [editingShop, setEditingShop] = useState(false);
@@ -137,15 +138,21 @@ export default function MerchantHomePage() {
     e.preventDefault();
     if (!merchant || !newName || !newPrice) return;
     setBusy(true);
+    setAddError(null);
     const supabase = createClient();
-    await supabase.from("menu_items").insert({
+    const { error } = await supabase.from("menu_items").insert({
       merchant_id: merchant.id,
       name: newName,
       price: Number(newPrice),
     });
+    setBusy(false);
+    if (error) {
+      // เก็บชื่อ/ราคาที่กรอกไว้ ให้ร้านกดบันทึกซ้ำได้โดยไม่ต้องพิมพ์ใหม่
+      setAddError(`เพิ่มเมนูไม่สำเร็จ: ${error.message}`);
+      return;
+    }
     setNewName("");
     setNewPrice("");
-    setBusy(false);
     load();
   }
 
@@ -502,6 +509,7 @@ export default function MerchantHomePage() {
             เพิ่ม
           </Button>
         </form>
+        {addError && <p className="text-clay text-sm">{addError}</p>}
       </Card>
 
       {/* เมนูที่เลิกขายแล้ว — ไว้ท้ายสุดและสีจาง เพราะไม่ใช่ของที่ต้องดูทุกวัน
