@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ComponentType, type ReactNode, type SVGProps } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
+import { useSession } from "@/lib/session-context";
+import { tambonDisplayName } from "@/lib/tambon-choice";
 import { createClient } from "@/lib/supabase/client";
 import { homePathFor, type UserRole } from "@/lib/domain";
 import {
@@ -78,6 +80,29 @@ export default function AppShell({ role, children }: { role: UserRole; children:
     router.refresh();
   }
 
+  // ชื่อบนหัวหน้า = ตำบลของบัญชีนี้ (เดิมเขียนตายตัวว่า บุ่งไหม ทำให้ตัวแทนตำบลอื่นสับสน)
+  const { profile } = useSession();
+  const [brand, setBrand] = useState("บวรไทย");
+  useEffect(() => {
+    if (role === "superadmin" || !profile.tambon_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- label depends on the signed-in profile only
+      setBrand(role === "superadmin" ? "บวรไทย · ส่วนกลาง" : "บวรไทย");
+      return;
+    }
+    let cancelled = false;
+    createClient()
+      .from("tambons")
+      .select("name")
+      .eq("id", profile.tambon_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data) setBrand(`บวรไทย ${tambonDisplayName(data.name)}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [role, profile.tambon_id]);
+
   return (
     <div className="min-h-dvh bg-paper sm:bg-surface-2">
       <div className="mx-auto flex h-dvh w-full max-w-[440px] flex-col overflow-hidden bg-paper sm:my-6 sm:h-[min(880px,calc(100dvh-3rem))] sm:rounded-[2rem] sm:border sm:border-border sm:shadow-2xl">
@@ -89,7 +114,7 @@ export default function AppShell({ role, children }: { role: UserRole; children:
             href={homePathFor(role)}
             className="min-w-0 flex-1 truncate font-display text-base text-indigo"
           >
-            บวรไทย ตำบลบุ่งไหม
+            {brand}
           </Link>
           <button
             onClick={signOut}
