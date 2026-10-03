@@ -138,9 +138,12 @@ export default function OnboardingPage() {
   return (
     <AuthFrame maxWidth="max-w-md">
       <div className="text-center mb-6">
-        <h1 className="font-display text-3xl text-indigo">
-          บวรไทย {tambonDisplayName(tambons.find((t) => t.id === tambonId)?.name ?? "บุ่งไหม")}
-        </h1>
+        <h1 className="font-display text-3xl text-indigo">บวรไทย</h1>
+        {tambons.find((t) => t.id === tambonId) && (
+          <p className="font-head font-semibold text-indigo text-base mt-1">
+            {tambonDisplayName(tambons.find((t) => t.id === tambonId)!.name)}
+          </p>
+        )}
         <p className="text-ink-soft text-sm mt-1">บอกเราหน่อยว่าคุณจะใช้งานแบบไหน</p>
       </div>
       <Card>
