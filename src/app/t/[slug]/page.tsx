@@ -56,7 +56,9 @@ type AiItemPublic = {
   source_url: string;
   source_name: string | null;
   event_date: string | null;
+  first_seen_at: string;
   refreshed_at: string;
+  is_new: boolean;
 };
 
 type MerchantPublic = {
@@ -331,13 +333,59 @@ function TambonKnowledge({ profile }: { profile: TambonProfile }) {
   );
 }
 
-const AI_GROUPS: { kinds: string[]; title: string }[] = [
+type AiCta = { text: string; label: string; line: string };
+
+/**
+ * กลุ่มข้อมูลที่ AI รวบรวม (หัวข้อที่อาจารย์กำหนด 3 ต.ค. 69) · maps = ลิงก์ค้นใน Google Maps
+ * cta = ชวนต่อยอดกับบริการบวรไทย (ส่งข้อความเข้า LINE OA เหมือนปุ่มสมัครด้านบน)
+ */
+const AI_GROUPS: { kinds: string[]; title: string; maps?: boolean; cta?: AiCta }[] = [
   { kinds: ["news", "event"], title: "ข่าวและกิจกรรมในพื้นที่" },
-  { kinds: ["place"], title: "สถานที่สำคัญ" },
+  { kinds: ["education"], title: "โรงเรียนและสถานศึกษา", maps: true },
+  {
+    kinds: ["industry"],
+    title: "โรงงานและผู้ผลิตสำคัญ",
+    maps: true,
+    cta: { text: "หางานในพื้นที่นี้?", label: "ฝากประวัติหางาน", line: "สมัครงาน" },
+  },
+  { kinds: ["place"], title: "แหล่งท่องเที่ยวและสถานที่สำคัญ", maps: true },
+  {
+    kinds: ["food"],
+    title: "ร้านอาหารและร้านค้าเด่น",
+    maps: true,
+    cta: { text: "เป็นเจ้าของร้านในตำบลนี้?", label: "เปิดร้านกับบวรไทย", line: "สมัครร้านค้า" },
+  },
+  { kinds: ["health"], title: "ร้านขายยา คลินิก และสุขภาพ", maps: true },
+  { kinds: ["shopping"], title: "ห้างสรรพสินค้าและตลาด", maps: true },
   { kinds: ["product"], title: "สินค้าชุมชน" },
   { kinds: ["tradition"], title: "ประเพณีและวัฒนธรรม" },
   { kinds: ["fact"], title: "ข้อมูลทั่วไป" },
 ];
+
+/**
+ * ข้อมูลที่ AI รวบรวมจากเว็บ (D51) · RLS ให้ anon เห็นเฉพาะที่ไม่ถูกซ่อนและยังไม่หมดอายุ
+ * is_new = AI พบครั้งแรกภายใน 24 ชั่วโมง (ป้าย "ใหม่" และสรุปรายวัน) คิดตอนดึงข้อมูล ไม่ใช่ตอน render
+ */
+async function getAiItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tambonId: string,
+  slug: string
+): Promise<AiItemPublic[]> {
+  const { data, error } = await supabase
+    .from("tambon_ai_items")
+    .select("id, kind, title, summary, source_url, source_name, event_date, first_seen_at, refreshed_at")
+    .eq("tambon_id", tambonId)
+    .eq("hidden", false)
+    .order("refreshed_at", { ascending: false })
+    .limit(60);
+  if (error) console.error("[/t/%s] ai items failed:", slug, error.message);
+  const now = Date.now();
+  return (data ?? []).map((it) => ({ ...it, is_new: now - Date.parse(it.first_seen_at) < 864e5 }));
+}
+
+/** ค้นใน Google Maps ด้วยชื่อ + พื้นที่ — ไม่ต้องใช้ API key และไม่เก็บพิกัดในฐานข้อมูล */
+const mapsLink = (name: string, area: string) =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${area}`)}`;
 
 const thaiDate = (d: string) =>
   new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" });
@@ -351,15 +399,19 @@ function hostOf(url: string): string {
 }
 
 /** ข้อมูลที่ AI รวบรวม —ต้องบอกชัดว่า AI ทำ พร้อมลิงก์แหล่งที่มาและวันที่ทุกรายการ */
-function AiItems({ items }: { items: AiItemPublic[] }) {
+function AiItems({ items, area }: { items: AiItemPublic[]; area: string }) {
   if (items.length === 0) return null;
   const latest = items.reduce((a, b) => (a > b.refreshed_at ? a : b.refreshed_at), "");
+  const newToday = items.filter((it) => it.is_new).length;
   return (
     <section className="mt-8">
       <h2 className="font-head font-semibold text-sm mb-1">ข้อมูลจากเว็บเกี่ยวกับพื้นที่นี้</h2>
       <p className="text-ink-soft text-xs mb-2">
         รวบรวมโดย AI จากเว็บไซต์สาธารณะ · อัปเดต {thaiDate(latest)} · โปรดตรวจสอบกับแหล่งที่มาก่อนนำไปอ้างอิง
       </p>
+      {newToday > 0 && (
+        <p className="text-xs font-semibold text-clay mb-2">วันนี้ AI พบข้อมูลใหม่ {newToday} รายการ</p>
+      )}
       <Card>
         {AI_GROUPS.map((g) => {
           const list = items.filter((it) => g.kinds.includes(it.kind));
@@ -370,20 +422,43 @@ function AiItems({ items }: { items: AiItemPublic[] }) {
               <ul className="space-y-2">
                 {list.map((it) => (
                   <li key={it.id} className="text-sm leading-relaxed">
+                    {it.is_new && (
+                      <span className="text-[10px] font-semibold text-white bg-clay rounded px-1 mr-1">ใหม่</span>
+                    )}
                     <span className="font-medium">{it.title}</span>
                     {it.event_date && <span className="text-ink-soft"> · {thaiDate(it.event_date)}</span>}
                     {it.summary && <div className="text-ink-soft text-xs mt-0.5">{it.summary}</div>}
-                    <a
-                      href={it.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="text-indigo text-xs underline break-all"
-                    >
-                      ที่มา: {it.source_name || hostOf(it.source_url)}
-                    </a>
+                    <div className="flex flex-wrap gap-x-3 text-xs">
+                      <a
+                        href={it.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="text-indigo underline break-all"
+                      >
+                        ที่มา: {it.source_name || hostOf(it.source_url)}
+                      </a>
+                      {g.maps && (
+                        <a
+                          href={mapsLink(it.title, area)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo underline"
+                        >
+                          ดูแผนที่
+                        </a>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
+              {g.cta && (
+                <p className="text-xs mt-2">
+                  {g.cta.text}{" "}
+                  <a href={lineOaTextLink(g.cta.line)} className="text-indigo font-semibold">
+                    {g.cta.label} ›
+                  </a>
+                </p>
+              )}
             </div>
           );
         })}
@@ -449,18 +524,7 @@ export default async function TambonPublicPage({
   }
   const posts = (postRows ?? []) as PostPublic[];
 
-  // ข้อมูลที่ AI รวบรวมจากเว็บ (D51) · RLS ให้ anon เห็นเฉพาะที่ไม่ถูกซ่อนและยังไม่หมดอายุ
-  const { data: aiRows, error: aiError } = await supabase
-    .from("tambon_ai_items")
-    .select("id, kind, title, summary, source_url, source_name, event_date, refreshed_at")
-    .eq("tambon_id", tambon.id)
-    .eq("hidden", false)
-    .order("refreshed_at", { ascending: false })
-    .limit(40);
-  if (aiError) {
-    console.error("[/t/%s] ai items failed:", slug, aiError.message);
-  }
-  const aiItems = (aiRows ?? []) as AiItemPublic[];
+  const aiItems = await getAiItems(supabase, tambon.id, slug);
 
   const place = fullPlace(tambon);
   const label = tambonLabel(tambon);
@@ -622,7 +686,7 @@ export default async function TambonPublicPage({
 
       {profile && <TambonKnowledge profile={profile} />}
 
-      <AiItems items={aiItems} />
+      <AiItems items={aiItems} area={`${label} ${place}`} />
 
       <p className="text-ink-soft text-xs text-center mt-8 leading-relaxed">
         ต้องเข้าสู่ระบบเพื่อสั่งซื้อ
