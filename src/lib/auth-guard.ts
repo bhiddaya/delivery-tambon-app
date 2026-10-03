@@ -46,7 +46,16 @@ export async function requireRole(role: UserRole): Promise<{
   //
   // ระวัง: นี่คุมแค่ "เข้าหน้าไหนได้" เท่านั้น สิทธิ์เห็นข้อมูลข้ามตำบลจริง ๆ
   // ยังคุมด้วย RLS ที่ฐานข้อมูล ผ่านฟังก์ชัน is_superadmin()
-  const allowed = profile.role === role || (profile.role === "superadmin" && role === "admin");
+  let allowed = profile.role === role || (profile.role === "superadmin" && role === "admin");
+  // ตัวแทนตำบลที่ส่วนกลางแต่งตั้ง (admin_scopes) ยังมีบทบาทเดิม เช่นร้านค้า — ให้เข้าหลังบ้านตัวแทนได้
+  // ข้อมูลที่เห็นยังคุมด้วย RLS (can_admin_tambon) เฉพาะตำบลที่ได้รับแต่งตั้ง
+  if (!allowed && role === "admin") {
+    const { count } = await supabase
+      .from("admin_scopes")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", profile.id);
+    allowed = (count ?? 0) > 0;
+  }
   if (!allowed) redirect(homePathFor(profile.role));
 
   // หน้าหลังบ้านต้องเข้าด้วยรหัสผ่าน ไม่ใช่ปุ่ม LINE
