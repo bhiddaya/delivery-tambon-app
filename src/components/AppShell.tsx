@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/client";
 import { homePathFor, type UserRole } from "@/lib/domain";
 import {
   BikeIcon,
-  CheckBadgeIcon,
   GridIcon,
   HomeIcon,
   ListIcon,
@@ -42,8 +41,9 @@ const NAV: Record<UserRole, NavLink[]> = {
     { href: "/account", label: "บัญชี", icon: UserIcon },
   ],
   admin: [
-    { href: "/admin", label: "แดชบอร์ด", icon: GridIcon },
-    { href: "/admin/approvals", label: "อนุมัติ", icon: CheckBadgeIcon },
+    { href: "/admin", label: "วันนี้", icon: GridIcon },
+    { href: "/admin/orders", label: "ออเดอร์", icon: ListIcon },
+    { href: "/admin/people", label: "ร้าน/ไรเดอร์", icon: StoreIcon },
     { href: "/admin/accounts", label: "บัญชีตำบล", icon: WalletIcon },
     { href: "/admin/settings", label: "ตั้งค่า", icon: SettingsIcon },
     { href: "/account", label: "บัญชี", icon: UserIcon },
@@ -52,8 +52,9 @@ const NAV: Record<UserRole, NavLink[]> = {
   // ยังไม่มีหน้า /superadmin/* จริง จึงชี้ไปหน้าเดิมของตัวแทนตำบลไปก่อน
   // เพื่อไม่ให้แถบนำทางว่างเปล่า (ดู 31-Opening-New-Tambons.md)
   superadmin: [
-    { href: "/admin", label: "แดชบอร์ด", icon: GridIcon },
-    { href: "/admin/approvals", label: "อนุมัติ", icon: CheckBadgeIcon },
+    { href: "/admin", label: "วันนี้", icon: GridIcon },
+    { href: "/admin/orders", label: "ออเดอร์", icon: ListIcon },
+    { href: "/admin/people", label: "ร้าน/ไรเดอร์", icon: StoreIcon },
     { href: "/admin/accounts", label: "บัญชีตำบล", icon: WalletIcon },
     { href: "/admin/settings", label: "ตั้งค่า", icon: SettingsIcon },
     { href: "/account", label: "บัญชี", icon: UserIcon },
