@@ -6,12 +6,14 @@ import { createClient } from "@/lib/supabase/client";
 import { Button, Card, EmptyState, Field, Input, PageHeading, Textarea } from "@/components/ui";
 import { AdminTambonPicker, tambonName, useAdminTambon } from "@/components/AdminTambonPicker";
 import { dateStr } from "@/lib/domain";
+import { useSession } from "@/lib/session-context";
 import type { Json, Tables } from "@/lib/types";
 
 const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const MAX_BYTES = 3 * 1024 * 1024;
 
 type Post = Tables<"tambon_posts">;
+type AiItem = Tables<"tambon_ai_items">;
 
 /** รายการใน jsonb (สินค้า/ประเพณี/แหล่งท่องเที่ยว) ↔ ข้อความบรรทัดละรายการ "ชื่อ | รายละเอียด" */
 function itemsToText(value: Json | null | undefined): string {
@@ -301,6 +303,102 @@ function Editor({ tambon }: { tambon: Tables<"tambons"> }) {
           )}
         </div>
       </Card>
+
+      <AiItemsCard tambon={t} />
     </div>
+  );
+}
+
+const AI_KIND: Record<string, string> = {
+  news: "ข่าว",
+  event: "กิจกรรม",
+  place: "สถานที่",
+  product: "สินค้า",
+  tradition: "ประเพณี",
+  fact: "ข้อมูลทั่วไป",
+};
+
+/**
+ * ข้อมูลที่ AI รวบรวมจากเว็บทุกวัน (D51) — ตัวแทนตรวจแล้วซ่อนรายการที่ไม่ถูกต้องได้
+ * ส่วนกลางเป็นคนเปิด/ปิดให้ AI ทำข้อมูลต่อตำบล (tambons.ai_content_enabled)
+ */
+function AiItemsCard({ tambon }: { tambon: Tables<"tambons"> }) {
+  const { profile } = useSession();
+  const [items, setItems] = useState<AiItem[]>([]);
+  const [lastRun, setLastRun] = useState<Tables<"tambon_ai_runs"> | null>(null);
+  const [err, setErr] = useState("");
+  const [now, setNow] = useState(0);
+
+  const load = useCallback(async () => {
+    const supabase = createClient();
+    const [{ data: it }, { data: runs }] = await Promise.all([
+      supabase
+        .from("tambon_ai_items")
+        .select("*")
+        .eq("tambon_id", tambon.id)
+        .order("hidden")
+        .order("refreshed_at", { ascending: false })
+        .limit(80),
+      supabase.from("tambon_ai_runs").select("*").eq("tambon_id", tambon.id).order("ran_at", { ascending: false }).limit(1),
+    ]);
+    setItems(it ?? []);
+    setLastRun(runs?.[0] ?? null);
+    setNow(Date.now());
+  }, [tambon.id]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load on mount
+    load();
+  }, [load]);
+
+  async function toggle(it: AiItem) {
+    const hidden = !it.hidden;
+    const { error } = await createClient()
+      .from("tambon_ai_items")
+      .update({ hidden, hidden_by: hidden ? profile.id : null })
+      .eq("id", it.id);
+    setErr(error ? `แก้ไม่สำเร็จ: ${error.message}` : "");
+    load();
+  }
+
+  if (!tambon.ai_content_enabled && items.length === 0) return null;
+
+  return (
+    <Card>
+      <div className="font-head font-semibold text-sm mb-1">ข้อมูลที่ AI รวบรวมจากเว็บ</div>
+      <p className="text-ink-soft text-xs mb-3">
+        AI ค้นข้อมูลสาธารณะของตำบลวันละครั้ง ทุกรายการมีลิงก์แหล่งที่มา ตรวจแล้วกด “ซ่อน” รายการที่ไม่ถูกต้องได้
+        {lastRun && ` · รันล่าสุด ${dateStr(lastRun.ran_at)}${lastRun.status === "error" ? " (มีปัญหา)" : ""}`}
+      </p>
+      {err && <p className="text-sm text-clay mb-2">{err}</p>}
+      {items.length === 0 ? (
+        <EmptyState>ยังไม่มีรายการ — AI จะเริ่มรวบรวมในรอบถัดไป</EmptyState>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {items.map((it) => {
+            const expired = it.expires_at !== null && new Date(it.expires_at).getTime() < now;
+            return (
+              <div key={it.id} className={`rounded-xl border border-border p-3 ${it.hidden || expired ? "opacity-60" : ""}`}>
+                <div className="font-head font-semibold text-sm">
+                  <span className="text-ink-soft text-xs font-normal">{AI_KIND[it.kind] ?? it.kind} · </span>
+                  {it.title}
+                  {it.hidden && <span className="text-ink-soft text-xs"> · ซ่อนอยู่</span>}
+                  {expired && <span className="text-ink-soft text-xs"> · หมดอายุ</span>}
+                </div>
+                {it.summary && <p className="text-sm text-ink mt-1">{it.summary}</p>}
+                <a href={it.source_url} target="_blank" rel="noopener noreferrer" className="text-indigo text-xs underline break-all">
+                  {it.source_name || it.source_url}
+                </a>
+                <div className="mt-2">
+                  <Button variant="ghost" onClick={() => toggle(it)}>
+                    {it.hidden ? "แสดง" : "ซ่อน"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }

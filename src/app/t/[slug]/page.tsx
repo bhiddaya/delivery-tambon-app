@@ -48,6 +48,17 @@ type PostPublic = {
   created_at: string;
 };
 
+type AiItemPublic = {
+  id: number;
+  kind: string;
+  title: string;
+  summary: string;
+  source_url: string;
+  source_name: string | null;
+  event_date: string | null;
+  refreshed_at: string;
+};
+
 type MerchantPublic = {
   id: string;
   name: string;
@@ -320,6 +331,67 @@ function TambonKnowledge({ profile }: { profile: TambonProfile }) {
   );
 }
 
+const AI_GROUPS: { kinds: string[]; title: string }[] = [
+  { kinds: ["news", "event"], title: "ข่าวและกิจกรรมในพื้นที่" },
+  { kinds: ["place"], title: "สถานที่สำคัญ" },
+  { kinds: ["product"], title: "สินค้าชุมชน" },
+  { kinds: ["tradition"], title: "ประเพณีและวัฒนธรรม" },
+  { kinds: ["fact"], title: "ข้อมูลทั่วไป" },
+];
+
+const thaiDate = (d: string) =>
+  new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" });
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
+}
+
+/** ข้อมูลที่ AI รวบรวม —ต้องบอกชัดว่า AI ทำ พร้อมลิงก์แหล่งที่มาและวันที่ทุกรายการ */
+function AiItems({ items }: { items: AiItemPublic[] }) {
+  if (items.length === 0) return null;
+  const latest = items.reduce((a, b) => (a > b.refreshed_at ? a : b.refreshed_at), "");
+  return (
+    <section className="mt-8">
+      <h2 className="font-head font-semibold text-sm mb-1">ข้อมูลจากเว็บเกี่ยวกับพื้นที่นี้</h2>
+      <p className="text-ink-soft text-xs mb-2">
+        รวบรวมโดย AI จากเว็บไซต์สาธารณะ · อัปเดต {thaiDate(latest)} · โปรดตรวจสอบกับแหล่งที่มาก่อนนำไปอ้างอิง
+      </p>
+      <Card>
+        {AI_GROUPS.map((g) => {
+          const list = items.filter((it) => g.kinds.includes(it.kind));
+          if (list.length === 0) return null;
+          return (
+            <div key={g.title} className="mb-4 last:mb-0">
+              <h3 className="font-head font-semibold text-sm mb-1.5">{g.title}</h3>
+              <ul className="space-y-2">
+                {list.map((it) => (
+                  <li key={it.id} className="text-sm leading-relaxed">
+                    <span className="font-medium">{it.title}</span>
+                    {it.event_date && <span className="text-ink-soft"> · {thaiDate(it.event_date)}</span>}
+                    {it.summary && <div className="text-ink-soft text-xs mt-0.5">{it.summary}</div>}
+                    <a
+                      href={it.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="text-indigo text-xs underline break-all"
+                    >
+                      ที่มา: {it.source_name || hostOf(it.source_url)}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </Card>
+    </section>
+  );
+}
+
 export default async function TambonPublicPage({
   params,
 }: {
@@ -376,6 +448,19 @@ export default async function TambonPublicPage({
     console.error("[/t/%s] posts failed:", slug, postError.message);
   }
   const posts = (postRows ?? []) as PostPublic[];
+
+  // ข้อมูลที่ AI รวบรวมจากเว็บ (D51) · RLS ให้ anon เห็นเฉพาะที่ไม่ถูกซ่อนและยังไม่หมดอายุ
+  const { data: aiRows, error: aiError } = await supabase
+    .from("tambon_ai_items")
+    .select("id, kind, title, summary, source_url, source_name, event_date, refreshed_at")
+    .eq("tambon_id", tambon.id)
+    .eq("hidden", false)
+    .order("refreshed_at", { ascending: false })
+    .limit(40);
+  if (aiError) {
+    console.error("[/t/%s] ai items failed:", slug, aiError.message);
+  }
+  const aiItems = (aiRows ?? []) as AiItemPublic[];
 
   const place = fullPlace(tambon);
   const label = tambonLabel(tambon);
@@ -536,6 +621,8 @@ export default async function TambonPublicPage({
       )}
 
       {profile && <TambonKnowledge profile={profile} />}
+
+      <AiItems items={aiItems} />
 
       <p className="text-ink-soft text-xs text-center mt-8 leading-relaxed">
         ต้องเข้าสู่ระบบเพื่อสั่งซื้อ
