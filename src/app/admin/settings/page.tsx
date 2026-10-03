@@ -168,6 +168,9 @@ export default function AdminSettingsPage() {
               <Link href={`/t/${t.slug}`} className="text-indigo font-semibold">
                 หน้าสาธารณะ /t/{t.slug}
               </Link>
+              <Link href={`/admin/tambon-page?t=${t.slug}`} className="text-indigo font-semibold">
+                แก้หน้าตำบล
+              </Link>
             </div>
           )}
 

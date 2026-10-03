@@ -82,6 +82,9 @@ export default function AdminTodayPage() {
         <Link href={`/admin/approvals${q}`} className="text-indigo font-semibold">
           อนุมัติ
         </Link>
+        <Link href={`/admin/tambon-page${q}`} className="text-indigo font-semibold">
+          แก้หน้าตำบล
+        </Link>
       </div>
       <p className="text-ink-soft text-xs mt-2">ไม่นับออเดอร์ทดสอบ · อัปเดตเองเมื่อมีออเดอร์ใหม่</p>
     </div>

@@ -1361,6 +1361,67 @@ export type Database = {
           },
         ]
       }
+      tambon_posts: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: number
+          image_url: string | null
+          is_published: boolean
+          pinned: boolean
+          tambon_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: never
+          image_url?: string | null
+          is_published?: boolean
+          pinned?: boolean
+          tambon_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: never
+          image_url?: string | null
+          is_published?: boolean
+          pinned?: boolean
+          tambon_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tambon_posts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_posts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_posts_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tambon_profiles: {
         Row: {
           area_sqkm: number | null
