@@ -23,7 +23,12 @@ export default function ApprovalsPage() {
 
   async function load() {
     const supabase = createClient();
-    const { data: profiles } = await supabase.from("profiles").select("*").eq("approved", false);
+    // คนที่ถูกระงับ (suspended_at) ไม่ใช่ผู้สมัครใหม่ — คืนสิทธิ์ที่หน้า ร้าน/ไรเดอร์
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("approved", false)
+      .is("suspended_at", null);
     const driverProfiles = (profiles ?? []).filter((p) => p.role === "driver");
     const merchantProfiles = (profiles ?? []).filter((p) => p.role === "merchant");
 

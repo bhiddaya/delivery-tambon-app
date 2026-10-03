@@ -5,21 +5,20 @@ import { useState } from "react";
 import { Card, EmptyState, PageHeading } from "@/components/ui";
 import { AdminTambonPicker, useAdminTambon } from "@/components/AdminTambonPicker";
 import { useTambonAdminData } from "@/components/useTambonAdminData";
+import { PersonActions } from "@/components/AgentActions";
 import { VEHICLE_LABEL, money } from "@/lib/domain";
-import { driverGaps, merchantGaps, telHref } from "@/lib/tambon-admin";
+import { countWaitingApproval, driverGaps, merchantGaps, telHref } from "@/lib/tambon-admin";
 
 /**
- * ร้านและไรเดอร์ของตำบล (ระยะ 1 ดูอย่างเดียว) — ใครพร้อม ใครยังขาดอะไร พร้อมปุ่มโทรตาม
- * อนุมัติทำที่หน้า อนุมัติ · ปุ่มระงับ/เปิดปิดร้านมาในระยะ 2
+ * ร้านและไรเดอร์ของตำบล — ใครพร้อม ใครยังขาดอะไร พร้อมปุ่มโทรตาม · อนุมัติทำที่หน้า อนุมัติ
+ * ระยะ 2: ระงับ/คืนสิทธิ์ และเปิดปิดร้านชั่วคราว (admin_set_suspended / admin_set_shop_open)
  */
 export default function AdminPeoplePage() {
   const { tambons, slug, setSlug, selected } = useAdminTambon();
   const data = useTambonAdminData(selected?.id ?? null);
   const [tab, setTab] = useState<"shops" | "riders">("shops");
   const q = selected?.slug ? `?t=${selected.slug}` : "";
-  const waiting =
-    data.merchants.filter((m) => m.profile && !m.profile.approved).length +
-    data.drivers.filter((d) => !d.profile.approved).length;
+  const waiting = countWaitingApproval(data.merchants, data.drivers);
 
   return (
     <div>
@@ -85,6 +84,14 @@ export default function AdminPeoplePage() {
                   ) : (
                     <p className="text-jade text-xs mt-1">✓ พร้อมรับออเดอร์</p>
                   )}
+                  {m.profile && (m.profile.approved || m.profile.suspended_at) && (
+                    <PersonActions
+                      profileId={m.profile.id}
+                      suspended={!!m.profile.suspended_at}
+                      merchant={{ id: m.merchant.id, is_open: m.merchant.is_open }}
+                      onDone={data.reload}
+                    />
+                  )}
                 </Card>
               );
             })}
@@ -120,6 +127,9 @@ export default function AdminPeoplePage() {
                   <p className="text-clay text-xs mt-1">ยังขาด: {gaps.join(" · ")}</p>
                 ) : (
                   <p className="text-jade text-xs mt-1">✓ พร้อมรับงาน</p>
+                )}
+                {(d.profile.approved || d.profile.suspended_at) && (
+                  <PersonActions profileId={d.profile.id} suspended={!!d.profile.suspended_at} onDone={data.reload} />
                 )}
               </Card>
             );

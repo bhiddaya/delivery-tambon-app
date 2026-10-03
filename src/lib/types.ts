@@ -1043,6 +1043,9 @@ export type Database = {
           promptpay_id: string | null
           rating: number
           role: Database["public"]["Enums"]["user_role"]
+          suspended_at: string | null
+          suspended_by: string | null
+          suspended_reason: string | null
           tambon_id: string | null
           updated_at: string
         }
@@ -1057,6 +1060,9 @@ export type Database = {
           promptpay_id?: string | null
           rating?: number
           role?: Database["public"]["Enums"]["user_role"]
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspended_reason?: string | null
           tambon_id?: string | null
           updated_at?: string
         }
@@ -1071,10 +1077,27 @@ export type Database = {
           promptpay_id?: string | null
           rating?: number
           role?: Database["public"]["Enums"]["user_role"]
+          suspended_at?: string | null
+          suspended_by?: string | null
+          suspended_reason?: string | null
           tambon_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_suspended_by_fkey"
+            columns: ["suspended_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_suspended_by_fkey"
+            columns: ["suspended_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_tambon_id_fkey"
             columns: ["tambon_id"]
@@ -1422,6 +1445,8 @@ export type Database = {
       }
       tambons: {
         Row: {
+          agent_share_commission_pct: number
+          agent_share_delivery_pct: number
           announcement: string | null
           code: string | null
           contact_line: string | null
@@ -1448,6 +1473,8 @@ export type Database = {
           slug: string
         }
         Insert: {
+          agent_share_commission_pct?: number
+          agent_share_delivery_pct?: number
           announcement?: string | null
           code?: string | null
           contact_line?: string | null
@@ -1474,6 +1501,8 @@ export type Database = {
           slug: string
         }
         Update: {
+          agent_share_commission_pct?: number
+          agent_share_delivery_pct?: number
           announcement?: string | null
           code?: string | null
           contact_line?: string | null
@@ -1574,6 +1603,30 @@ export type Database = {
     }
     Functions: {
       _cart_json: { Args: { p_user: string }; Returns: Json }
+      admin_assign_order: {
+        Args: { p_driver_id: string; p_order_id: number }
+        Returns: undefined
+      }
+      admin_cancel_order: {
+        Args: { p_order_id: number; p_reason: string }
+        Returns: undefined
+      }
+      admin_set_agent_share: {
+        Args: {
+          p_commission_pct: number
+          p_delivery_pct: number
+          p_tambon_id: string
+        }
+        Returns: undefined
+      }
+      admin_set_shop_open: {
+        Args: { p_merchant_id: string; p_open: boolean }
+        Returns: undefined
+      }
+      admin_set_suspended: {
+        Args: { p_profile_id: string; p_reason: string; p_suspend: boolean }
+        Returns: undefined
+      }
       admin_stats_snapshot: { Args: never; Returns: Json }
       approve_tambon_application: {
         Args: {
@@ -1644,6 +1697,17 @@ export type Database = {
       is_approved_driver_in: { Args: { t: string }; Returns: boolean }
       is_superadmin: { Args: never; Returns: boolean }
       is_tambon_admin: { Args: { t: string }; Returns: boolean }
+      line_slip_target: {
+        Args: { p_line_user_id: string }
+        Returns: {
+          order_id: number
+          profile_role: string
+          slip_state: string
+          tambon_id: string
+          tambon_slug: string
+          total: number
+        }[]
+      }
       line_targets_for_new_order: {
         Args: { p_order_id: number }
         Returns: {
