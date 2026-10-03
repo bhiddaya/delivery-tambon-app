@@ -22,13 +22,13 @@ import LiffProvider from "@/components/LiffProvider";
 // เพราะ Google Fonts CDN อาจถูกบล็อกในบางเครือข่าย/สภาพแวดล้อม build — self-host ทำงานได้แน่นอนกว่า
 
 export const metadata: Metadata = {
-  title: "บวรไทย ตำบลบุ่งไหม",
+  title: "บวรไทย",
   description: "ระบบ Delivery ระดับตำบล — ส่งอาหาร ส่งของ เรียกรถ ในแอปเดียว",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "บวรไทย ตำบลบุ่งไหม",
+    title: "บวรไทย",
   },
   icons: {
     icon: "/icons/icon-192.png",

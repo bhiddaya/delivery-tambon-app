@@ -111,7 +111,7 @@ async function handleFollow(event: LineEvent, accessToken: string) {
   await replyMessage(
     event.replyToken,
     [
-      { type: "text", text: "ยินดีต้อนรับสู่ บวรไทย ตำบลบุ่งไหม 🙏" },
+      { type: "text", text: "ยินดีต้อนรับสู่ บวรไทย 🙏" },
       openAppMessage("แตะปุ่มด้านล่างเพื่อเริ่มใช้งาน"),
     ],
     accessToken
