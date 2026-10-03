@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import { Card, PageHeading } from "@/components/ui";
 import { AdminTambonPicker, tambonName, useAdminTambon } from "@/components/AdminTambonPicker";
 import { useTambonAdminData } from "@/components/useTambonAdminData";
@@ -24,6 +26,11 @@ export default function AdminTodayPage() {
     now: data.now,
     q,
   });
+
+  const boardPending = useBoardPending(selected?.id ?? null, data.now);
+  if (boardPending > 0) {
+    todo.push({ key: "board", text: `ประกาศรออนุมัติ ${boardPending} รายการ`, href: `/admin/board${q}`, urgent: false });
+  }
 
   const dayStart = bangkokDayStart(data.now);
   const today = data.orders.filter((o) => new Date(o.created_at).getTime() >= dayStart && !o.is_test);
@@ -85,10 +92,24 @@ export default function AdminTodayPage() {
         <Link href={`/admin/tambon-page${q}`} className="text-indigo font-semibold">
           แก้หน้าตำบล
         </Link>
+        <Link href={`/admin/board${q}`} className="text-indigo font-semibold">
+          ประกาศและเสียงจากตำบล
+        </Link>
       </div>
       <p className="text-ink-soft text-xs mt-2">ไม่นับออเดอร์ทดสอบ · อัปเดตเองเมื่อมีออเดอร์ใหม่</p>
     </div>
   );
+}
+
+/** ประกาศงาน/ประกาศหน่วยงานที่รอตัวแทนอนุมัติ (D52) — RLS ให้เห็นเฉพาะตำบลที่ดูแล */
+function useBoardPending(tambonId: string | null, refreshKey: number) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let q = createClient().from("tambon_board_posts").select("id", { count: "exact", head: true }).eq("status", "pending");
+    if (tambonId) q = q.eq("tambon_id", tambonId);
+    q.then(({ count: c }) => setCount(c ?? 0));
+  }, [tambonId, refreshKey]);
+  return count;
 }
 
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {

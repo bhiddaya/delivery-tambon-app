@@ -48,6 +48,29 @@ type PostPublic = {
   created_at: string;
 };
 
+type BoardPublic = {
+  id: number;
+  kind: "job" | "announcement";
+  org_name: string;
+  org_type: string;
+  title: string;
+  body: string;
+  link_url: string | null;
+  job_positions: number | null;
+  job_wage: string | null;
+  job_location: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+};
+
+type VoiceStats = {
+  total: number;
+  in_progress: number;
+  resolved: number;
+  categories: { category: string; count: number }[];
+  resolved_titles: { title: string; category: string | null; resolved_at: string }[];
+};
+
 type AiItemPublic = {
   id: number;
   kind: string;
@@ -56,7 +79,9 @@ type AiItemPublic = {
   source_url: string;
   source_name: string | null;
   event_date: string | null;
+  first_seen_at: string;
   refreshed_at: string;
+  is_new: boolean;
 };
 
 type MerchantPublic = {
@@ -331,13 +356,191 @@ function TambonKnowledge({ profile }: { profile: TambonProfile }) {
   );
 }
 
-const AI_GROUPS: { kinds: string[]; title: string }[] = [
+const ORG_TYPE_LABEL: Record<string, string> = {
+  government: "หน่วยงานรัฐ",
+  private: "เอกชน",
+  community: "ชุมชน",
+  other: "",
+};
+
+/** ประกาศรับสมัครงาน + ประกาศจากหน่วยงาน — ใครก็ลงได้ฟรี ตัวแทนอนุมัติก่อนขึ้น · สมัครงานผ่าน LINE แล้วระบบส่งต่อนายจ้าง */
+function BoardSection({ slug, items }: { slug: string; items: BoardPublic[] }) {
+  const jobs = items.filter((i) => i.kind === "job");
+  const news = items.filter((i) => i.kind === "announcement");
+  return (
+    <section className="mb-6">
+      <div className="flex items-baseline justify-between mb-2">
+        <h2 className="font-head font-semibold text-sm">ประกาศรับสมัครงานในตำบล</h2>
+        <Link href={`/t/${encodeURIComponent(slug)}/post`} className="text-indigo text-xs font-semibold">
+          ลงประกาศฟรี ›
+        </Link>
+      </div>
+      {jobs.length === 0 ? (
+        <Card className="mb-4">
+          <p className="text-sm">ยังไม่มีประกาศงาน — ร้านค้า โรงงาน หรือหน่วยงานในพื้นที่ลงประกาศรับสมัครได้ฟรี</p>
+          <p className="text-xs mt-2">
+            กำลังหางาน?{" "}
+            <a href={lineOaTextLink("สมัครงาน")} className="text-indigo font-semibold">
+              ฝากประวัติผ่าน LINE ›
+            </a>
+          </p>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-2 mb-4">
+          {jobs.map((j) => (
+            <Card key={j.id}>
+              <div className="font-head font-semibold text-sm">{j.title}</div>
+              <div className="text-ink-soft text-xs">
+                {j.org_name}
+                {ORG_TYPE_LABEL[j.org_type] ? ` · ${ORG_TYPE_LABEL[j.org_type]}` : ""}
+              </div>
+              <div className="text-xs mt-1">
+                {[j.job_positions && `${j.job_positions} อัตรา`, j.job_wage, j.job_location].filter(Boolean).join(" · ")}
+              </div>
+              {j.body && <p className="text-sm leading-relaxed mt-1 whitespace-pre-line">{j.body}</p>}
+              <a
+                href={lineOaTextLink(`สมัครงาน J${j.id}`)}
+                className="inline-block bg-[#06C755] text-white rounded-xl px-4 py-2 text-sm font-semibold mt-2"
+              >
+                สมัครงานนี้ผ่าน LINE
+              </a>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {news.length > 0 && (
+        <>
+          <h2 className="font-head font-semibold text-sm mb-2">ประกาศจากหน่วยงานในพื้นที่</h2>
+          <div className="flex flex-col gap-2">
+            {news.map((n) => (
+              <Card key={n.id}>
+                <div className="text-ink-soft text-xs">
+                  {n.org_name}
+                  {ORG_TYPE_LABEL[n.org_type] ? ` · ${ORG_TYPE_LABEL[n.org_type]}` : ""}
+                  {n.reviewed_at ? ` · ${thaiDate(n.reviewed_at)}` : ""}
+                </div>
+                <div className="font-head font-semibold text-sm">{n.title}</div>
+                {n.body && <p className="text-sm leading-relaxed mt-1 whitespace-pre-line">{n.body}</p>}
+                {n.link_url && (
+                  <a href={n.link_url} target="_blank" rel="noopener noreferrer nofollow" className="text-indigo text-xs underline break-all">
+                    อ่านเพิ่มเติม
+                  </a>
+                )}
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** ปากเสียงตำบล — ตัวเลขเรื่องที่ประชาชนแจ้งผ่าน LINE และเรื่องที่แก้แล้ว ไม่มีข้อมูลระบุตัวผู้แจ้ง */
+function VoiceSection({ voice }: { voice: VoiceStats | null }) {
+  return (
+    <section className="mb-6">
+      <h2 className="font-head font-semibold text-sm mb-2">เสียงจากตำบล</h2>
+      <Card>
+        {voice && voice.total > 0 ? (
+          <>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl bg-indigo-tint px-2 py-2">
+                <div className="font-head font-bold text-lg tabular-nums">{voice.total}</div>
+                <div className="text-ink-soft text-[11px]">เรื่องที่แจ้ง</div>
+              </div>
+              <div className="rounded-xl bg-indigo-tint px-2 py-2">
+                <div className="font-head font-bold text-lg tabular-nums">{voice.in_progress}</div>
+                <div className="text-ink-soft text-[11px]">กำลังดำเนินการ</div>
+              </div>
+              <div className="rounded-xl bg-indigo-tint px-2 py-2">
+                <div className="font-head font-bold text-lg tabular-nums">{voice.resolved}</div>
+                <div className="text-ink-soft text-[11px]">แก้แล้ว</div>
+              </div>
+            </div>
+            {voice.categories.length > 0 && (
+              <p className="text-xs text-ink-soft mt-2">
+                {voice.categories.map((c) => `${c.category} ${c.count}`).join(" · ")}
+              </p>
+            )}
+            {voice.resolved_titles.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {voice.resolved_titles.map((r, i) => (
+                  <li key={i} className="text-sm">
+                    ✓ {r.title} <span className="text-ink-soft text-xs">· {thaiDate(r.resolved_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <p className="text-sm">ยังไม่มีเรื่องที่แจ้งเข้ามา</p>
+        )}
+        <p className="text-xs mt-3">
+          มีปัญหาในพื้นที่? ถนน ไฟฟ้า ขยะ ความปลอดภัย{" "}
+          <a href={lineOaTextLink("แจ้งเรื่อง")} className="text-indigo font-semibold">
+            แจ้งผ่าน LINE ›
+          </a>{" "}
+          <span className="text-ink-soft">ไม่เปิดเผยชื่อผู้แจ้ง</span>
+        </p>
+      </Card>
+    </section>
+  );
+}
+
+type AiCta = { text: string; label: string; line: string };
+
+/**
+ * กลุ่มข้อมูลที่ AI รวบรวม (หัวข้อที่อาจารย์กำหนด 3 ต.ค. 69) · maps = ลิงก์ค้นใน Google Maps
+ * cta = ชวนต่อยอดกับบริการบวรไทย (ส่งข้อความเข้า LINE OA เหมือนปุ่มสมัครด้านบน)
+ */
+const AI_GROUPS: { kinds: string[]; title: string; maps?: boolean; cta?: AiCta }[] = [
   { kinds: ["news", "event"], title: "ข่าวและกิจกรรมในพื้นที่" },
-  { kinds: ["place"], title: "สถานที่สำคัญ" },
+  { kinds: ["education"], title: "โรงเรียนและสถานศึกษา", maps: true },
+  {
+    kinds: ["industry"],
+    title: "โรงงานและผู้ผลิตสำคัญ",
+    maps: true,
+    cta: { text: "หางานในพื้นที่นี้?", label: "ฝากประวัติหางาน", line: "สมัครงาน" },
+  },
+  { kinds: ["place"], title: "แหล่งท่องเที่ยวและสถานที่สำคัญ", maps: true },
+  {
+    kinds: ["food"],
+    title: "ร้านอาหารและร้านค้าเด่น",
+    maps: true,
+    cta: { text: "เป็นเจ้าของร้านในตำบลนี้?", label: "เปิดร้านกับบวรไทย", line: "สมัครร้านค้า" },
+  },
+  { kinds: ["health"], title: "ร้านขายยา คลินิก และสุขภาพ", maps: true },
+  { kinds: ["shopping"], title: "ห้างสรรพสินค้าและตลาด", maps: true },
   { kinds: ["product"], title: "สินค้าชุมชน" },
   { kinds: ["tradition"], title: "ประเพณีและวัฒนธรรม" },
   { kinds: ["fact"], title: "ข้อมูลทั่วไป" },
 ];
+
+/**
+ * ข้อมูลที่ AI รวบรวมจากเว็บ (D51) · RLS ให้ anon เห็นเฉพาะที่ไม่ถูกซ่อนและยังไม่หมดอายุ
+ * is_new = AI พบครั้งแรกภายใน 24 ชั่วโมง (ป้าย "ใหม่" และสรุปรายวัน) คิดตอนดึงข้อมูล ไม่ใช่ตอน render
+ */
+async function getAiItems(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tambonId: string,
+  slug: string
+): Promise<AiItemPublic[]> {
+  const { data, error } = await supabase
+    .from("tambon_ai_items")
+    .select("id, kind, title, summary, source_url, source_name, event_date, first_seen_at, refreshed_at")
+    .eq("tambon_id", tambonId)
+    .eq("hidden", false)
+    .order("refreshed_at", { ascending: false })
+    .limit(60);
+  if (error) console.error("[/t/%s] ai items failed:", slug, error.message);
+  const now = Date.now();
+  return (data ?? []).map((it) => ({ ...it, is_new: now - Date.parse(it.first_seen_at) < 864e5 }));
+}
+
+/** ค้นใน Google Maps ด้วยชื่อ + พื้นที่ — ไม่ต้องใช้ API key และไม่เก็บพิกัดในฐานข้อมูล */
+const mapsLink = (name: string, area: string) =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${area}`)}`;
 
 const thaiDate = (d: string) =>
   new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" });
@@ -351,15 +554,19 @@ function hostOf(url: string): string {
 }
 
 /** ข้อมูลที่ AI รวบรวม —ต้องบอกชัดว่า AI ทำ พร้อมลิงก์แหล่งที่มาและวันที่ทุกรายการ */
-function AiItems({ items }: { items: AiItemPublic[] }) {
+function AiItems({ items, area }: { items: AiItemPublic[]; area: string }) {
   if (items.length === 0) return null;
   const latest = items.reduce((a, b) => (a > b.refreshed_at ? a : b.refreshed_at), "");
+  const newToday = items.filter((it) => it.is_new).length;
   return (
     <section className="mt-8">
       <h2 className="font-head font-semibold text-sm mb-1">ข้อมูลจากเว็บเกี่ยวกับพื้นที่นี้</h2>
       <p className="text-ink-soft text-xs mb-2">
         รวบรวมโดย AI จากเว็บไซต์สาธารณะ · อัปเดต {thaiDate(latest)} · โปรดตรวจสอบกับแหล่งที่มาก่อนนำไปอ้างอิง
       </p>
+      {newToday > 0 && (
+        <p className="text-xs font-semibold text-clay mb-2">วันนี้ AI พบข้อมูลใหม่ {newToday} รายการ</p>
+      )}
       <Card>
         {AI_GROUPS.map((g) => {
           const list = items.filter((it) => g.kinds.includes(it.kind));
@@ -370,20 +577,43 @@ function AiItems({ items }: { items: AiItemPublic[] }) {
               <ul className="space-y-2">
                 {list.map((it) => (
                   <li key={it.id} className="text-sm leading-relaxed">
+                    {it.is_new && (
+                      <span className="text-[10px] font-semibold text-white bg-clay rounded px-1 mr-1">ใหม่</span>
+                    )}
                     <span className="font-medium">{it.title}</span>
                     {it.event_date && <span className="text-ink-soft"> · {thaiDate(it.event_date)}</span>}
                     {it.summary && <div className="text-ink-soft text-xs mt-0.5">{it.summary}</div>}
-                    <a
-                      href={it.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="text-indigo text-xs underline break-all"
-                    >
-                      ที่มา: {it.source_name || hostOf(it.source_url)}
-                    </a>
+                    <div className="flex flex-wrap gap-x-3 text-xs">
+                      <a
+                        href={it.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="text-indigo underline break-all"
+                      >
+                        ที่มา: {it.source_name || hostOf(it.source_url)}
+                      </a>
+                      {g.maps && (
+                        <a
+                          href={mapsLink(it.title, area)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo underline"
+                        >
+                          ดูแผนที่
+                        </a>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
+              {g.cta && (
+                <p className="text-xs mt-2">
+                  {g.cta.text}{" "}
+                  <a href={lineOaTextLink(g.cta.line)} className="text-indigo font-semibold">
+                    {g.cta.label} ›
+                  </a>
+                </p>
+              )}
             </div>
           );
         })}
@@ -449,18 +679,24 @@ export default async function TambonPublicPage({
   }
   const posts = (postRows ?? []) as PostPublic[];
 
-  // ข้อมูลที่ AI รวบรวมจากเว็บ (D51) · RLS ให้ anon เห็นเฉพาะที่ไม่ถูกซ่อนและยังไม่หมดอายุ
-  const { data: aiRows, error: aiError } = await supabase
-    .from("tambon_ai_items")
-    .select("id, kind, title, summary, source_url, source_name, event_date, refreshed_at")
+  // ประกาศงาน/ประกาศหน่วยงาน (D52) · RLS ให้ anon เห็นเฉพาะที่ตัวแทนอนุมัติแล้วและยังไม่หมดอายุ
+  // ข้อมูลติดต่อผู้ลงประกาศอยู่อีกตาราง anon อ่านไม่ได้
+  const { data: boardRows, error: boardError } = await supabase
+    .from("tambon_board_posts")
+    .select("id, kind, org_name, org_type, title, body, link_url, job_positions, job_wage, job_location, reviewed_at, created_at")
     .eq("tambon_id", tambon.id)
-    .eq("hidden", false)
-    .order("refreshed_at", { ascending: false })
-    .limit(40);
-  if (aiError) {
-    console.error("[/t/%s] ai items failed:", slug, aiError.message);
-  }
-  const aiItems = (aiRows ?? []) as AiItemPublic[];
+    .eq("status", "approved")
+    .order("reviewed_at", { ascending: false })
+    .limit(30);
+  if (boardError) console.error("[/t/%s] board failed:", slug, boardError.message);
+  const board = (boardRows ?? []) as BoardPublic[];
+
+  // ปากเสียงตำบล: ตัวเลขเรื่องร้องเรียน + หัวเรื่องที่แก้แล้ว (เฉพาะที่ตัวแทนเขียนหัวเรื่องสาธารณะ)
+  const { data: voiceData, error: voiceError } = await supabase.rpc("tambon_complaint_stats", { p_tambon_id: tambon.id });
+  if (voiceError) console.error("[/t/%s] complaint stats failed:", slug, voiceError.message);
+  const voice = (voiceData ?? null) as VoiceStats | null;
+
+  const aiItems = await getAiItems(supabase, tambon.id, slug);
 
   const place = fullPlace(tambon);
   const label = tambonLabel(tambon);
@@ -587,6 +823,9 @@ export default async function TambonPublicPage({
         </section>
       )}
 
+      <BoardSection slug={slug} items={board} />
+      <VoiceSection voice={voice} />
+
       {tambon.is_active && (
         <>
           <h2 className="font-head font-semibold text-sm mb-2">
@@ -622,7 +861,7 @@ export default async function TambonPublicPage({
 
       {profile && <TambonKnowledge profile={profile} />}
 
-      <AiItems items={aiItems} />
+      <AiItems items={aiItems} area={`${label} ${place}`} />
 
       <p className="text-ink-soft text-xs text-center mt-8 leading-relaxed">
         ต้องเข้าสู่ระบบเพื่อสั่งซื้อ

@@ -316,6 +316,11 @@ const AI_KIND: Record<string, string> = {
   product: "สินค้า",
   tradition: "ประเพณี",
   fact: "ข้อมูลทั่วไป",
+  education: "สถานศึกษา",
+  industry: "โรงงาน/ผู้ผลิต",
+  food: "ร้านอาหาร/ร้านค้า",
+  health: "ร้านขายยา/คลินิก",
+  shopping: "ห้าง/ตลาด",
 };
 
 /**
@@ -368,7 +373,8 @@ function AiItemsCard({ tambon }: { tambon: Tables<"tambons"> }) {
       <div className="font-head font-semibold text-sm mb-1">ข้อมูลที่ AI รวบรวมจากเว็บ</div>
       <p className="text-ink-soft text-xs mb-3">
         AI ค้นข้อมูลสาธารณะของตำบลวันละครั้ง ทุกรายการมีลิงก์แหล่งที่มา ตรวจแล้วกด “ซ่อน” รายการที่ไม่ถูกต้องได้
-        {lastRun && ` · รันล่าสุด ${dateStr(lastRun.ran_at)}${lastRun.status === "error" ? " (มีปัญหา)" : ""}`}
+        {lastRun &&
+          ` · รายงานรอบล่าสุด ${dateStr(lastRun.ran_at)}: ใหม่ ${lastRun.items_added} · อัปเดต ${lastRun.items_refreshed} · คัดออก ${lastRun.items_rejected}${lastRun.status === "error" ? " (มีปัญหา)" : ""}`}
       </p>
       {err && <p className="text-sm text-clay mb-2">{err}</p>}
       {items.length === 0 ? (
@@ -386,6 +392,8 @@ function AiItemsCard({ tambon }: { tambon: Tables<"tambons"> }) {
                   {expired && <span className="text-ink-soft text-xs"> · หมดอายุ</span>}
                 </div>
                 {it.summary && <p className="text-sm text-ink mt-1">{it.summary}</p>}
+                {it.kind === "food" && <p className="text-xs text-indigo mt-1">ร้านที่ AI พบ — ลองชวนเข้าร่วมบวรไทย</p>}
+                {it.kind === "industry" && <p className="text-xs text-indigo mt-1">แหล่งจ้างงาน — ลองประสานประกาศรับสมัครงาน</p>}
                 <a href={it.source_url} target="_blank" rel="noopener noreferrer" className="text-indigo text-xs underline break-all">
                   {it.source_name || it.source_url}
                 </a>
