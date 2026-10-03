@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { Card, EmptyState, PageHeading } from "@/components/ui";
+import { PayoutList } from "@/components/PayoutList";
 import { dateStr, money, type OrderRow } from "@/lib/domain";
 import { PERIOD_LABEL, inPeriod, summariseMerchant, type Period } from "@/lib/earnings";
 
@@ -66,6 +67,8 @@ export default function MerchantEarningsPage() {
   return (
     <div>
       <PageHeading title="รายรับร้าน" />
+
+      <PayoutList profileId={profile.id} promptpayId={profile.promptpay_id} />
 
       <div className="flex gap-1.5 mb-4">
         {PERIODS.map((p) => (

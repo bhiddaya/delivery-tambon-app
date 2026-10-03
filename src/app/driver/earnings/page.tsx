@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { Card, EmptyState, PageHeading } from "@/components/ui";
+import { PayoutList } from "@/components/PayoutList";
 import { TYPE_LABEL, VEHICLE_LABEL, dateStr, money, type OrderRow } from "@/lib/domain";
 import {
   PERIOD_LABEL,
@@ -60,6 +61,8 @@ export default function DriverEarningsPage() {
         title="รายรับของฉัน"
         subtitle={driver ? VEHICLE_LABEL[driver.vehicle_type] : undefined}
       />
+
+      <PayoutList profileId={profile.id} promptpayId={profile.promptpay_id} />
 
       <div className="flex gap-1.5 mb-4">
         {PERIODS.map((p) => (

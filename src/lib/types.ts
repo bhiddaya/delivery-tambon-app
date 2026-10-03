@@ -10,10 +10,66 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
+      admin_actions: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          id: number
+          note: string | null
+          target_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string
+          id?: never
+          note?: string | null
+          target_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          id?: never
+          note?: string | null
+          target_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_actions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_actions_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_actions_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_actions_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_scopes: {
         Row: {
           created_at: string
@@ -41,6 +97,27 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "admin_scopes_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_scopes_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_scopes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "admin_scopes_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
@@ -55,6 +132,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_conversations: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          line_user_id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          line_user_id: string
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          line_user_id?: string
+          role?: string
+        }
+        Relationships: []
       }
       carts: {
         Row: {
@@ -75,11 +176,241 @@ export type Database = {
           merchant_id?: string | null
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "carts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_rankings"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "carts_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      complaint_updates: {
+        Row: {
+          complaint_id: string
+          created_at: string
+          created_by: string
+          id: string
+          is_public: boolean
+          note: string | null
+          status: string
+        }
+        Insert: {
+          complaint_id: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_public?: boolean
+          note?: string | null
+          status: string
+        }
+        Update: {
+          complaint_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_public?: boolean
+          note?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaint_updates_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "complaints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      complaints: {
+        Row: {
+          agency_hint: string | null
+          ai_summary: string | null
+          category: string | null
+          created_at: string
+          detail: string
+          disclose_identity: boolean
+          id: string
+          is_test: boolean
+          line_user_id: string
+          occurred_on: string | null
+          place: string | null
+          raw_text: string | null
+          reporter_name: string | null
+          reporter_phone: string | null
+          source: string
+          status: string
+          subject: string | null
+          suggested_agency: string | null
+          tambon_id: string | null
+          ticket_no: string
+          updated_at: string
+          urgency: string | null
+        }
+        Insert: {
+          agency_hint?: string | null
+          ai_summary?: string | null
+          category?: string | null
+          created_at?: string
+          detail: string
+          disclose_identity?: boolean
+          id?: string
+          is_test?: boolean
+          line_user_id: string
+          occurred_on?: string | null
+          place?: string | null
+          raw_text?: string | null
+          reporter_name?: string | null
+          reporter_phone?: string | null
+          source?: string
+          status?: string
+          subject?: string | null
+          suggested_agency?: string | null
+          tambon_id?: string | null
+          ticket_no: string
+          updated_at?: string
+          urgency?: string | null
+        }
+        Update: {
+          agency_hint?: string | null
+          ai_summary?: string | null
+          category?: string | null
+          created_at?: string
+          detail?: string
+          disclose_identity?: boolean
+          id?: string
+          is_test?: boolean
+          line_user_id?: string
+          occurred_on?: string | null
+          place?: string | null
+          raw_text?: string | null
+          reporter_name?: string | null
+          reporter_phone?: string | null
+          source?: string
+          status?: string
+          subject?: string | null
+          suggested_agency?: string | null
+          tambon_id?: string | null
+          ticket_no?: string
+          updated_at?: string
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaints_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          context: string | null
+          conversation_id: string | null
+          created_at: string | null
+          id: number
+          model: string | null
+          response: string | null
+          task: string
+          tokens_used: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: number
+          model?: string | null
+          response?: string | null
+          task: string
+          tokens_used?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: number
+          model?: string | null
+          response?: string | null
+          task?: string
+          tokens_used?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
         Relationships: []
+      }
+      demand_signals: {
+        Row: {
+          created_at: string
+          detail: Json
+          id: number
+          kind: string
+          profile_id: string | null
+          tambon_id: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          id?: never
+          kind: string
+          profile_id?: string | null
+          tambon_id?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          id?: never
+          kind?: string
+          profile_id?: string | null
+          tambon_id?: string | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_signals_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_signals_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_signals_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       drivers: {
         Row: {
           is_online: boolean
+          lat: number | null
+          lng: number | null
+          location_updated_at: string | null
           profile_id: string
           today_earn: number
           today_jobs: number
@@ -88,6 +419,9 @@ export type Database = {
         }
         Insert: {
           is_online?: boolean
+          lat?: number | null
+          lng?: number | null
+          location_updated_at?: string | null
           profile_id: string
           today_earn?: number
           today_jobs?: number
@@ -96,6 +430,9 @@ export type Database = {
         }
         Update: {
           is_online?: boolean
+          lat?: number | null
+          lng?: number | null
+          location_updated_at?: string | null
           profile_id?: string
           today_earn?: number
           today_jobs?: number
@@ -107,10 +444,50 @@ export type Database = {
             foreignKeyName: "drivers_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: true
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drivers_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
+      }
+      job_seekers: {
+        Row: {
+          area: string | null
+          created_at: string
+          full_name: string
+          id: string
+          line_user_id: string
+          occupation: string | null
+          phone: string | null
+          skills_experience: string | null
+        }
+        Insert: {
+          area?: string | null
+          created_at?: string
+          full_name: string
+          id?: string
+          line_user_id: string
+          occupation?: string | null
+          phone?: string | null
+          skills_experience?: string | null
+        }
+        Update: {
+          area?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          line_user_id?: string
+          occupation?: string | null
+          phone?: string | null
+          skills_experience?: string | null
+        }
+        Relationships: []
       }
       menu_items: {
         Row: {
@@ -148,6 +525,13 @@ export type Database = {
             foreignKeyName: "menu_items_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_rankings"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "menu_items_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
@@ -160,6 +544,9 @@ export type Database = {
           created_at: string
           id: string
           is_open: boolean
+          is_test: boolean
+          lat: number | null
+          lng: number | null
           name: string
           profile_id: string
           tambon_id: string
@@ -171,6 +558,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_open?: boolean
+          is_test?: boolean
+          lat?: number | null
+          lng?: number | null
           name: string
           profile_id: string
           tambon_id: string
@@ -182,12 +572,22 @@ export type Database = {
           created_at?: string
           id?: string
           is_open?: boolean
+          is_test?: boolean
+          lat?: number | null
+          lng?: number | null
           name?: string
           profile_id?: string
           tambon_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "merchants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "merchants_profile_id_fkey"
             columns: ["profile_id"]
@@ -200,6 +600,38 @@ export type Database = {
             columns: ["tambon_id"]
             isOneToOne: false
             referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_events: {
+        Row: {
+          created_at: string
+          id: number
+          note: string | null
+          order_id: number
+          status: Database["public"]["Enums"]["order_status"]
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          note?: string | null
+          order_id: number
+          status: Database["public"]["Enums"]["order_status"]
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          note?: string | null
+          order_id?: number
+          status?: Database["public"]["Enums"]["order_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -250,16 +682,32 @@ export type Database = {
         Row: {
           created_at: string
           customer_id: string
+          customer_paid_at: string | null
+          customer_slip_url: string | null
+          delivered_at: string | null
           delivery_fee: number
           driver_id: string | null
           dropoff: string | null
+          dropoff_lat: number | null
+          dropoff_lng: number | null
           id: number
+          is_test: boolean
           items_subtotal: number
+          job_area_rai: number | null
+          job_duration_hours: number | null
           merchant_id: string | null
           note: string | null
           payment_method: string | null
+          payment_ref: string | null
           pickup: string | null
+          pickup_lat: number | null
+          pickup_lng: number | null
+          plot_id: string | null
           price: number
+          required_vehicle_type:
+            | Database["public"]["Enums"]["vehicle_type"]
+            | null
+          scheduled_date: string | null
           status: Database["public"]["Enums"]["order_status"]
           tambon_id: string
           type: Database["public"]["Enums"]["order_type"]
@@ -268,16 +716,32 @@ export type Database = {
         Insert: {
           created_at?: string
           customer_id: string
+          customer_paid_at?: string | null
+          customer_slip_url?: string | null
+          delivered_at?: string | null
           delivery_fee?: number
           driver_id?: string | null
           dropoff?: string | null
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
           id?: never
+          is_test?: boolean
           items_subtotal?: number
+          job_area_rai?: number | null
+          job_duration_hours?: number | null
           merchant_id?: string | null
           note?: string | null
           payment_method?: string | null
+          payment_ref?: string | null
           pickup?: string | null
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          plot_id?: string | null
           price?: number
+          required_vehicle_type?:
+            | Database["public"]["Enums"]["vehicle_type"]
+            | null
+          scheduled_date?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           tambon_id: string
           type: Database["public"]["Enums"]["order_type"]
@@ -286,16 +750,32 @@ export type Database = {
         Update: {
           created_at?: string
           customer_id?: string
+          customer_paid_at?: string | null
+          customer_slip_url?: string | null
+          delivered_at?: string | null
           delivery_fee?: number
           driver_id?: string | null
           dropoff?: string | null
+          dropoff_lat?: number | null
+          dropoff_lng?: number | null
           id?: never
+          is_test?: boolean
           items_subtotal?: number
+          job_area_rai?: number | null
+          job_duration_hours?: number | null
           merchant_id?: string | null
           note?: string | null
           payment_method?: string | null
+          payment_ref?: string | null
           pickup?: string | null
+          pickup_lat?: number | null
+          pickup_lng?: number | null
+          plot_id?: string | null
           price?: number
+          required_vehicle_type?:
+            | Database["public"]["Enums"]["vehicle_type"]
+            | null
+          scheduled_date?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           tambon_id?: string
           type?: Database["public"]["Enums"]["order_type"]
@@ -306,7 +786,21 @@ export type Database = {
             foreignKeyName: "orders_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
             referencedColumns: ["id"]
           },
           {
@@ -320,11 +814,190 @@ export type Database = {
             foreignKeyName: "orders_merchant_id_fkey"
             columns: ["merchant_id"]
             isOneToOne: false
+            referencedRelation: "merchant_rankings"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "orders_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
             referencedRelation: "merchants"
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "orders_plot_id_fkey"
+            columns: ["plot_id"]
+            isOneToOne: false
+            referencedRelation: "plots"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "orders_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_menu_items: {
+        Row: {
+          created_at: string
+          id: string
+          line_user_id: string
+          merchant_id: string
+          name: string
+          price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          line_user_id: string
+          merchant_id: string
+          name: string
+          price: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          line_user_id?: string
+          merchant_id?: string
+          name?: string
+          price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_menu_items_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant_rankings"
+            referencedColumns: ["merchant_id"]
+          },
+          {
+            foreignKeyName: "pending_menu_items_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      places: {
+        Row: {
+          address: string | null
+          ai_confidence: number | null
+          category: string
+          created_at: string
+          id: string
+          lat: number | null
+          lng: number | null
+          name: string
+          note: string | null
+          phone: string | null
+          source: string
+          source_url: string | null
+          tambon_id: string | null
+          updated_at: string
+          verified: boolean
+        }
+        Insert: {
+          address?: string | null
+          ai_confidence?: number | null
+          category: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name: string
+          note?: string | null
+          phone?: string | null
+          source?: string
+          source_url?: string | null
+          tambon_id?: string | null
+          updated_at?: string
+          verified?: boolean
+        }
+        Update: {
+          address?: string | null
+          ai_confidence?: number | null
+          category?: string
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          note?: string | null
+          phone?: string | null
+          source?: string
+          source_url?: string | null
+          tambon_id?: string | null
+          updated_at?: string
+          verified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "places_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plots: {
+        Row: {
+          address: string | null
+          area_rai: number | null
+          created_at: string
+          crop_type: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          note: string | null
+          owner_profile_id: string
+          tambon_id: string
+        }
+        Insert: {
+          address?: string | null
+          area_rai?: number | null
+          created_at?: string
+          crop_type?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          note?: string | null
+          owner_profile_id: string
+          tambon_id: string
+        }
+        Update: {
+          address?: string | null
+          area_rai?: number | null
+          created_at?: string
+          crop_type?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          note?: string | null
+          owner_profile_id?: string
+          tambon_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plots_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plots_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plots_tambon_id_fkey"
             columns: ["tambon_id"]
             isOneToOne: false
             referencedRelation: "tambons"
@@ -338,6 +1011,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          is_test: boolean
           line_user_id: string | null
           phone: string | null
           promptpay_id: string | null
@@ -350,7 +1024,8 @@ export type Database = {
           approved?: boolean
           created_at?: string
           full_name: string
-          id: string
+          id?: string
+          is_test?: boolean
           line_user_id?: string | null
           phone?: string | null
           promptpay_id?: string | null
@@ -364,6 +1039,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          is_test?: boolean
           line_user_id?: string | null
           phone?: string | null
           promptpay_id?: string | null
@@ -415,6 +1091,13 @@ export type Database = {
             foreignKeyName: "ratings_from_profile_fkey"
             columns: ["from_profile"]
             isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_from_profile_fkey"
+            columns: ["from_profile"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -429,7 +1112,88 @@ export type Database = {
             foreignKeyName: "ratings_to_profile_fkey"
             columns: ["to_profile"]
             isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_to_profile_fkey"
+            columns: ["to_profile"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlements: {
+        Row: {
+          amount: number
+          confirmed_at: string | null
+          created_at: string
+          due_at: string
+          id: number
+          order_id: number
+          paid_out_at: string | null
+          paid_out_slip_url: string | null
+          payee_profile_id: string
+          payee_role: string
+          payout_ref: string | null
+          tambon_id: string
+        }
+        Insert: {
+          amount: number
+          confirmed_at?: string | null
+          created_at?: string
+          due_at: string
+          id?: never
+          order_id: number
+          paid_out_at?: string | null
+          paid_out_slip_url?: string | null
+          payee_profile_id: string
+          payee_role: string
+          payout_ref?: string | null
+          tambon_id: string
+        }
+        Update: {
+          amount?: number
+          confirmed_at?: string | null
+          created_at?: string
+          due_at?: string
+          id?: never
+          order_id?: number
+          paid_out_at?: string | null
+          paid_out_slip_url?: string | null
+          payee_profile_id?: string
+          payee_role?: string
+          payout_ref?: string | null
+          tambon_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_payee_profile_id_fkey"
+            columns: ["payee_profile_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_payee_profile_id_fkey"
+            columns: ["payee_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
             referencedColumns: ["id"]
           },
         ]
@@ -442,6 +1206,9 @@ export type Database = {
           applicant_profile_id: string | null
           created_at: string
           created_tambon_id: string | null
+          deposit_amount: number | null
+          deposit_received_at: string | null
+          deposit_slip_url: string | null
           details: Json
           district: string
           driver_count: number | null
@@ -452,6 +1219,7 @@ export type Database = {
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          settlement_promptpay_id: string | null
           status: string
           tambon_code: string | null
           tambon_name: string
@@ -463,6 +1231,9 @@ export type Database = {
           applicant_profile_id?: string | null
           created_at?: string
           created_tambon_id?: string | null
+          deposit_amount?: number | null
+          deposit_received_at?: string | null
+          deposit_slip_url?: string | null
           details?: Json
           district: string
           driver_count?: number | null
@@ -473,6 +1244,7 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          settlement_promptpay_id?: string | null
           status?: string
           tambon_code?: string | null
           tambon_name: string
@@ -484,6 +1256,9 @@ export type Database = {
           applicant_profile_id?: string | null
           created_at?: string
           created_tambon_id?: string | null
+          deposit_amount?: number | null
+          deposit_received_at?: string | null
+          deposit_slip_url?: string | null
           details?: Json
           district?: string
           driver_count?: number | null
@@ -494,11 +1269,48 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          settlement_promptpay_id?: string | null
           status?: string
           tambon_code?: string | null
           tambon_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tambon_applications_applicant_profile_id_fkey"
+            columns: ["applicant_profile_id"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_applications_applicant_profile_id_fkey"
+            columns: ["applicant_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_applications_created_tambon_id_fkey"
+            columns: ["created_tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tambon_profiles: {
         Row: {
@@ -566,6 +1378,20 @@ export type Database = {
             referencedRelation: "tambons"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tambon_profiles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_profiles_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tambons: {
@@ -578,15 +1404,21 @@ export type Database = {
           created_at: string
           delivery_fee_base: number | null
           delivery_fee_per_km: number | null
+          deposit_amount: number
           district: string | null
           id: string
+          intake_blocked: boolean
+          intake_blocked_reason: string | null
           intro: string | null
           is_active: boolean
           name: string
           name_en: string | null
           note: string | null
           opened_at: string | null
+          payout_cutoff_time: string
           province: string | null
+          settlement_account_name: string | null
+          settlement_promptpay_id: string | null
           slug: string
         }
         Insert: {
@@ -598,15 +1430,21 @@ export type Database = {
           created_at?: string
           delivery_fee_base?: number | null
           delivery_fee_per_km?: number | null
+          deposit_amount?: number
           district?: string | null
           id?: string
+          intake_blocked?: boolean
+          intake_blocked_reason?: string | null
           intro?: string | null
           is_active?: boolean
           name: string
           name_en?: string | null
           note?: string | null
           opened_at?: string | null
+          payout_cutoff_time?: string
           province?: string | null
+          settlement_account_name?: string | null
+          settlement_promptpay_id?: string | null
           slug: string
         }
         Update: {
@@ -618,24 +1456,99 @@ export type Database = {
           created_at?: string
           delivery_fee_base?: number | null
           delivery_fee_per_km?: number | null
+          deposit_amount?: number
           district?: string | null
           id?: string
+          intake_blocked?: boolean
+          intake_blocked_reason?: string | null
           intro?: string | null
           is_active?: boolean
           name?: string
           name_en?: string | null
           note?: string | null
           opened_at?: string | null
+          payout_cutoff_time?: string
           province?: string | null
+          settlement_account_name?: string | null
+          settlement_promptpay_id?: string | null
           slug?: string
         }
         Relationships: []
       }
+      web_applications: {
+        Row: {
+          created_at: string
+          details: Json
+          full_name: string
+          id: string
+          line_id: string | null
+          pdpa_consent: boolean
+          phone: string
+          role: string
+          status: string
+          tambon_confirmed: boolean
+          tambon_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          full_name: string
+          id?: string
+          line_id?: string | null
+          pdpa_consent?: boolean
+          phone: string
+          role: string
+          status?: string
+          tambon_confirmed?: boolean
+          tambon_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          full_name?: string
+          id?: string
+          line_id?: string | null
+          pdpa_consent?: boolean
+          phone?: string
+          role?: string
+          status?: string
+          tambon_confirmed?: boolean
+          tambon_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "web_applications_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      driver_rankings: {
+        Row: {
+          avg_score: number | null
+          full_name: string | null
+          id: string | null
+          rating_count: number | null
+        }
+        Relationships: []
+      }
+      merchant_rankings: {
+        Row: {
+          avg_score: number | null
+          merchant_id: string | null
+          name: string | null
+          rating_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      _cart_json: { Args: { p_user: string }; Returns: Json }
+      admin_stats_snapshot: { Args: never; Returns: Json }
       approve_tambon_application: {
         Args: { app_id: string; review_note?: string; tambon_slug: string }
         Returns: string
@@ -644,26 +1557,123 @@ export type Database = {
         Args: { p_alias_email: string; p_line_user_id: string }
         Returns: string
       }
+      base36: { Args: { p: number }; Returns: string }
+      calc_delivery_fee: { Args: { distance_km: number }; Returns: number }
       can_admin_profile: { Args: { p: string }; Returns: boolean }
       can_admin_tambon: { Args: { t: string }; Returns: boolean }
+      confirm_customer_payment: {
+        Args: { p_order_id: number; p_slip_url?: string }
+        Returns: undefined
+      }
+      confirm_payout_received: {
+        Args: { p_settlement_id: number }
+        Returns: undefined
+      }
+      delivery_overview: { Args: never; Returns: Json }
+      find_agri_owner: {
+        Args: {
+          p_is_test?: boolean
+          p_order_lat: number
+          p_order_lng: number
+          p_tambon_id: string
+          p_vehicle_type?: string
+        }
+        Returns: {
+          distance_km: number
+          line_user_id: string
+          profile_id: string
+          vehicle_type: string
+        }[]
+      }
+      find_nearest_driver: {
+        Args: {
+          p_is_test?: boolean
+          p_order_lat: number
+          p_order_lng: number
+          p_tambon_id: string
+          p_vehicle_type?: string
+        }
+        Returns: {
+          distance_km: number
+          line_user_id: string
+          profile_id: string
+          vehicle_type: string
+        }[]
+      }
+      food_flow: {
+        Args: { p_action: string; p_arg?: string; p_user: string }
+        Returns: Json
+      }
       has_national_scope: { Args: never; Returns: boolean }
-      is_approved_driver_in: { Args: { t: string }; Returns: boolean }
-      my_tambon_id: { Args: never; Returns: string }
-      shares_order_with: { Args: { p: string }; Returns: boolean }
+      haversine_km: {
+        Args: { lat1: number; lat2: number; lng1: number; lng2: number }
+        Returns: number
+      }
       is_admin: { Args: never; Returns: boolean }
+      is_approved_driver_in: { Args: { t: string }; Returns: boolean }
       is_superadmin: { Args: never; Returns: boolean }
       is_tambon_admin: { Args: { t: string }; Returns: boolean }
-      session_used_password: { Args: never; Returns: boolean | null }
-      search_menu: {
-        Args: { p_query: string; p_tambon?: string | null }
+      line_targets_for_new_order: {
+        Args: { p_order_id: number }
         Returns: {
-          merchant_id: string
-          merchant_name: string
-          merchant_category: string | null
+          line_user_id: string
+        }[]
+      }
+      line_targets_for_tambon_admin: {
+        Args: { p_tambon_id: string }
+        Returns: {
+          line_user_id: string
+        }[]
+      }
+      make_ref: { Args: { p_id: number; p_prefix: string }; Returns: string }
+      mark_payout_sent: {
+        Args: { p_settlement_id: number; p_slip_url?: string }
+        Returns: undefined
+      }
+      my_tambon_id: { Args: never; Returns: string }
+      next_payout_due: { Args: { p_tambon: string }; Returns: string }
+      purge_stale_carts: { Args: { p_days?: number }; Returns: number }
+      recalc_profile_rating: {
+        Args: { p_profile_id: string }
+        Returns: undefined
+      }
+      refresh_intake_block: { Args: { p_tambon: string }; Returns: undefined }
+      search_menu: {
+        Args: { p_query: string; p_tambon?: string }
+        Returns: {
           item_id: string
           item_name: string
+          merchant_category: string
+          merchant_id: string
+          merchant_name: string
+          photo_url: string
           price: number
-          photo_url: string | null
+        }[]
+      }
+      session_used_password: { Args: never; Returns: boolean }
+      shares_order_with: { Args: { p: string }; Returns: boolean }
+      tambon_daily_stats: {
+        Args: never
+        Returns: {
+          delivered_today: number
+          drivers_online: number
+          drivers_total: number
+          merchants_open: number
+          orders_today: number
+          pending_now: number
+          tambon_id: string
+          tambon_name: string
+          waiting_approval: number
+        }[]
+      }
+      tambon_float: { Args: { p_tambon: string }; Returns: number }
+      vehicle_availability: {
+        Args: never
+        Returns: {
+          offline: number
+          ready: number
+          total: number
+          vehicle_type: Database["public"]["Enums"]["vehicle_type"]
         }[]
       }
     }
@@ -702,12 +1712,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -731,11 +1741,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -756,11 +1766,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -781,17 +1791,34 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {

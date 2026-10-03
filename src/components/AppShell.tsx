@@ -42,6 +42,7 @@ const NAV: Record<UserRole, NavLink[]> = {
   admin: [
     { href: "/admin", label: "แดชบอร์ด", icon: GridIcon },
     { href: "/admin/approvals", label: "อนุมัติ", icon: CheckBadgeIcon },
+    { href: "/admin/accounts", label: "บัญชีตำบล", icon: WalletIcon },
     { href: "/admin/settings", label: "ตั้งค่า", icon: SettingsIcon },
     { href: "/account", label: "บัญชี", icon: UserIcon },
   ],
@@ -51,6 +52,7 @@ const NAV: Record<UserRole, NavLink[]> = {
   superadmin: [
     { href: "/admin", label: "แดชบอร์ด", icon: GridIcon },
     { href: "/admin/approvals", label: "อนุมัติ", icon: CheckBadgeIcon },
+    { href: "/admin/accounts", label: "บัญชีตำบล", icon: WalletIcon },
     { href: "/admin/settings", label: "ตั้งค่า", icon: SettingsIcon },
     { href: "/account", label: "บัญชี", icon: UserIcon },
   ],
