@@ -119,7 +119,7 @@ export async function searchMenu(
 ): Promise<ShopResult[]> {
   const { data, error } = await supabase.rpc("search_menu", {
     p_query: term,
-    p_tambon: tambonId ?? null,
+    p_tambon: tambonId ?? undefined,
   });
 
   if (error) {

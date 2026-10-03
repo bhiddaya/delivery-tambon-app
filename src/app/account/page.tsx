@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { useSession } from "@/lib/session-context";
 import { Card, PageHeading } from "@/components/ui";
 import LinkLineCard from "@/components/LinkLineCard";
+import { PromptPayCard } from "@/components/PromptPayCard";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
 import SetPhonePasswordCard from "@/components/SetPhonePasswordCard";
 import { ROLE_LABEL } from "@/lib/domain";
@@ -71,6 +72,10 @@ function AccountView() {
           </div>
         </dl>
       </Card>
+
+      {(profile.role === "driver" || profile.role === "merchant") && (
+        <PromptPayCard profileId={profile.id} initial={profile.promptpay_id} />
+      )}
 
       {needsPassword && (
         <Card className="mb-4 border-marigold">

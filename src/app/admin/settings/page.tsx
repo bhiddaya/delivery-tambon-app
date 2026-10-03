@@ -30,7 +30,20 @@ export default function AdminSettingsPage() {
     load();
   }, []);
 
-  function updateField(id: string, field: "name" | "district" | "province", value: string) {
+  function updateField(
+    id: string,
+    field:
+      | "name"
+      | "district"
+      | "province"
+      | "settlement_promptpay_id"
+      | "settlement_account_name"
+      | "delivery_fee_base"
+      | "delivery_fee_per_km"
+      | "payout_cutoff_time"
+      | "deposit_amount",
+    value: string | number | null
+  ) {
     setTambons((prev) => prev.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
   }
 
@@ -50,6 +63,44 @@ export default function AdminSettingsPage() {
     setMessages((m) => ({ ...m, [t.id]: "" }));
     setSavedId(t.id);
     setTimeout(() => setSavedId(null), 2000);
+  }
+
+  // การเงินตำบล — ตัวแทนตำบลตั้งเอง (RLS tambons_write_scoped: เฉพาะตัวแทนของตำบลนั้นหรือส่วนกลาง)
+  // เงินค้ำประกันให้ส่วนกลางตั้ง เพราะเป็นเพดานยอดค้างโอนก่อนระบบหยุดรับออเดอร์
+  async function saveFinance(t: Tables<"tambons">) {
+    const pp = (t.settlement_promptpay_id ?? "").replace(/[\s-]/g, "");
+    if (pp && !/^\d{10}$|^\d{13}$|^\d{15}$/.test(pp)) {
+      setMessages((m) => ({ ...m, [t.id]: "เลขพร้อมเพย์ต้องเป็นเบอร์โทร 10 หลัก หรือเลขบัตร/นิติบุคคล 13 หลัก" }));
+      return;
+    }
+    const base = t.delivery_fee_base === null ? null : Number(t.delivery_fee_base);
+    const perKm = t.delivery_fee_per_km === null ? null : Number(t.delivery_fee_per_km);
+    if ((base !== null && !(base >= 0)) || (perKm !== null && !(perKm >= 0))) {
+      setMessages((m) => ({ ...m, [t.id]: "ค่าส่งต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป" }));
+      return;
+    }
+    setBusy(true);
+    setSavedId(null);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("tambons")
+      .update({
+        settlement_promptpay_id: pp || null,
+        settlement_account_name: t.settlement_account_name?.trim() || null,
+        delivery_fee_base: base,
+        delivery_fee_per_km: perKm,
+        payout_cutoff_time: t.payout_cutoff_time || "21:00",
+        ...(isSuperadmin ? { deposit_amount: Number(t.deposit_amount ?? 0) } : {}),
+      })
+      .eq("id", t.id)
+      .select("id");
+    setBusy(false);
+    if (error || !data || data.length === 0) {
+      setMessages((m) => ({ ...m, [t.id]: `บันทึกการเงินไม่สำเร็จ${error ? `: ${error.message}` : " (ไม่ใช่ตัวแทนของตำบลนี้)"}` }));
+      return;
+    }
+    setMessages((m) => ({ ...m, [t.id]: "บันทึกการเงินตำบลแล้ว" }));
+    load();
   }
 
   // เปิด/ปิดบริการ — ลูกค้าในตำบลสั่งได้ทันทีเมื่อเปิด จึงให้เฉพาะส่วนกลาง (superadmin) และต้องยืนยัน
@@ -115,6 +166,66 @@ export default function AdminSettingsPage() {
           <Field label="จังหวัด">
             <Input value={t.province ?? ""} onChange={(e) => updateField(t.id, "province", e.target.value)} />
           </Field>
+
+          <div className="rounded-xl border border-border p-3 mb-3">
+            <div className="font-head font-semibold text-sm mb-1">การเงินตำบล (ตัวแทนตำบลตั้งเอง)</div>
+            <p className="text-ink-soft text-xs mb-3">
+              ลูกค้าโอนเข้าพร้อมเพย์ของตำบล แล้วตัวแทนโอนต่อให้ร้านและไรเดอร์ในหน้า{" "}
+              <Link href={t.slug ? `/admin/accounts?t=${t.slug}` : "/admin/accounts"} className="text-indigo font-semibold">
+                บัญชีตำบล
+              </Link>
+            </p>
+            <Field label="พร้อมเพย์รับเงินของตำบล (เบอร์โทร/เลขบัตร)">
+              <Input
+                inputMode="numeric"
+                value={t.settlement_promptpay_id ?? ""}
+                onChange={(e) => updateField(t.id, "settlement_promptpay_id", e.target.value)}
+              />
+            </Field>
+            <Field label="ชื่อบัญชี (แสดงให้ลูกค้าเห็นก่อนโอน)">
+              <Input
+                value={t.settlement_account_name ?? ""}
+                onChange={(e) => updateField(t.id, "settlement_account_name", e.target.value)}
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="ค่าส่งเริ่มต้น (บาท)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={t.delivery_fee_base ?? ""}
+                  onChange={(e) => updateField(t.id, "delivery_fee_base", e.target.value === "" ? null : Number(e.target.value))}
+                />
+              </Field>
+              <Field label="เพิ่มกิโลละ (บาท)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={t.delivery_fee_per_km ?? ""}
+                  onChange={(e) => updateField(t.id, "delivery_fee_per_km", e.target.value === "" ? null : Number(e.target.value))}
+                />
+              </Field>
+              <Field label="โอนให้ร้าน/ไรเดอร์ก่อนเวลา">
+                <Input
+                  type="time"
+                  value={String(t.payout_cutoff_time ?? "21:00").slice(0, 5)}
+                  onChange={(e) => updateField(t.id, "payout_cutoff_time", e.target.value)}
+                />
+              </Field>
+              <Field label="เงินค้ำประกัน (ส่วนกลางตั้ง)">
+                <Input
+                  type="number"
+                  min={0}
+                  disabled={!isSuperadmin}
+                  value={t.deposit_amount ?? 0}
+                  onChange={(e) => updateField(t.id, "deposit_amount", Number(e.target.value))}
+                />
+              </Field>
+            </div>
+            <Button variant="ghost" onClick={() => saveFinance(t)} disabled={busy}>
+              บันทึกการเงินตำบล
+            </Button>
+          </div>
 
           {messages[t.id] && <p className="text-sm text-ink mb-2">{messages[t.id]}</p>}
 
