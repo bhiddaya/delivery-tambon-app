@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, EmptyState, PageHeading, StatusChip } from "@/components/ui";
 import { AdminTambonPicker, useAdminTambon } from "@/components/AdminTambonPicker";
 import { useTambonAdminData } from "@/components/useTambonAdminData";
+import { OrderActions } from "@/components/AgentActions";
 import { TYPE_LABEL, customerTotal, dateStr, money, slipState, timeStr, type OrderStatus } from "@/lib/domain";
 import { STALE_PENDING_MINUTES, ageLabel, minutesSince, telHref } from "@/lib/tambon-admin";
 
@@ -18,8 +19,8 @@ const FILTERS: { key: OrderStatus | "all" | "active"; label: string }[] = [
 const SLIP_LABEL = { none: "ยังไม่ส่งสลิป", submitted: "สลิปรอตรวจ", rejected: "แจ้งไม่พบยอดแล้ว", verified: "รับเงินแล้ว" };
 
 /**
- * ออเดอร์ของตำบล (ระยะ 1 ดูอย่างเดียว) — เห็นลูกค้า ร้าน ไรเดอร์ พร้อมปุ่มโทร
- * ตามที่อาจารย์กำหนด 3 ต.ค. 69: ตัวแทนเห็นเบอร์โทรลูกค้าได้ · ปุ่มมอบงาน/ยกเลิกมาในระยะ 2
+ * ออเดอร์ของตำบล — เห็นลูกค้า ร้าน ไรเดอร์ พร้อมปุ่มโทร (อาจารย์อนุญาตให้ตัวแทนเห็นเบอร์ลูกค้า 3 ต.ค. 69)
+ * ระยะ 2: มอบงานให้ไรเดอร์ และยกเลิกพร้อมเหตุผล (admin_assign_order / admin_cancel_order)
  */
 export default function AdminOrdersPage() {
   const { tambons, slug, setSlug, selected } = useAdminTambon();
@@ -116,6 +117,7 @@ export default function AdminOrdersPage() {
                   </span>
                   <b className="font-head tabular-nums">{money(customerTotal(o))}</b>
                 </div>
+                <OrderActions order={o} drivers={data.drivers} onDone={data.reload} />
               </Card>
             );
           })}

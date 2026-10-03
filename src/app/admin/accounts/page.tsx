@@ -106,6 +106,8 @@ export default function AdminAccountsPage() {
               : "ยังไม่ได้ตั้ง — ลูกค้าโอนเข้าตำบลไม่ได้จนกว่าจะตั้ง"}{" "}
             · ตัดยอดโอนออก {String(selected.payout_cutoff_time ?? "21:00").slice(0, 5)} น.
             · เงินค้ำประกัน {money(Number(selected.deposit_amount ?? 0))}
+            · ส่วนแบ่งตัวแทน ค่าคอม {Number(selected.agent_share_commission_pct ?? 0)}% ค่าขนส่ง{" "}
+            {Number(selected.agent_share_delivery_pct ?? 0)}% (ส่วนกลางกำหนด ยังไม่หักอัตโนมัติ)
           </p>
           {selected.intake_blocked && (
             <p className="text-sm text-ink mt-2">⛔ หยุดรับออเดอร์ใหม่อยู่: {selected.intake_blocked_reason}</p>

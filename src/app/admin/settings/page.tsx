@@ -10,6 +10,7 @@ import { useSession } from "@/lib/session-context";
 import { tambonName } from "@/components/AdminTambonPicker";
 import { TambonShareCard } from "@/components/TambonShareCard";
 import { TambonAgentsCard } from "@/components/TambonAgentsCard";
+import { AgentShareFields } from "@/components/AgentShareFields";
 
 export default function AdminSettingsPage() {
   const { profile } = useSession();
@@ -235,6 +236,13 @@ export default function AdminSettingsPage() {
               บันทึกการเงินตำบล
             </Button>
           </div>
+
+          <AgentShareFields
+            key={`${t.id}-${t.agent_share_commission_pct}-${t.agent_share_delivery_pct}`}
+            tambon={t}
+            isSuperadmin={isSuperadmin}
+            onSaved={load}
+          />
 
           {messages[t.id] && <p className="text-sm text-ink mb-2">{messages[t.id]}</p>}
 

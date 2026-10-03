@@ -32,6 +32,7 @@ export type DriverInfo = { driver: Tables<"drivers"> | undefined; profile: Table
 
 /** สิ่งที่ร้านยังขาดก่อนรับออเดอร์จริงได้ */
 export function merchantGaps(m: MerchantInfo): string[] {
+  if (m.profile?.suspended_at) return [`ถูกระงับ: ${m.profile.suspended_reason ?? "-"}`];
   return [
     m.profile && !m.profile.approved ? "รออนุมัติ" : null,
     !m.profile?.line_user_id ? "ยังไม่ผูก LINE (ไม่ได้รับแจ้งออเดอร์)" : null,
@@ -43,6 +44,7 @@ export function merchantGaps(m: MerchantInfo): string[] {
 
 /** สิ่งที่ไรเดอร์ยังขาดก่อนรับงานได้ */
 export function driverGaps(d: DriverInfo): string[] {
+  if (d.profile.suspended_at) return [`ถูกระงับ: ${d.profile.suspended_reason ?? "-"}`];
   return [
     !d.profile.approved ? "รออนุมัติ" : null,
     !d.profile.line_user_id ? "ยังไม่ผูก LINE (ไม่ได้รับแจ้งงานใหม่)" : null,
@@ -97,8 +99,7 @@ export function todoItems(input: {
       urgent: overdue > 0,
     });
   }
-  const waiting =
-    merchants.filter((m) => m.profile && !m.profile.approved).length + drivers.filter((d) => !d.profile.approved).length;
+  const waiting = countWaitingApproval(merchants, drivers);
   if (waiting) {
     out.push({ key: "approve", text: `รออนุมัติ ${waiting} ราย`, href: `/admin/approvals${q}`, urgent: false });
   }
@@ -115,6 +116,14 @@ export function todoItems(input: {
     out.push({ key: "shops", text: `ร้านที่ยังตั้งค่าไม่ครบ ${shopsNotReady} ร้าน`, href: `/admin/people${q}`, urgent: false });
   }
   return out.sort((a, b) => Number(b.urgent) - Number(a.urgent));
+}
+
+/** ผู้สมัครที่รออนุมัติ (ไม่นับคนที่ถูกระงับ ซึ่งต้องคืนสิทธิ์แทน) */
+export function countWaitingApproval(merchants: MerchantInfo[], drivers: DriverInfo[]): number {
+  return (
+    merchants.filter((m) => m.profile && !m.profile.approved && !m.profile.suspended_at).length +
+    drivers.filter((d) => !d.profile.approved && !d.profile.suspended_at).length
+  );
 }
 
 /** ลิงก์โทร: ตัดช่องว่าง/ขีดออก คืน null ถ้าไม่มีเบอร์ */
