@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { Button, Card, EmptyState } from "@/components/ui";
@@ -14,6 +15,8 @@ export default function DriverHomePage() {
   const [pending, setPending] = useState<OrderRow[]>([]);
   const [active, setActive] = useState<OrderRow | null>(null);
   const [busy, setBusy] = useState(false);
+  // แสดงข้อความผิดพลาดบนหน้าแทน alert() เพราะเบราว์เซอร์ใน LINE บล็อก alert/confirm
+  const [acceptError, setAcceptError] = useState<{ orderId: number; message: string } | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -81,6 +84,7 @@ export default function DriverHomePage() {
 
   async function acceptOrder(orderId: number) {
     setBusy(true);
+    setAcceptError(null);
     const supabase = createClient();
     const { error } = await supabase
       .from("orders")
@@ -89,7 +93,7 @@ export default function DriverHomePage() {
       .eq("status", "pending")
       .is("driver_id", null);
     setBusy(false);
-    if (error) alert("รับงานไม่สำเร็จ (อาจมีคนรับไปก่อนแล้ว): " + error.message);
+    if (error) setAcceptError({ orderId, message: "รับงานไม่สำเร็จ (อาจมีคนรับไปก่อนแล้ว): " + error.message });
   }
 
   async function advanceOrder(order: OrderRow) {
@@ -111,6 +115,18 @@ export default function DriverHomePage() {
 
   return (
     <div>
+      {!profile.line_user_id && (
+        <Card className="mb-4 border-marigold bg-marigold-tint">
+          <p className="font-head font-semibold text-sm mb-1">ยังไม่ได้ผูก LINE</p>
+          <p className="text-ink-soft text-xs mb-2">
+            ระบบจะส่งงานใหม่ให้ทางแชท LINE บวรไทยเฉพาะไรเดอร์ที่ผูก LINE แล้ว
+          </p>
+          <Link href="/account" className="text-xs text-indigo font-semibold underline">
+            ไปผูก LINE ที่หน้าบัญชี
+          </Link>
+        </Card>
+      )}
+
       <Card className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-indigo-tint text-indigo flex items-center justify-center">🛵</div>
@@ -210,6 +226,9 @@ export default function DriverHomePage() {
               <Button className="w-full" onClick={() => acceptOrder(o.id)} disabled={busy || !!active}>
                 {active ? "มีงานอยู่ระหว่างทำ" : "รับงานนี้"}
               </Button>
+              {acceptError?.orderId === o.id && (
+                <p className="text-clay text-sm mt-2">{acceptError.message}</p>
+              )}
             </Card>
           ))}
         </div>
