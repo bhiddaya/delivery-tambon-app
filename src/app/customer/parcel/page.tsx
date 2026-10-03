@@ -17,10 +17,13 @@ export default function ParcelOrderPage() {
   const [note, setNote] = useState("");
   const [payment, setPayment] = useState<"เงินสดปลายทาง" | "พร้อมเพย์">("เงินสดปลายทาง");
   const [submitting, setSubmitting] = useState(false);
+  // แสดงข้อความผิดพลาดบนหน้าแทน alert() เพราะเบราว์เซอร์ใน LINE บล็อก alert/confirm
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitError(null);
     const supabase = createClient();
     const { error } = await supabase.from("orders").insert({
       type: "parcel",
@@ -36,7 +39,7 @@ export default function ParcelOrderPage() {
     });
     setSubmitting(false);
     if (error) {
-      alert("ส่งคำขอไม่สำเร็จ: " + error.message);
+      setSubmitError("ส่งคำขอไม่สำเร็จ: " + error.message);
       return;
     }
     router.push("/customer/orders");
@@ -75,6 +78,7 @@ export default function ParcelOrderPage() {
         <Button type="submit" variant="accent" className="w-full" disabled={submitting}>
           {submitting ? "กำลังส่งคำขอ..." : `ยืนยันฝากส่ง · ${money(DELIVERY_FEE)}`}
         </Button>
+        {submitError && <p className="text-clay text-sm mt-2">{submitError}</p>}
       </form>
     </div>
   );
