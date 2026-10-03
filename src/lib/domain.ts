@@ -112,6 +112,26 @@ export function econ(order: Pick<OrderRow, "type" | "price" | "delivery_fee" | "
   return { driverEarn, platform };
 }
 
+/**
+ * ยอดที่ลูกค้าโอนเข้าบัญชีตำบล = ค่าสินค้า (ส่วนของร้าน) + ส่วนของไรเดอร์
+ * ต้องตรงกับ public.order_customer_total และยอด settlements ที่ verify_customer_payment สร้าง
+ */
+export function customerTotal(order: Pick<OrderRow, "type" | "price" | "delivery_fee" | "items_subtotal">): number {
+  const rider = order.type === "ride" ? Number(order.price || 0) : Number(order.delivery_fee || 0);
+  return Number(order.items_subtotal || 0) + rider;
+}
+
+/** สถานะการโอนเข้าตำบลของออเดอร์ (D41 ขั้น 2: ตัวแทนตำบลตรวจสลิปเอง) */
+export type SlipState = "none" | "submitted" | "rejected" | "verified";
+export function slipState(
+  order: Pick<OrderRow, "customer_paid_at" | "slip_submitted_at" | "payment_rejected_at">
+): SlipState {
+  if (order.customer_paid_at) return "verified";
+  if (order.payment_rejected_at) return "rejected";
+  if (order.slip_submitted_at) return "submitted";
+  return "none";
+}
+
 export function mapsLink(address: string | null | undefined): string | null {
   if (!address) return null;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;

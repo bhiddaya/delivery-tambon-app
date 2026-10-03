@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Card, EmptyState, PageHeading } from "@/components/ui";
 import { PromptPayQR } from "@/components/PromptPayQR";
+import { PendingSlips } from "@/components/PendingSlips";
 import { AdminTambonPicker, tambonName, useAdminTambon } from "@/components/AdminTambonPicker";
 import { dateStr, money, timeStr } from "@/lib/domain";
 import type { Tables } from "@/lib/types";
@@ -17,8 +18,8 @@ const ROLE_LABEL: Record<string, string> = { merchant: "ร้านค้า", 
 /**
  * บัญชีตำบล — หลังบ้านของตัวแทนตำบล
  *
- * ลูกค้าโอนเข้าบัญชีพร้อมเพย์ของตำบล ระบบตั้งยอดที่ต้องจ่ายต่อ (settlements) ทันทีเมื่อลูกค้ายืนยันจ่าย:
- * ร้านได้ค่าสินค้า ไรเดอร์ได้ค่าส่ง ตัวแทนโอนให้ด้วย QR ของผู้รับในหน้านี้ แล้วกด "โอนแล้ว"
+ * ลูกค้าโอนเข้าบัญชีพร้อมเพย์ของตำบลแล้วส่งสลิป ตัวแทนตรวจยอดเข้าบัญชีจริงแล้วกด "เงินเข้าแล้ว"
+ * ระบบจึงตั้งยอดที่ต้องจ่ายต่อ (settlements): ร้านได้ค่าสินค้า ไรเดอร์ได้ค่าส่ง ตัวแทนโอนให้ด้วย QR ของผู้รับในหน้านี้ แล้วกด "โอนแล้ว"
  * ผู้รับกดยืนยันว่าได้เงินในหน้ารายรับของตัวเอง ถ้าเลยกำหนดโอน ระบบหยุดรับออเดอร์ใหม่ของตำบลเอง
  */
 export default function AdminAccountsPage() {
@@ -132,6 +133,8 @@ export default function AdminAccountsPage() {
       </div>
 
       {message && <p className="text-sm text-ink mb-3">{message}</p>}
+
+      <PendingSlips tambonId={selected?.id ?? null} onVerified={load} />
 
       <h2 className="font-head font-semibold text-sm mb-2">ต้องโอนให้ ({toPay.length})</h2>
       {loading ? (
