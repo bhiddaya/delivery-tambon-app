@@ -1247,6 +1247,138 @@ export type Database = {
           },
         ]
       }
+      tambon_ai_items: {
+        Row: {
+          content_key: string
+          event_date: string | null
+          expires_at: string | null
+          first_seen_at: string
+          hidden: boolean
+          hidden_by: string | null
+          id: number
+          kind: string
+          refreshed_at: string
+          source_name: string | null
+          source_url: string
+          summary: string
+          tambon_id: string
+          title: string
+        }
+        Insert: {
+          content_key: string
+          event_date?: string | null
+          expires_at?: string | null
+          first_seen_at?: string
+          hidden?: boolean
+          hidden_by?: string | null
+          id?: never
+          kind: string
+          refreshed_at?: string
+          source_name?: string | null
+          source_url: string
+          summary?: string
+          tambon_id: string
+          title: string
+        }
+        Update: {
+          content_key?: string
+          event_date?: string | null
+          expires_at?: string | null
+          first_seen_at?: string
+          hidden?: boolean
+          hidden_by?: string | null
+          id?: never
+          kind?: string
+          refreshed_at?: string
+          source_name?: string | null
+          source_url?: string
+          summary?: string
+          tambon_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tambon_ai_items_hidden_by_fkey"
+            columns: ["hidden_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_ai_items_hidden_by_fkey"
+            columns: ["hidden_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tambon_ai_items_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tambon_ai_runs: {
+        Row: {
+          cost_usd: number | null
+          error: string | null
+          id: number
+          input_tokens: number | null
+          items_added: number
+          items_received: number
+          items_refreshed: number
+          items_rejected: number
+          model: string | null
+          n8n_execution_id: string | null
+          output_tokens: number | null
+          ran_at: string
+          status: string
+          tambon_id: string
+        }
+        Insert: {
+          cost_usd?: number | null
+          error?: string | null
+          id?: never
+          input_tokens?: number | null
+          items_added?: number
+          items_received?: number
+          items_refreshed?: number
+          items_rejected?: number
+          model?: string | null
+          n8n_execution_id?: string | null
+          output_tokens?: number | null
+          ran_at?: string
+          status?: string
+          tambon_id: string
+        }
+        Update: {
+          cost_usd?: number | null
+          error?: string | null
+          id?: never
+          input_tokens?: number | null
+          items_added?: number
+          items_received?: number
+          items_refreshed?: number
+          items_rejected?: number
+          model?: string | null
+          n8n_execution_id?: string | null
+          output_tokens?: number | null
+          ran_at?: string
+          status?: string
+          tambon_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tambon_ai_runs_tambon_id_fkey"
+            columns: ["tambon_id"]
+            isOneToOne: false
+            referencedRelation: "tambons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tambon_applications: {
         Row: {
           applicant_line: string | null
@@ -1508,6 +1640,7 @@ export type Database = {
         Row: {
           agent_share_commission_pct: number
           agent_share_delivery_pct: number
+          ai_content_enabled: boolean
           announcement: string | null
           code: string | null
           contact_line: string | null
@@ -1536,6 +1669,7 @@ export type Database = {
         Insert: {
           agent_share_commission_pct?: number
           agent_share_delivery_pct?: number
+          ai_content_enabled?: boolean
           announcement?: string | null
           code?: string | null
           contact_line?: string | null
@@ -1564,6 +1698,7 @@ export type Database = {
         Update: {
           agent_share_commission_pct?: number
           agent_share_delivery_pct?: number
+          ai_content_enabled?: boolean
           announcement?: string | null
           code?: string | null
           contact_line?: string | null
@@ -1689,6 +1824,10 @@ export type Database = {
         Returns: undefined
       }
       admin_stats_snapshot: { Args: never; Returns: Json }
+      ai_upsert_tambon_items: {
+        Args: { p_items: Json; p_run: Json; p_tambon_id: string }
+        Returns: Json
+      }
       approve_tambon_application: {
         Args: {
           app_id: string
