@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { Card, EmptyState, PageHeading, StatusChip } from "@/components/ui";
 import { PromptPayQR } from "@/components/PromptPayQR";
+import { CustomerSlipCard } from "@/components/CustomerSlipCard";
 import {
   STATUS_FLOW,
   STATUS_LABEL,
@@ -24,7 +25,9 @@ export default function CustomerOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [drivers, setDrivers] = useState<Record<string, DriverInfo>>({});
   const [merchants, setMerchants] = useState<Record<string, MerchantInfo>>({});
+  const [tambons, setTambons] = useState<Record<string, Tables<"tambons">>>({});
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const supabase = createClient();
@@ -39,6 +42,15 @@ export default function CustomerOrdersPage() {
       if (cancelled) return;
       setOrders(o ?? []);
       setLoading(false);
+
+      // บัญชีพร้อมเพย์ของตำบล (D41: ลูกค้าโอนเข้าตำบล ไม่ได้โอนตรงให้ร้าน/ไรเดอร์)
+      const tambonIds = Array.from(new Set((o ?? []).map((x) => x.tambon_id).filter(Boolean))) as string[];
+      if (tambonIds.length) {
+        const { data: t } = await supabase.from("tambons").select("*").in("id", tambonIds);
+        const map: Record<string, Tables<"tambons">> = {};
+        (t ?? []).forEach((x) => (map[x.id] = x));
+        if (!cancelled) setTambons(map);
+      }
 
       const driverIds = Array.from(new Set((o ?? []).map((x) => x.driver_id).filter(Boolean))) as string[];
       if (driverIds.length) {
@@ -84,7 +96,7 @@ export default function CustomerOrdersPage() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [profile.id]);
+  }, [profile.id, reloadKey]);
 
   const active = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
   const done = orders.filter((o) => o.status === "delivered" || o.status === "cancelled");
@@ -149,7 +161,12 @@ export default function CustomerOrdersPage() {
                   <p className="text-ink-soft text-xs mt-3">กำลังหาคนขับในตำบลให้คุณ…</p>
                 )}
 
-                {o.payment_method === "พร้อมเพย์" && (
+                {o.payment_method === "พร้อมเพย์" && tambons[o.tambon_id]?.settlement_promptpay_id && (
+                  <p className="text-ink-soft text-xs mt-3 pt-3 border-t border-border">
+                    ชำระโดยโอนเข้าบัญชีพร้อมเพย์ของตำบลหลังได้รับของ แล้วแนบสลิปในหน้านี้
+                  </p>
+                )}
+                {o.payment_method === "พร้อมเพย์" && !tambons[o.tambon_id]?.settlement_promptpay_id && (
                   <div className="mt-1 pt-1 border-t border-border divide-y divide-border">
                     {o.merchant_id && Number(o.items_subtotal) > 0 && (
                       <PromptPayQR
@@ -178,16 +195,25 @@ export default function CustomerOrdersPage() {
           <h2 className="font-head font-semibold text-sm mb-2">ประวัติ</h2>
           <div className="flex flex-col gap-2">
             {done.map((o) => (
-              <Card key={o.id} className="flex items-center justify-between">
-                <div>
-                  <div className="font-head font-semibold text-sm">
-                    {TYPE_LABEL[o.type]} #{o.id}
+              <Card key={o.id}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-head font-semibold text-sm">
+                      {TYPE_LABEL[o.type]} #{o.id}
+                    </div>
+                    <div className="text-ink-soft text-xs">
+                      {timeStr(o.created_at)} · {money(Number(o.price))}
+                    </div>
                   </div>
-                  <div className="text-ink-soft text-xs">
-                    {timeStr(o.created_at)} · {money(Number(o.price))}
-                  </div>
+                  <StatusChip status={o.status} />
                 </div>
-                <StatusChip status={o.status} />
+                {o.status === "delivered" && (o.payment_method === "พร้อมเพย์" || o.slip_submitted_at) && (
+                  <CustomerSlipCard
+                    order={o}
+                    tambon={tambons[o.tambon_id]}
+                    onChanged={() => setReloadKey((k) => k + 1)}
+                  />
+                )}
               </Card>
             ))}
           </div>

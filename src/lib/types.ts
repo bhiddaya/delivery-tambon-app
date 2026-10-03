@@ -699,6 +699,9 @@ export type Database = {
           note: string | null
           payment_method: string | null
           payment_ref: string | null
+          payment_reject_reason: string | null
+          payment_rejected_at: string | null
+          payment_verified_by: string | null
           pickup: string | null
           pickup_lat: number | null
           pickup_lng: number | null
@@ -708,6 +711,7 @@ export type Database = {
             | Database["public"]["Enums"]["vehicle_type"]
             | null
           scheduled_date: string | null
+          slip_submitted_at: string | null
           status: Database["public"]["Enums"]["order_status"]
           tambon_id: string
           type: Database["public"]["Enums"]["order_type"]
@@ -733,6 +737,9 @@ export type Database = {
           note?: string | null
           payment_method?: string | null
           payment_ref?: string | null
+          payment_reject_reason?: string | null
+          payment_rejected_at?: string | null
+          payment_verified_by?: string | null
           pickup?: string | null
           pickup_lat?: number | null
           pickup_lng?: number | null
@@ -742,6 +749,7 @@ export type Database = {
             | Database["public"]["Enums"]["vehicle_type"]
             | null
           scheduled_date?: string | null
+          slip_submitted_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           tambon_id: string
           type: Database["public"]["Enums"]["order_type"]
@@ -767,6 +775,9 @@ export type Database = {
           note?: string | null
           payment_method?: string | null
           payment_ref?: string | null
+          payment_reject_reason?: string | null
+          payment_rejected_at?: string | null
+          payment_verified_by?: string | null
           pickup?: string | null
           pickup_lat?: number | null
           pickup_lng?: number | null
@@ -776,6 +787,7 @@ export type Database = {
             | Database["public"]["Enums"]["vehicle_type"]
             | null
           scheduled_date?: string | null
+          slip_submitted_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           tambon_id?: string
           type?: Database["public"]["Enums"]["order_type"]
@@ -822,6 +834,20 @@ export type Database = {
             columns: ["merchant_id"]
             isOneToOne: false
             referencedRelation: "merchants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_payment_verified_by_fkey"
+            columns: ["payment_verified_by"]
+            isOneToOne: false
+            referencedRelation: "driver_rankings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_payment_verified_by_fkey"
+            columns: ["payment_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1558,14 +1584,6 @@ export type Database = {
         }
         Returns: string
       }
-      tambon_admin_grant: {
-        Args: { p_note?: string; p_profile_id: string; p_tambon_id: string }
-        Returns: string
-      }
-      tambon_admin_revoke: {
-        Args: { p_note?: string; p_profile_id: string; p_tambon_id: string }
-        Returns: boolean
-      }
       auth_user_id_for_line: {
         Args: { p_alias_email: string; p_line_user_id: string }
         Returns: string
@@ -1645,12 +1663,20 @@ export type Database = {
       }
       my_tambon_id: { Args: never; Returns: string }
       next_payout_due: { Args: { p_tambon: string }; Returns: string }
+      order_customer_total: {
+        Args: { p_order: Database["public"]["Tables"]["orders"]["Row"] }
+        Returns: number
+      }
       purge_stale_carts: { Args: { p_days?: number }; Returns: number }
       recalc_profile_rating: {
         Args: { p_profile_id: string }
         Returns: undefined
       }
       refresh_intake_block: { Args: { p_tambon: string }; Returns: undefined }
+      reject_customer_payment: {
+        Args: { p_order_id: number; p_reason: string }
+        Returns: undefined
+      }
       search_menu: {
         Args: { p_query: string; p_tambon?: string }
         Returns: {
@@ -1665,6 +1691,19 @@ export type Database = {
       }
       session_used_password: { Args: never; Returns: boolean }
       shares_order_with: { Args: { p: string }; Returns: boolean }
+      slip_order_id: { Args: { p_name: string }; Returns: number }
+      submit_payment_slip: {
+        Args: { p_order_id: number; p_slip_path: string }
+        Returns: undefined
+      }
+      tambon_admin_grant: {
+        Args: { p_note?: string; p_profile_id: string; p_tambon_id: string }
+        Returns: string
+      }
+      tambon_admin_revoke: {
+        Args: { p_note?: string; p_profile_id: string; p_tambon_id: string }
+        Returns: boolean
+      }
       tambon_daily_stats: {
         Args: never
         Returns: {
@@ -1688,6 +1727,10 @@ export type Database = {
           total: number
           vehicle_type: Database["public"]["Enums"]["vehicle_type"]
         }[]
+      }
+      verify_customer_payment: {
+        Args: { p_order_id: number }
+        Returns: undefined
       }
     }
     Enums: {
