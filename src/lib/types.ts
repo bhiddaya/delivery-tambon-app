@@ -1550,8 +1550,21 @@ export type Database = {
       _cart_json: { Args: { p_user: string }; Returns: Json }
       admin_stats_snapshot: { Args: never; Returns: Json }
       approve_tambon_application: {
-        Args: { app_id: string; review_note?: string; tambon_slug: string }
+        Args: {
+          app_id: string
+          p_make_applicant_admin?: boolean
+          review_note?: string
+          tambon_slug: string
+        }
         Returns: string
+      }
+      tambon_admin_grant: {
+        Args: { p_note?: string; p_profile_id: string; p_tambon_id: string }
+        Returns: string
+      }
+      tambon_admin_revoke: {
+        Args: { p_note?: string; p_profile_id: string; p_tambon_id: string }
+        Returns: boolean
       }
       auth_user_id_for_line: {
         Args: { p_alias_email: string; p_line_user_id: string }

@@ -28,6 +28,8 @@ export function TambonApplications() {
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<Record<string, string>>({});
   const [done, setDone] = useState<string | null>(null);
+  // ตั้งผู้สมัครเป็นตัวแทนตำบลพร้อมอนุมัติ (ค่าเริ่มต้น: ตั้ง ถ้าผู้สมัครมีบัญชีในระบบ)
+  const [makeAgent, setMakeAgent] = useState<Record<string, boolean>>({});
 
   async function load() {
     const supabase = createClient();
@@ -59,14 +61,22 @@ export function TambonApplications() {
   async function approve(app: Application) {
     setBusy(true);
     const supabase = createClient();
-    const { error } = await supabase.rpc("approve_tambon_application", { app_id: app.id, tambon_slug: slugOf(app) });
+    const asAgent = Boolean(app.applicant_profile_id) && (makeAgent[app.id] ?? true);
+    const { error } = await supabase.rpc("approve_tambon_application", {
+      app_id: app.id,
+      tambon_slug: slugOf(app),
+      p_make_applicant_admin: asAgent,
+    });
     setBusy(false);
     setPending(null);
     if (error) {
       say(app.id, `อนุมัติไม่สำเร็จ: ${error.message}`);
       return;
     }
-    setDone(`อนุมัติแล้ว: ตำบล${app.tambon_name} (ยังไม่เปิดบริการ) · หน้าเว็บ ${SITE}/t/${slugOf(app)}`);
+    setDone(
+      `อนุมัติแล้ว: ตำบล${app.tambon_name} (ยังไม่เปิดบริการ) · หน้าเว็บ ${SITE}/t/${slugOf(app)}` +
+        (asAgent ? ` · ตั้ง ${app.applicant_name} เป็นตัวแทนตำบลแล้ว` : "")
+    );
     load();
   }
 
@@ -151,6 +161,20 @@ export function TambonApplications() {
                       <br />
                       <span className="text-ink-soft text-xs">ตำบลจะถูกสร้างแบบ “ยังไม่เปิดบริการ”</span>
                     </p>
+                    {app.applicant_profile_id ? (
+                      <label className="flex items-center gap-2 text-sm text-ink mb-2">
+                        <input
+                          type="checkbox"
+                          checked={makeAgent[app.id] ?? true}
+                          onChange={(e) => setMakeAgent((m) => ({ ...m, [app.id]: e.target.checked }))}
+                        />
+                        ตั้ง {app.applicant_name} เป็นตัวแทนตำบลนี้ด้วย
+                      </label>
+                    ) : (
+                      <p className="text-ink-soft text-xs mb-2">
+                        ผู้สมัครยังไม่มีบัญชีในระบบ — แต่งตั้งตัวแทนภายหลังได้ที่หน้า ตั้งค่า ของตำบลนี้
+                      </p>
+                    )}
                     <div className="flex gap-2">
                       <Button onClick={() => approve(app)} disabled={busy}>
                         {busy ? "กำลังอนุมัติ..." : "ยืนยันอนุมัติ"}
