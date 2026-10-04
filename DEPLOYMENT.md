@@ -1,154 +1,41 @@
-# 🚀 Deployment Guide - Delivery Tambon App
+# Deploy บวรไทย Delivery บน Vercel
 
-**Status:** Ready to Deploy ✅
+ใช้ repo เดิม `bhiddaya/delivery-tambon-app` และ Vercel project `delivery-tambon-app-v3`
+Production URL: https://delivery-tambon-app-v3.vercel.app
 
----
+## ก่อนส่งโค้ด
 
-## ⚡ Quick Deployment (5 minutes)
-
-### Step 1: Create GitHub Repository
-
-1. Go to: https://github.com/new
-2. Fill in:
-   - **Repository name:** `delivery-tambon-app`
-   - **Description:** Delivery system with shop dashboard
-   - **Public** ✓
-3. DO NOT check "Initialize this repository with:"
-4. Click **"Create repository"**
-5. Copy the repository URL (looks like: `https://github.com/bhiddaya/delivery-tambon-app.git`)
-
-### Step 2: Push Code to GitHub
-
-Run these commands in terminal:
-
-```bash
-cd /home/claude/delivery-tambon-app
-
-# Set remote URL
-git remote add origin https://github.com/bhiddaya/delivery-tambon-app.git
-
-# Rename branch to main
-git branch -M main
-
-# Push code
-git push -u origin main
+```sh
+npm ci
+npm run build
+node --experimental-strip-types --test tests/delivery-pwa.test.mjs
 ```
 
-You should see:
-```
-Enumerating objects: 80, done.
-Counting objects: 100% (80/80), done.
-Compressing objects: 100% (75/75), done.
-Writing objects: 100% (80/80), ...
+ตรวจ lint ของไฟล์ที่แก้และแยกข้อผิดพลาดเดิมออกจากการเปลี่ยนแปลงใหม่
+ตรวจ diff, รายการไฟล์ และข้อมูลลับก่อน push; `.env*`, กุญแจลับ, `.git`, `node_modules` และ runtime ไม่ใช่ไฟล์ส่งมอบ
+ตรวจ remote main ล่าสุดและส่งแบบ fast-forward เท่านั้น
 
-* [new branch]      main -> main
-Branch 'main' set up to track remote branch 'main' from 'origin'.
-```
+## การตั้งค่าบริการ
 
-### Step 3: Deploy to Vercel
+ใช้ค่าที่ Vercel project เดิมตั้งไว้อยู่แล้ว ไม่คัดลอกข้อมูลลับลง repo
+`NEXT_PUBLIC_SUPABASE_URL` และ `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable key) ใช้อ่านข้อมูลภายใต้ RLS
+กุญแจสำหรับ LINE และ endpoint ผู้ดูแลเป็นค่า server ตาม `README.md` และซอร์สที่เกี่ยวข้อง
+ไม่เปลี่ยน DNS, credential, auth หรือ migration ด้วยคำสั่ง deploy หน้าเว็บ
 
-1. Go to: https://vercel.com/bhiddaya-4813s-projects
-2. Click **"+ Add New Project"**
-3. Click **"Import Project"**
-4. Paste GitHub repository URL: `https://github.com/bhiddaya/delivery-tambon-app.git`
-5. Click **"Import"**
-6. In the **"Environment Variables"** section, add:
+## หลังส่งโค้ด
 
-   ```
-   SUPABASE_SERVICE_ROLE_KEY
-   <PASTE_YOUR_SUPABASE_SERVICE_ROLE_KEY_HERE>
-   ```
+1. อ่าน commit ของ main กลับจาก GitHub
+2. ตรวจ GitHub status `Vercel` ให้เป็น success และต้องตรงกับ commit ที่ส่ง
+3. ตรวจ `/`, `/delivery`, ค้นหาพื้นที่, เข้าหน้าตำบล, สมัครและเข้าสู่ระบบบนเว็บจริง
+4. ใช้มือถือทดสอบติดตั้ง PWA เปิดจากไอคอน แล้วลองตัดอินเทอร์เน็ตเพื่อดูหน้าออฟไลน์
 
-7. Click **"Deploy"** ✅
+CI success ยืนยัน deployment แต่ยังไม่ยืนยันว่าตะกร้า การล็อกอิน LINE หรือการส่งของจริงทำงานครบ
+หาก browser ถูกปฏิเสธสิทธิ์ ให้รายงานข้อจำกัดและไม่อ้างว่าคลิกผ่าน
 
-### Step 4: Wait for Deployment
+## ถอยโค้ด
 
-Vercel will:
-- Build the Next.js app
-- Run tests (if any)
-- Deploy to CDN
+Revert commit ที่เพิ่มหน้า Delivery/PWA แล้วส่ง commit ใหม่ตามขั้นตอนเดิม ห้าม force push
+Service worker v3 จะล้างเฉพาะ cache รุ่นเก่าของแอป ไม่แตะฐานข้อมูล
+เมื่อ revert ให้เพิ่มหมายเลข cache รุ่นใหม่อีกครั้งเพื่อให้เครื่องที่ติดตั้งอยู่รับการแก้
 
-You'll see a URL like: `https://delivery-tambon-app.vercel.app` ✨
-
----
-
-## 📋 What's Included in This Deployment
-
-### ✅ Frontend Components
-- RoleSelector (home page with 3 roles)
-- LoginForm with Password Reset
-- Shop Dashboard (Orders, Menu, Profile tabs)
-- Registration forms (Shop & Rider)
-
-### ✅ Backend API Routes
-- `GET /api/shops/[id]` - Get shop details
-- `GET /api/shops/[shopId]/orders` - List orders
-- `PUT /api/shops/[shopId]/orders/[orderId]` - Update order status
-- `GET/POST/PUT/DELETE /api/shops/[shopId]/products` - Manage menu
-
-### ✅ Authentication
-- JWT tokens with localStorage persistence
-- Password reset with OTP
-- "Remember Me" 30-day sessions
-- Phone-only registration support
-
-### ✅ Database
-- Supabase PostgreSQL integration
-- Tables: users, shops, orders, order_items, products
-
----
-
-## 🧪 Testing After Deployment
-
-1. **Visit deployed URL:** `https://delivery-tambon-app.vercel.app`
-2. **Test flows:**
-   - Click "เจ้าของร้านค้า" (Shop Owner)
-   - Click "สมัครใหม่" (Register)
-   - Complete registration
-   - Should see Shop Dashboard
-
----
-
-## 📞 Troubleshooting
-
-### Deploy fails with "Module not found"
-- Check `.env.local` has all required variables
-- Vercel logs will show which one is missing
-
-### API returns 500 error
-- Check SUPABASE_SERVICE_ROLE_KEY is set correctly
-- Check Supabase tables exist (shops, orders, products)
-
-### "Cannot GET /"
-- Check Next.js built successfully
-- Vercel logs should show build errors
-
----
-
-## 🎯 Next Steps
-
-After deployment goes live:
-
-1. **Test Shop Dashboard:**
-   - Create test shop account
-   - Add menu items
-   - Simulate order workflow
-
-2. **Build Customer Flow:**
-   - Order browsing
-   - Order placement
-   - Order tracking
-
-3. **Build Rider App:**
-   - Accept deliveries
-   - Track route
-   - Mark as delivered
-
-4. **Setup PromptPay Payment**
-5. **Enable Push Notifications**
-
----
-
-**✨ Deployed by:** Claude Haiku 4.5
-**Date:** 2026-09-03
-**Repository:** https://github.com/bhiddaya/delivery-tambon-app
+เอกสารเก่าระบุว่า repo ยังไม่สร้าง และ API shops deploy แล้ว ซึ่งไม่ตรงกับระบบปัจจุบัน

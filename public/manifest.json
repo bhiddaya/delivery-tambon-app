@@ -1,14 +1,19 @@
 {
   "name": "บวรไทย — Delivery ระดับตำบล",
   "short_name": "บวรไทย",
-  "description": "สั่งอาหาร ส่งของ เรียกรถ ในตำบลเดียวกัน",
-  "start_url": "/",
+  "description": "สั่งอาหารและของใช้จากร้านใกล้บ้าน เชื่อมคนในตำบลผ่านบวรไทย",
+  "id": "/",
+  "start_url": "/delivery",
   "scope": "/",
   "display": "standalone",
   "background_color": "#eff1ec",
   "theme_color": "#2e3e68",
   "orientation": "portrait",
   "lang": "th",
+  "shortcuts": [
+    { "name": "ค้นหาพื้นที่บริการ", "url": "/delivery#areas" },
+    { "name": "ออเดอร์ของฉัน", "url": "/customer/orders" }
+  ],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
