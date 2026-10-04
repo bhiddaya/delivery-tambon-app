@@ -9,6 +9,14 @@ export type DeliveryArea = {
   is_active: boolean;
 };
 
+export type PublicDeliveryShop = {
+  id: string;
+  name: string;
+  category: string | null;
+  tambon_id: string;
+  is_open: boolean;
+};
+
 export function directorySearch(value: string | string[] | undefined): string {
   // Keep PostgREST filter punctuation and wildcard operators out of user input.
   return (typeof value === "string" ? value : "")

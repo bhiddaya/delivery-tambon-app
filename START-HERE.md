@@ -5,7 +5,9 @@
 - GitHub: https://github.com/bhiddaya/delivery-tambon-app
 - Vercel project: `delivery-tambon-app-v3` (เชื่อม repo นี้อยู่แล้ว)
 - เว็บ: https://delivery-tambon-app-v3.vercel.app
-- หน้าเข้าเว็บสาธารณะ: `/delivery` — ค้นหาตำบล วิธีใช้งาน สมัครแต่ละบทบาท และติดตั้ง PWA
+- หน้าเข้าเว็บสาธารณะ: `/delivery` — ค้นหาตำบลและร้านจริง วิธีใช้งาน สมัครแต่ละบทบาท และติดตั้ง PWA
+- เว็บลูกค้า: `/customer` — ค้นหาร้าน/เมนู จัดรายการ ตรวจยอด และยืนยันค่าส่งผ่าน LINE
+- หลังบ้านใหม่: `/merchant`, `/driver`, `/admin` — ใช้ข้อมูลและสิทธิ์เดิม
 - หน้าชุมชน: `/t/<slug>` — รายละเอียดร้าน ข่าว ประกาศ และข้อมูลพื้นที่
 - ผู้ใช้ที่เข้าสู่ระบบแล้ว: หน้า `/` ไปหน้าบทบาทเดิม
 
@@ -24,6 +26,7 @@ npm start
 
 - [DEPLOYMENT.md](DEPLOYMENT.md) — ส่งขึ้น GitHub และตรวจ Vercel
 - [docs/45-DELIVERY-PWA.md](docs/45-DELIVERY-PWA.md) — ขอบเขต PWA และการตรวจ
+- [docs/46-DELIVERY-REBUILD.md](docs/46-DELIVERY-REBUILD.md) — หน้าที่สร้างใหม่ ข้อมูลจริง และข้อจำกัด checkout
 - [README.md](README.md) — การตั้งค่าและสถาปัตยกรรม
 
 ฉบับเก่าของ START-HERE ระบุ API `/api/shops` และขั้นตอนสร้าง repo ใหม่ ซึ่งไม่ตรงกับซอร์สปัจจุบัน

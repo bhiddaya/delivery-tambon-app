@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import DeliveryLanding from "@/components/DeliveryLanding";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import { directoryPage, directorySearch, DIRECTORY_PAGE_SIZE, type DeliveryArea } from "@/lib/delivery-directory";
+import { directoryPage, directorySearch, DIRECTORY_PAGE_SIZE, type DeliveryArea, type PublicDeliveryShop } from "@/lib/delivery-directory";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -17,6 +17,8 @@ export default async function DeliveryPage({ searchParams }: {
   const page = directoryPage(params.page);
   let areas: DeliveryArea[] = [];
   let total = 0;
+  let shops: PublicDeliveryShop[] = [];
+  let shopsUnavailable = false;
   let unavailable = !isSupabaseConfigured();
 
   if (!unavailable) {
@@ -35,11 +37,18 @@ export default async function DeliveryPage({ searchParams }: {
       if (!error) {
         areas = data ?? [];
         total = count ?? 0;
+        if (areas.length) {
+          // Only columns granted to anonymous visitors. Never enrich with admin access.
+          const stores = await supabase.from("merchants").select("id,name,category,tambon_id,is_open")
+            .in("tambon_id", areas.map(t => t.id)).eq("is_open", true).order("name").limit(12);
+          shopsUnavailable = Boolean(stores.error);
+          if (!stores.error) shops = stores.data ?? [];
+        }
       }
     } catch {
       unavailable = true;
     }
   }
 
-  return <DeliveryLanding areas={areas} total={total} query={query} page={page} unavailable={unavailable} />;
+  return <DeliveryLanding areas={areas} total={total} query={query} page={page} unavailable={unavailable} shops={shops} shopsUnavailable={shopsUnavailable || unavailable} />;
 }

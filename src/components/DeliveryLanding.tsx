@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { ArrowRight, Bike, ChevronLeft, ChevronRight, MapPin, Search, ShoppingBag, Store, Utensils, Users, Newspaper, Navigation } from "lucide-react";
 import InstallPwa from "@/components/InstallPwa";
-import { directoryLink, DIRECTORY_PAGE_SIZE, type DeliveryArea } from "@/lib/delivery-directory";
+import { directoryLink, DIRECTORY_PAGE_SIZE, type DeliveryArea, type PublicDeliveryShop } from "@/lib/delivery-directory";
 import { tambonDisplayName } from "@/lib/tambon-choice";
 import { ROLE_LABEL } from "@/lib/domain";
 
-type Props = { areas: DeliveryArea[]; total: number; query: string; page: number; unavailable: boolean };
+type Props = { areas: DeliveryArea[]; total: number; query: string; page: number; unavailable: boolean; shops?: PublicDeliveryShop[]; shopsUnavailable?: boolean };
 const action = "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 font-head font-semibold transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#c97418]";
 
-export default function DeliveryLanding({ areas, total, query, page, unavailable }: Props) {
+export default function DeliveryLanding({ areas, total, query, page, unavailable, shops = [], shopsUnavailable = false }: Props) {
   const pages = Math.ceil(total / DIRECTORY_PAGE_SIZE);
   return (
     <div className="min-h-screen bg-[#fbfaf6] text-[#1c2333]">
@@ -37,7 +37,7 @@ export default function DeliveryLanding({ areas, total, query, page, unavailable
               <a href="#areas" className={`${action} bg-[#2e3e68] text-white`}>ค้นหาตำบลของฉัน<ArrowRight size={18} aria-hidden="true" /></a>
               <Link href="/signup" className={`${action} border border-[#dbdfd5] bg-white text-[#2e3e68]`}>สมัครสมาชิก</Link>
             </div>
-            <p className="mt-5 text-xs leading-6 text-[#5b6478]">ดูข้อมูลตำบลได้ทันที • เข้าสู่ระบบเมื่อสั่งผ่านเว็บ • ใช้ผ่าน LINE ได้</p>
+            <p className="mt-5 text-xs leading-6 text-[#5b6478]">ดูข้อมูลตำบลได้ทันที • เข้าสู่ระบบเพื่อจัดรายการ • ยืนยันบริการผ่าน LINE</p>
           </div>
           <div className="relative overflow-hidden rounded-[2rem] bg-[#2e3e68] p-6 text-white sm:p-8" aria-label="เชื่อมร้านค้า ไรเดอร์ และคนในตำบล">
             <div className="absolute -right-12 -top-12 h-60 w-60 rounded-full border-[35px] border-white/5" aria-hidden="true" />
@@ -79,11 +79,16 @@ export default function DeliveryLanding({ areas, total, query, page, unavailable
           </div>
         </section>
 
+        <section id="shops" className="mx-auto max-w-6xl px-5 pt-12 sm:px-8">
+          <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2 text-xs font-semibold tracking-widest text-[#c97418]">ร้านจริง ในชุมชนของเรา</p><h2 className="text-3xl font-semibold">ร้านที่เปิดในพื้นที่ข้างต้น</h2><p className="mt-3 text-sm leading-7 text-[#5b6478]">แสดงสูงสุด 12 ร้าน · เข้าสู่ระบบและเลือกตำบลเพื่อดูเมนูและราคาล่าสุด</p></div><Link href="/customer" className={`${action} border border-[#dbdfd5] bg-white text-[#2e3e68]`}>เข้าหน้าร้าน<ArrowRight size={17} aria-hidden="true" /></Link></div>
+          {shopsUnavailable ? <p role="status" className="mt-5 rounded-xl bg-[#fbebd6] p-5 text-sm">ยังโหลดข้อมูลร้านไม่ได้ โปรดลองอีกครั้ง</p> : shops.length ? <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{shops.map(shop => { const area = areas.find(t => t.id === shop.tambon_id); return <article key={shop.id} className="rounded-2xl border border-[#dbdfd5] bg-white p-6"><div className="flex items-center justify-between gap-3"><span className="rounded-xl bg-[#e4e7f0] p-3 text-[#2e3e68]"><Store size={25} aria-hidden="true" /></span><span className="rounded-full bg-[#e0ede6] px-3 py-1.5 text-xs text-[#2e6b4c]">ร้านเปิดขาย</span></div><h3 className="mt-4 text-lg font-semibold">{shop.name}</h3><p className="mt-2 text-sm leading-7 text-[#5b6478]">{shop.category || "ร้านค้าในชุมชน"}</p><p className="mt-3 text-xs text-[#5b6478]">{area ? tambonDisplayName(area.name) : ""}{area && !area.is_active ? " · พื้นที่ยังเตรียมเปิดบริการ" : ""}</p><Link href={area?.slug ? `/t/${encodeURIComponent(area.slug)}` : "/login"} className="mt-4 flex min-h-11 items-center justify-between border-t border-[#dbdfd5] pt-4 text-sm font-semibold text-[#2e3e68]">ดูร้านและช่องทางของตำบล<ArrowRight size={17} aria-hidden="true" /></Link></article>; })}</div> : <p className="mt-5 rounded-2xl bg-[#eff1ec] p-6 text-sm text-[#5b6478]">ยังไม่มีร้านเปิดขายในพื้นที่ที่แสดง ลองค้นหาตำบลอื่นหรือติดต่อช่องทางตัวแทน</p>}
+        </section>
+
         <section id="how" className="mx-auto max-w-6xl scroll-mt-6 px-5 py-12 sm:px-8 sm:py-16">
           <div className="max-w-xl"><p className="mb-2 text-xs font-semibold tracking-widest text-[#c97418]">ไม่กี่ขั้นตอน ก็ใกล้กัน</p><h2 className="text-3xl font-semibold">เริ่มใช้งานบวรไทย</h2></div>
           <div className="mt-8 grid gap-6 md:grid-cols-3">{[
             { icon: MapPin, title: "เลือกตำบลของคุณ", body: "เปิดหน้าชุมชนเพื่อดูร้านค้า ข่าว ประกาศ และตัวแทนของพื้นที่" },
-            { icon: ShoppingBag, title: "เลือกร้าน แล้วสั่ง", body: "ใช้ปุ่ม LINE ของตำบล หรือเข้าสู่ระบบเว็บ เลือกสินค้าและตรวจยอดก่อนยืนยัน" },
+              { icon: ShoppingBag, title: "เลือกร้าน แล้วสั่ง", body: "เข้าสู่ระบบเพื่อจัดรายการสินค้า ตรวจยอด แล้วเปิด LINE เพื่อยืนยันค่าส่งและบริการกับตัวแทน" },
             { icon: Navigation, title: "ติดตามการจัดส่ง", body: "แจ้งตำแหน่งตามขั้นตอนของระบบ แล้วติดตามสถานะออเดอร์ ค่าส่งและวิธีชำระยึดตามตำบล" },
           ].map((step, i) => <article key={step.title} className="rounded-2xl border border-[#dbdfd5] bg-white p-6"><div className="flex items-center justify-between"><step.icon size={25} className="text-[#2e3e68]" aria-hidden="true" /><span className="font-head text-3xl text-[#dbdfd5]">0{i + 1}</span></div><h3 className="mt-5 text-lg font-semibold">{step.title}</h3><p className="mt-3 text-sm leading-7 text-[#5b6478]">{step.body}</p></article>)}</div>
           <div className="mt-8"><InstallPwa /></div>

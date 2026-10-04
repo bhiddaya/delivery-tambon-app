@@ -1,23 +1,7 @@
+import Link from "next/link";
+import { ShoppingBag, MapPin, ArrowLeft, Check } from "lucide-react";
 import type { ReactNode } from "react";
 
-/**
- * กรอบสำหรับหน้าก่อนล็อกอิน (login/signup/onboarding) — ใช้แนวคิดเดียวกับ AppShell:
- * ความกว้างคงที่แบบมือถือเสมอ บนจอกว้างจะลอยเป็นการ์ดกลางจอ บนมือถือเต็มจอพอดี
- */
-export function AuthFrame({
-  children,
-  maxWidth = "max-w-sm",
-}: {
-  children: ReactNode;
-  maxWidth?: "max-w-sm" | "max-w-md";
-}) {
-  return (
-    <div className="flex min-h-dvh items-center justify-center bg-paper px-4 py-8 sm:bg-surface-2">
-      <div
-        className={`w-full ${maxWidth} sm:rounded-[2rem] sm:border sm:border-border sm:bg-paper sm:px-8 sm:py-10 sm:shadow-2xl`}
-      >
-        {children}
-      </div>
-    </div>
-  );
+export function AuthFrame({ children, maxWidth = "max-w-sm" }: { children: ReactNode; maxWidth?: "max-w-sm" | "max-w-md" }) {
+  return <div className="min-h-dvh bg-paper text-ink"><header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8"><Link href="/delivery" className="flex items-center gap-3 font-display text-xl text-indigo"><span className="rounded-xl bg-[#2e3e68] p-2.5 text-white"><ShoppingBag size={22} aria-hidden="true" /></span>บวรไทย</Link><Link href="/delivery" className="inline-flex min-h-11 items-center gap-2 text-sm text-ink-soft"><ArrowLeft size={16} aria-hidden="true" />กลับหน้าหลัก</Link></header><main className="mx-auto grid min-h-[75dvh] max-w-6xl items-center gap-12 px-5 pb-12 pt-5 sm:px-8 lg:grid-cols-2"><div className="hidden lg:block"><p className="mb-5 inline-flex items-center gap-2 rounded-full bg-jade-tint px-4 py-2 text-sm font-semibold text-jade"><MapPin size={16} aria-hidden="true" />ชุมชนของเรา</p><h1 className="text-5xl font-semibold leading-tight">เรื่องใกล้บ้าน<br /><span className="text-indigo">จัดการได้ในที่เดียว</span></h1><p className="mt-6 max-w-md leading-8 text-ink-soft">สั่งจากร้านในชุมชน รับงานจัดส่ง หรือดูแลตำบลของคุณ ใช้บัญชีเดิมของบวรไทยเพื่อเข้าถึงข้อมูลตามบทบาท</p><div className="mt-7 space-y-3 text-sm text-ink-soft">{["ร้านค้าและเมนูจากฐานข้อมูลจริง", "ติดตามออเดอร์ของคุณได้", "ใช้เป็น PWA บนหน้าจอมือถือ"].map(text => <p key={text} className="flex items-center gap-3"><Check size={18} className="text-jade" aria-hidden="true" />{text}</p>)}</div></div><div className={`mx-auto w-full ${maxWidth} lg:max-w-md`}><div className="rounded-3xl border border-border bg-surface p-6 shadow-sm sm:p-8">{children}</div><p className="mt-5 text-center text-xs leading-6 text-ink-soft">บัญชีร้านค้า ไรเดอร์ และตัวแทนใช้รหัสผ่านตามสิทธิ์เดิมของระบบ</p></div></main></div>;
 }

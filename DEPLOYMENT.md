@@ -8,9 +8,10 @@ Production URL: https://delivery-tambon-app-v3.vercel.app
 ```sh
 npm ci
 npm run build
-node --experimental-strip-types --test tests/delivery-pwa.test.mjs
+node --experimental-strip-types --test tests/delivery-pwa.test.mjs tests/rebuilt-order.test.mjs
 ```
 
+ตรวจ interaction แบบ mock ตาม `docs/46-DELIVERY-REBUILD.md`
 ตรวจ lint ของไฟล์ที่แก้และแยกข้อผิดพลาดเดิมออกจากการเปลี่ยนแปลงใหม่
 ตรวจ diff, รายการไฟล์ และข้อมูลลับก่อน push; `.env*`, กุญแจลับ, `.git`, `node_modules` และ runtime ไม่ใช่ไฟล์ส่งมอบ
 ตรวจ remote main ล่าสุดและส่งแบบ fast-forward เท่านั้น
@@ -34,7 +35,7 @@ CI success ยืนยัน deployment แต่ยังไม่ยืนย
 
 ## ถอยโค้ด
 
-Revert commit ที่เพิ่มหน้า Delivery/PWA แล้วส่ง commit ใหม่ตามขั้นตอนเดิม ห้าม force push
+Revert commit ที่เปลี่ยนหน้า Delivery/PWA แล้วส่ง commit ใหม่ตามขั้นตอนเดิม ห้าม force push
 Service worker v3 จะล้างเฉพาะ cache รุ่นเก่าของแอป ไม่แตะฐานข้อมูล
 เมื่อ revert ให้เพิ่มหมายเลข cache รุ่นใหม่อีกครั้งเพื่อให้เครื่องที่ติดตั้งอยู่รับการแก้
 

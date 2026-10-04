@@ -10,7 +10,7 @@
   --indigo: #2e3e68;
   --indigo-deep: #1b2547;
   --indigo-tint: #e4e7f0;
-  --marigold: #c97418;
+  --marigold: #925716;
   --marigold-tint: #fbebd6;
   --jade: #2e6b4c;
   --jade-tint: #e0ede6;
@@ -92,6 +92,13 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
+  line-height: 1.7;
+}
+
+button:not(:disabled), summary { cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
 h1, h2, h3, h4 {
