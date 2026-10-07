@@ -1,5 +1,37 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Mali";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/mali/mali-400.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Mali";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/mali/mali-500.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Mali";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/mali/mali-600.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Mali";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/mali/mali-700.ttf") format("truetype");
+}
+
 :root {
   --paper: #eff1ec;
   --surface: #ffffff;
@@ -79,9 +111,10 @@
   --color-slateblue-tint: var(--slateblue-tint);
   --color-clay: var(--clay);
   --color-clay-tint: var(--clay-tint);
-  --font-display: "Chonburi", "Kanit", sans-serif;
-  --font-head: "Kanit", "IBM Plex Sans Thai", sans-serif;
-  --font-body: "IBM Plex Sans Thai", "Kanit", sans-serif;
+  --font-display: "Mali", cursive;
+  --font-head: "Mali", cursive;
+  --font-body: "Mali", cursive;
+  --font-sans: "Mali", cursive;
 }
 
 * {
@@ -94,6 +127,8 @@ body {
   font-family: var(--font-body);
   line-height: 1.7;
 }
+
+button, input, select, textarea { font-family: inherit; }
 
 button:not(:disabled), summary { cursor: pointer; }
 
