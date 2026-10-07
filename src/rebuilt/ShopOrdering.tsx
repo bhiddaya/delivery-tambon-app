@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { money } from "@/lib/domain";
 import { lineOaTextLink } from "@/lib/tambon-links";
+import { tambonDisplayName } from "@/lib/tambon-choice";
 import { basketLines, basketSubtotal, configuredBaseFee, type Basket } from "./order-logic";
 import { useLiveData } from "./use-live-data";
 import { DataState, EmptyPanel, PageIntro, Panel, ProductPhoto, inputClass, primaryButton, secondaryButton } from "./primitives";
@@ -48,7 +49,7 @@ export default function ShopOrdering() {
     setReview("");
   }
   const message = data?.shop ? [
-    `ตำบล${data.area?.name ?? ""} #${data.area?.slug ?? ""}`,
+    `${tambonDisplayName(data.area?.name ?? "")} #${data.area?.slug ?? ""}`,
     `ขอสั่งจากร้าน ${data.shop.name}`,
     ...lines.map(line => `${line.item.name} × ${line.quantity} = ${money(Number(line.item.price) * line.quantity)}`),
     `รวมสินค้า ${money(subtotal)}`,
