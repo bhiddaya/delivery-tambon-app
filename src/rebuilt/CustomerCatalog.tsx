@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, MapPin, Package, Search, Bike, Store, RefreshCw } from "lucide-react";
+import QuickActions from "@/components/QuickActions";
+import { ArrowRight, MapPin, Search, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { money, TYPE_LABEL } from "@/lib/domain";
@@ -36,14 +37,13 @@ export default function CustomerCatalog() {
 
   return <div>
     <PageIntro eyebrow="ใกล้บ้าน ส่งถึงมือ" title="วันนี้ อยากทานอะไร?" description="เลือกร้านในตำบลของคุณ ดูเมนูและราคาล่าสุด แล้วจัดรายการที่อยากสั่ง" action={<button className={secondaryButton} onClick={refresh}><RefreshCw size={16} aria-hidden="true" />อัปเดต</button>} />
-    <div className="mb-6 overflow-hidden rounded-3xl bg-[#2e3e68] p-6 text-white sm:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-5"><div><p className="flex items-center gap-2 text-sm text-white/80"><MapPin size={18} aria-hidden="true" />พื้นที่ของคุณ</p><h2 className="mt-3 text-2xl font-semibold">{data?.area ? tambonDisplayName(data.area.name) : "ตำบลของบัญชีนี้"}</h2><p className="mt-3 max-w-xl text-sm leading-7 text-white/80">{data?.area?.announcement || "ร้านใกล้บ้าน อาหารคุ้นเคย และบริการที่ช่วยให้ชีวิตในชุมชนสะดวกขึ้น"}</p></div>{data?.area?.slug && <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-[#2e3e68]" href={`/t/${data.area.slug}`}>ดูหน้าชุมชน<ArrowRight size={16} aria-hidden="true" /></Link>}</div>
+    <QuickActions role="customer" />
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-indigo-tint px-4 py-3 text-sm">
+      <p className="flex items-center gap-2"><MapPin size={18} aria-hidden="true" />{data?.area ? tambonDisplayName(data.area.name) : "ตำบลของบัญชีนี้"}</p>
+      {data?.area?.slug && <Link className="inline-flex min-h-11 items-center gap-2 font-semibold text-indigo" href={`/t/${data.area.slug}`}>ติดต่อ / ดูชุมชน<ArrowRight size={16} aria-hidden="true" /></Link>}
+      {data?.area?.announcement && <p className="w-full leading-7 text-ink-soft">{data.area.announcement}</p>}
     </div>
-    <nav aria-label="บริการ" className="mb-7 grid gap-3 sm:grid-cols-3">{[
-      { title: "ร้านอาหารและของใช้", text: "เลือกร้านด้านล่าง", href: "#shops", icon: Store },
-      { title: "ส่งของและพัสดุ", text: "ดูจุดรับและจุดส่ง", href: "/customer/parcel", icon: Package },
-      { title: "เรียกรถในตำบล", text: "เลือกยานพาหนะ", href: "/customer/ride", icon: Bike },
-    ].map(item => <Link key={item.href} href={item.href} className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-5 hover:border-indigo"><item.icon size={24} className="shrink-0 text-indigo" aria-hidden="true" /><div><p className="font-semibold">{item.title}</p><p className="mt-1 text-xs text-ink-soft">{item.text}</p></div><ArrowRight className="ml-auto shrink-0 text-ink-soft" size={17} aria-hidden="true" /></Link>)}</nav>
+    {data?.area && !data.area.is_active && <p role="status" className="mb-5 rounded-xl bg-marigold-tint p-4 text-sm leading-7">ตำบลนี้กำลังเตรียมเปิดบริการ ดูเมนูได้ แต่ยังส่งรายการสั่งซื้อไม่ได้ {data.area.slug && <Link href={`/t/${data.area.slug}`} className="font-semibold text-indigo underline">ติดต่อผ่านหน้าชุมชน</Link>}</p>}
     <DataState loading={loading} error={error} retry={refresh} />
     {data && !error && <>
       {!profile.tambon_id && <EmptyPanel title="เลือกตำบลก่อนเริ่มใช้งาน" text="ไปที่บัญชีของคุณเพื่อกำหนดพื้นที่ ร้านค้าและบริการจะแสดงตามตำบลนี้" action={<Link className={secondaryButton} href="/account">ไปหน้าบัญชี</Link>} />}

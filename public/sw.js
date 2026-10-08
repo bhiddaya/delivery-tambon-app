@@ -1,6 +1,6 @@
 // Cache public assets only. Account pages, RSC payloads and APIs always use the network.
 const CACHE_PREFIX = "buavornthai-shell-";
-const CACHE_NAME = `${CACHE_PREFIX}v3`;
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
 const OFFLINE_URL = "/offline.html";
 const SHELL_URLS = [OFFLINE_URL, "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png"];
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import QuickActions from "@/components/QuickActions";
 import { ArrowRight, CheckCircle2, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
@@ -67,6 +68,7 @@ export default function AdminOverview() {
   const done = data?.orders.filter(o => o.status === "delivered") ?? [];
   return <div>
     <PageIntro eyebrow="รู้สถานการณ์ แล้วลงมือได้" title="ภาพรวมตำบล" description="ดูออเดอร์ เรื่องที่ต้องจัดการ และความพร้อมของร้านกับไรเดอร์ในพื้นที่ที่คุณดูแล" action={<button className={secondaryButton} onClick={refresh}><RefreshCw size={16} aria-hidden="true" />อัปเดต</button>} />
+    <QuickActions role="admin" />
     <Panel className="mb-6"><div className="grid gap-4 sm:grid-cols-[1fr_220px_auto]"><label><span className="mb-2 block text-sm">ตำบลที่ดูแล</span><select className={inputClass} value={selectedId} onChange={e => setSelectedId(e.target.value)}><option value="">{data?.tambons.length === 1 ? tambonDisplayName(data.tambons[0].name) : "ทุกตำบลที่มีสิทธิ์ดูแล"}</option>{data?.tambons.map(t => <option key={t.id} value={t.id}>{tambonDisplayName(t.name)}</option>)}</select></label><label><span className="mb-2 block text-sm">ช่วงเวลาออเดอร์</span><select className={inputClass} value={days} onChange={e => setDays(e.target.value)}><option value="1">วันนี้</option><option value="7">7 วันล่าสุด</option><option value="30">30 วันล่าสุด</option></select></label>{updated && <p className="self-end pb-3 text-xs text-ink-soft">โหลดล่าสุด {timeStr(updated.toISOString())}</p>}</div></Panel>
     <DataState loading={loading} error={error} retry={refresh} />
     {data && !error && <>
