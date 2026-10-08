@@ -77,7 +77,7 @@ async function value(element, text) {
 (async () => {
   fs.mkdirSync(path.dirname(cache), { recursive: true });
   await esbuild.build({
-    stdin: { contents: `export {default as CustomerCatalog} from './src/rebuilt/CustomerCatalog'; export {default as ShopOrdering} from './src/rebuilt/ShopOrdering'; export {default as MerchantWorkspace} from './src/rebuilt/MerchantWorkspace'; export {default as DriverWorkspace} from './src/rebuilt/DriverWorkspace'; export {default as CustomerOrders} from './src/rebuilt/CustomerOrders'; export {default as AdminOverview} from './src/rebuilt/AdminOverview'; export {default as ServiceRequest} from './src/rebuilt/ServiceRequest'; export {default as AppShell} from './src/components/AppShell';`, resolveDir: base, loader: 'tsx' },
+    stdin: { contents: `export {default as CustomerCatalog} from './src/rebuilt/CustomerCatalog'; export {default as ShopOrdering} from './src/rebuilt/ShopOrdering'; export {default as MerchantWorkspace} from './src/rebuilt/MerchantWorkspace'; export {default as MerchantOrders} from './src/rebuilt/MerchantOrders'; export {default as DriverWorkspace} from './src/rebuilt/DriverWorkspace'; export {default as CustomerOrders} from './src/rebuilt/CustomerOrders'; export {default as AdminOverview} from './src/rebuilt/AdminOverview'; export {default as ServiceRequest} from './src/rebuilt/ServiceRequest'; export {default as AppShell} from './src/components/AppShell';`, resolveDir: base, loader: 'tsx' },
     absWorkingDir: base, bundle: true, platform: 'node', format: 'cjs', outfile: cache, tsconfig: base + '/tsconfig.json', external: ['react', 'react/jsx-runtime'],
     plugins: [{ name: 'offline-only', setup(build) {
       build.onResolve({ filter: /^@\/lib\/(supabase\/client|session-context)$/ }, args => ({ path: args.path, namespace: 'mock' }));
@@ -100,6 +100,23 @@ async function value(element, text) {
   await value(host.querySelector('input[type="search"]'), 'ไม่พบแน่นอน'); assert(host.textContent.includes('ยังไม่พบร้านหรือเมนู'));
   await click(button('ล้างตัวกรอง')); assert(host.textContent.includes('ร้านจำลอง')); await unmount();
   console.log('PASS customer catalog: current data, menu search, no-match and reset');
+
+  setup({ tambons: [{ ...area, is_active: false }] }); await mount(ui.CustomerCatalog);
+  assert(host.querySelector('[role="status"]').textContent.includes('ยังส่งรายการสั่งซื้อไม่ได้'));
+  assert(host.querySelector('a[href="/customer/orders"]'));
+  assert(host.querySelector('a[href="/customer/parcel"]'));
+  assert(host.querySelector('a[href="/customer/ride"]'));
+  assert(!state.calls.some(c => c.operation !== 'read')); await unmount();
+
+  setup({ orders: [order], order_items: [{ id: 1, order_id: 123, name: 'ข้าวผัด', qty: 1, price: 45 }] });
+  global.__deliveryTest.profile = { ...profile, role: 'merchant' }; await mount(ui.MerchantOrders);
+  assert(host.textContent.includes('ออเดอร์ #123'));
+  assert(host.querySelector('a[href="/merchant"]'));
+  assert(host.querySelector('a[href="/merchant/earnings"]'));
+  const merchantRead = state.calls.find(c => c.table === 'orders');
+  assert(merchantRead.conditions.some(c => c[0] === 'eq' && c[1] === 'merchant_id' && c[2] === 'shop'));
+  assert(!state.calls.some(c => c.operation !== 'read')); await unmount();
+  console.log('PASS closed-area message, customer shortcuts and merchant order workspace with shop scope');
 
   setup(); await mount(ui.ShopOrdering);
   assert(host.textContent.includes('ยังไม่ตั้งค่า')); assert(button('ตรวจรายการ').disabled);

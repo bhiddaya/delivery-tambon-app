@@ -28,7 +28,7 @@ async function worker(fetchImpl = async () => ({ ok: true, type: "basic", clone:
   const cache = { addAll: async urls => saved.push(...urls), match: async key => key === "/offline.html" ? offline : undefined, put: async (key) => { if (failStorage) throw new Error("quota"); saved.push(key.url ?? key); } };
   vm.runInNewContext(await readFile(new URL("../public/sw.js", import.meta.url), "utf8"), {
     self: { location: { origin: "https://example.test" }, addEventListener: (type, fn) => handlers[type] = fn, skipWaiting: () => {}, clients: { claim: async () => {} } },
-    caches: { open: async () => cache, keys: async () => ["buavornthai-shell-v2", "unrelated-app", "buavornthai-shell-v3"], delete: async key => removed.push(key) },
+    caches: { open: async () => cache, keys: async () => ["buavornthai-shell-v2", "unrelated-app", "buavornthai-shell-v3", "buavornthai-shell-v4"], delete: async key => removed.push(key) },
     URL, Response, fetch: fetchImpl,
   });
   return { handlers, saved, removed, offline };
@@ -47,7 +47,7 @@ test("install caches only public offline resources and removes only this app's o
   assert(!saved.includes("/"));
   handlers.activate({ waitUntil: promise => pending = promise });
   await pending;
-  assert.deepEqual(removed, ["buavornthai-shell-v2"]);
+  assert.deepEqual(removed, ["buavornthai-shell-v2", "buavornthai-shell-v3"]);
 });
 
 test("APIs, account HTML fetches, RSC data, mutations and external requests are not cached", async () => {
@@ -96,7 +96,7 @@ test("storage failure does not break the network response", async () => {
 test("manifest preserves app identity and icons match actual dimensions", async () => {
   const manifest = JSON.parse(await readFile(new URL("../public/manifest.json", import.meta.url), "utf8"));
   assert.equal(manifest.id, "/");
-  assert.equal(manifest.start_url, "/delivery");
+  assert.equal(manifest.start_url, "/app");
   assert.equal(manifest.display, "standalone");
   for (const icon of manifest.icons) {
     const png = await readFile(new URL(`../public${icon.src}`, import.meta.url));
