@@ -22,7 +22,7 @@ export default function DeliveryLanding({ areas, total, query, page, unavailable
           <nav aria-label="เมนูหลัก" className="flex items-center gap-5 text-sm font-semibold">
             <a href="#areas" className="hidden hover:text-[#c97418] sm:block">พื้นที่บริการ</a>
             <a href="#how" className="hidden hover:text-[#c97418] md:block">วิธีใช้งาน</a>
-            <Link href="/login" className="rounded-xl border border-[#dbdfd5] px-4 py-2.5 hover:bg-[#eff1ec]">เข้าสู่ระบบ</Link>
+            <Link href="/app" className="rounded-xl bg-[#2e3e68] px-4 py-2.5 text-white hover:bg-[#1b2547]">เปิดแอป</Link>
           </nav>
         </div>
       </header>
