@@ -14,7 +14,7 @@ export default async function DeliveryPage({ searchParams }: {
 }) {
   const params = await searchParams;
   const query = directorySearch(params.q);
-  const page = directoryPage(params.page);
+  let page = directoryPage(params.page);
   let areas: DeliveryArea[] = [];
   let total = 0;
   let shops: PublicDeliveryShop[] = [];
@@ -24,15 +24,23 @@ export default async function DeliveryPage({ searchParams }: {
   if (!unavailable) {
     try {
       const supabase = await createClient();
-      let request = supabase.from("tambons")
-        .select("id,name,slug,district,province,is_active", { count: "exact" })
-        .not("slug", "is", null)
-        .order("is_active", { ascending: false })
-        .order("name").order("id");
-      if (query) request = request.or(`name.ilike.%${query}%,district.ilike.%${query}%,province.ilike.%${query}%`);
-      const { data, count, error } = await request.range(
+      const areaQuery = () => {
+        let request = supabase.from("tambons")
+          .select("id,name,slug,district,province,is_active", { count: "exact" })
+          .not("slug", "is", null)
+          .order("is_active", { ascending: false })
+          .order("name").order("id");
+        if (query) request = request.or(`name.ilike.%${query}%,district.ilike.%${query}%,province.ilike.%${query}%`);
+        return request;
+      };
+      let { data, count, error } = await areaQuery().range(
         (page - 1) * DIRECTORY_PAGE_SIZE, page * DIRECTORY_PAGE_SIZE - 1,
       );
+      // A page past the last one makes PostgREST answer PGRST103; show page 1 instead of a load error
+      if (error?.code === "PGRST103" && page > 1) {
+        page = 1;
+        ({ data, count, error } = await areaQuery().range(0, DIRECTORY_PAGE_SIZE - 1));
+      }
       unavailable = Boolean(error);
       if (!error) {
         areas = data ?? [];
