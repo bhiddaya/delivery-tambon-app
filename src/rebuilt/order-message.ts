@@ -18,6 +18,8 @@ export type OrderDraft = {
   address: string;
   note: string;
   pin: Pin | null;
+  /** ค่าส่งประมาณจากฐานข้อมูล (มีเมื่อปักตำแหน่งและคำนวณได้) ใส่เป็นบรรทัดให้คนอ่านในแชต บอทคำนวณและยืนยันค่าส่งจริงเอง */
+  estimate?: { fee: number; km: number | null } | null;
 };
 
 // รูปแบบ liff: ห้ามมี # เพราะบอทอ่าน "#slug" เป็นคำสั่งตั้งตำบล และต้องเป็นบรรทัดเดียวต่อช่องเพื่อให้บอทอ่านง่าย
@@ -61,6 +63,12 @@ export function buildOrderMessage(d: OrderDraft, format: "web" | "liff"): string
     `ตำบล: ${safeLine(d.tambonName)}`,
     ...itemLines,
     `รวมสินค้า ${money(d.subtotal)}`,
+    ...(d.estimate
+      ? [
+          `ค่าส่งประมาณ ${money(d.estimate.fee)}${d.estimate.km !== null ? ` (≈ ${d.estimate.km.toFixed(1)} กม.)` : ""}`,
+          `รวมประมาณ ${money(d.subtotal + d.estimate.fee)}`,
+        ]
+      : []),
     `จุดส่ง: ${safeLine(d.address)}`,
     ...pin,
     note ? `หมายเหตุ: ${note}` : "",
