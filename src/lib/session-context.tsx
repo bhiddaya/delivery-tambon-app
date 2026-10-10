@@ -26,3 +26,8 @@ export function useSession(): SessionValue {
   if (!ctx) throw new Error("useSession must be used within SessionProvider");
   return ctx;
 }
+
+/** สำหรับหน้าที่เปิดได้ทั้งตอนล็อกอินและตอนยังไม่ล็อกอิน (เช่น /shop/[id]) */
+export function useOptionalSession(): SessionValue | null {
+  return useContext(SessionContext);
+}

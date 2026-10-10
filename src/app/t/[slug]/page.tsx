@@ -803,6 +803,45 @@ export default async function TambonPublicPage({
         )}
       </Card>
 
+      {/* ร้านอยู่ใต้ปุ่มสั่งทันที กดแล้วเห็นเมนู รูป ราคา และใส่ตะกร้าได้เลย ไม่ต้องล็อกอิน */}
+      {tambon.is_active && (
+        <section id="shops" className="mb-6">
+          <h2 className="font-head font-semibold text-sm mb-2">
+            ร้านค้าที่เปิดอยู่
+            {merchants.length > 0 && (
+              <span className="text-ink-soft font-normal"> ({merchants.length})</span>
+            )}
+          </h2>
+
+          {merchants.length === 0 ? (
+            <EmptyState>
+              ยังไม่มีร้านค้าเปิดให้บริการในตำบลนี้
+              <br />
+              เป็นร้านแรกได้เลย — สมัครแล้วเปิดร้านได้ทันที
+            </EmptyState>
+          ) : (
+            <Card className="!p-0 divide-y divide-border">
+              {merchants.map((m) => (
+                <Link
+                  key={m.id}
+                  href={`/shop/${encodeURIComponent(m.id)}`}
+                  className="flex items-center gap-3 px-4 py-3 active:bg-indigo-tint"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-indigo-tint text-indigo flex items-center justify-center text-lg flex-none">
+                    🍽️
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-head font-semibold text-sm truncate">{m.name}</div>
+                    {m.category && <div className="text-ink-soft text-xs">{m.category}</div>}
+                  </div>
+                  <span className="text-indigo text-sm font-semibold flex-none">ดูเมนู ›</span>
+                </Link>
+              ))}
+            </Card>
+          )}
+        </section>
+      )}
+
       {posts.length > 0 && (
         <section className="mb-6">
           <h2 className="font-head font-semibold text-sm mb-2">ข่าวและประกาศของตำบล</h2>
@@ -826,50 +865,12 @@ export default async function TambonPublicPage({
       <BoardSection slug={slug} items={board} />
       <VoiceSection voice={voice} />
 
-      {tambon.is_active && (
-        <>
-          <h2 className="font-head font-semibold text-sm mb-2">
-            ร้านค้าที่เปิดอยู่
-            {merchants.length > 0 && (
-              <span className="text-ink-soft font-normal"> ({merchants.length})</span>
-            )}
-          </h2>
-
-          {merchants.length === 0 ? (
-            <EmptyState>
-              ยังไม่มีร้านค้าเปิดให้บริการในตำบลนี้
-              <br />
-              เป็นร้านแรกได้เลย — สมัครแล้วเปิดร้านได้ทันที
-            </EmptyState>
-          ) : (
-            <Card className="!p-0 divide-y divide-border">
-              {merchants.map((m) => (
-                <Link
-                  key={m.id}
-                  href={`/login?next=${encodeURIComponent(`/customer/merchants/${m.id}`)}`}
-                  className="flex items-center gap-3 px-4 py-3 active:bg-indigo-tint"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-indigo-tint text-indigo flex items-center justify-center text-lg flex-none">
-                    🍽️
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-head font-semibold text-sm truncate">{m.name}</div>
-                    {m.category && <div className="text-ink-soft text-xs">{m.category}</div>}
-                  </div>
-                  <span className="text-indigo text-sm font-semibold flex-none">ดูเมนู ›</span>
-                </Link>
-              ))}
-            </Card>
-          )}
-        </>
-      )}
-
       {profile && <TambonKnowledge profile={profile} />}
 
       <AiItems items={aiItems} area={`${label} ${place}`} />
 
       <p className="text-ink-soft text-xs text-center mt-8 leading-relaxed">
-        ต้องเข้าสู่ระบบเพื่อสั่งซื้อ
+        เลือกรายการจากหน้าร้านแล้วยืนยันออเดอร์ผ่าน LINE บวรไทย
         {tambon.is_active && (
           <>
             <br />
