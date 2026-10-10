@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLiff } from "@/components/LiffProvider";
 import { signInWithLineIdToken, LineSignInError } from "@/lib/line-login";
+import { nextParam } from "@/lib/next-path";
 
 /**
  * ปุ่ม "เข้าสู่ระบบด้วย LINE"
@@ -50,7 +51,7 @@ export default function LineLoginButton() {
     try {
       const result = await signInWithLineIdToken(idToken);
       // ยังไม่มีโปรไฟล์ = เข้าครั้งแรก ต้องบอกก่อนว่าจะใช้งานแบบไหน
-      router.push(result.hasProfile ? "/" : "/onboarding");
+      router.push(result.hasProfile ? (nextParam() ?? "/") : "/onboarding");
       router.refresh();
     } catch (err) {
       setError(
