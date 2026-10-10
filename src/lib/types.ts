@@ -2087,7 +2087,15 @@ export type Database = {
         Args: { p_settlement_id: number }
         Returns: undefined
       }
+      delivery_fee_for: {
+        Args: { p_distance_km: number; p_tambon_id: string }
+        Returns: number
+      }
       delivery_overview: { Args: never; Returns: Json }
+      estimate_delivery_fee: {
+        Args: { p_lat: number; p_lng: number; p_shop_id: string }
+        Returns: Json
+      }
       find_agri_owner: {
         Args: {
           p_is_test?: boolean
