@@ -45,6 +45,14 @@ export type LiffContextValue = {
    * จะยังถือสิทธิ์ชุดเก่าอยู่จนกว่าจะอนุญาตใหม่
    */
   relogin: () => void;
+  /**
+   * ส่งข้อความในนามผู้ใช้เข้าแชตที่เปิดหน้านี้ขึ้นมา (เช่นแชตกับ OA บวรไทย)
+   * ต้องเปิดจากแชตในแอป LINE และต้องเปิดสิทธิ์ chat_message.write ที่ LIFF ในคอนโซล LINE
+   * โยน error ถ้าส่งไม่ได้ ให้ผู้เรียกมีทางสำรอง
+   */
+  sendText: (text: string) => Promise<void>;
+  /** ปิดหน้า LIFF กลับไปที่แชต (ไม่ทำอะไรถ้าไม่ได้เปิดในแอป LINE) */
+  closeWindow: () => void;
 };
 
 const LiffContext = createContext<LiffContextValue>({
@@ -57,6 +65,10 @@ const LiffContext = createContext<LiffContextValue>({
   logout: () => {},
   getIdToken: () => null,
   relogin: () => {},
+  sendText: async () => {
+    throw new Error("LIFF ยังไม่พร้อม");
+  },
+  closeWindow: () => {},
 });
 
 export function useLiff() {
@@ -163,6 +175,13 @@ export default function LiffProvider({
           // ในแอป LINE บางรุ่น logout ทำไม่ได้ — ไม่เป็นไร ลอง login ต่อเลย
         }
         liff.login({ redirectUri: window.location.href });
+      },
+      sendText: async (text: string) => {
+        if (!liff || !liff.isInClient()) throw new Error("ต้องเปิดจากแอป LINE");
+        await liff.sendMessages([{ type: "text", text }]);
+      },
+      closeWindow: () => {
+        if (liff && liff.isInClient()) liff.closeWindow();
       },
     }),
     [status, error, isInClient, isLoggedIn, profile, liff]
