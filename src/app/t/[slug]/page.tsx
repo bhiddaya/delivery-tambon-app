@@ -844,7 +844,11 @@ export default async function TambonPublicPage({
           ) : (
             <Card className="!p-0 divide-y divide-border">
               {merchants.map((m) => (
-                <div key={m.id} className="flex items-center gap-3 px-4 py-3">
+                <Link
+                  key={m.id}
+                  href={`/login?next=${encodeURIComponent(`/customer/merchants/${m.id}`)}`}
+                  className="flex items-center gap-3 px-4 py-3 active:bg-indigo-tint"
+                >
                   <div className="w-11 h-11 rounded-xl bg-indigo-tint text-indigo flex items-center justify-center text-lg flex-none">
                     🍽️
                   </div>
@@ -852,7 +856,8 @@ export default async function TambonPublicPage({
                     <div className="font-head font-semibold text-sm truncate">{m.name}</div>
                     {m.category && <div className="text-ink-soft text-xs">{m.category}</div>}
                   </div>
-                </div>
+                  <span className="text-indigo text-sm font-semibold flex-none">ดูเมนู ›</span>
+                </Link>
               ))}
             </Card>
           )}
