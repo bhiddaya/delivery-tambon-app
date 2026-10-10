@@ -10,6 +10,15 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
+/** ไม่อ่านคุกกี้ล็อกอิน จึงเป็นสิทธิ์ anon เสมอ ใช้กับรายการที่ลูกค้าทุกคนต้องเห็นเหมือนกัน (ผู้ดูแลที่ล็อกอินอยู่จะไม่เห็นร้านทดสอบปนมา) */
+export function createPublicClient() {
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => [], setAll() {} } }
+  );
+}
+
 export async function createClient() {
   const cookieStore = await cookies();
 

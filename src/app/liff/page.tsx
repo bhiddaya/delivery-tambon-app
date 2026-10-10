@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronRight, Store } from "lucide-react";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createPublicClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { tambonDisplayName } from "@/lib/tambon-choice";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,8 @@ type Shop = { id: string; name: string; category: string | null; tambon_id: stri
 /**
  * หน้าเริ่มต้นของ LIFF — เปิดจากเมนู "สั่งอาหาร" ใน LINE
  * แสดงร้านที่เปิดอยู่แยกตามตำบล (?t=<slug> เพื่อแสดงเฉพาะตำบลเดียว)
- * อ่านด้วยสิทธิ์ของผู้ที่ยังไม่ล็อกอิน (anon) ฐานข้อมูลคืนเฉพาะร้านที่เปิดและไม่ใช่ร้านทดสอบ
+ * อ่านด้วยสิทธิ์ anon เสมอ (ไม่ใช้คุกกี้ล็อกอิน) ฐานข้อมูลจึงคืนเฉพาะร้านที่เปิดและไม่ใช่ร้านทดสอบ
+ * ลูกค้าทุกคนเห็นรายชื่อเดียวกัน แม้เปิดจากเครื่องที่ผู้ดูแลล็อกอินค้างอยู่ (ไม่งั้นเห็นร้านทดสอบปนมา)
  */
 export default async function LiffShopsPage({ searchParams }: { searchParams: Promise<{ t?: string | string[] }> }) {
   const { t } = await searchParams;
@@ -27,7 +28,7 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
 
   if (!failed) {
     try {
-      const db = await createClient();
+      const db = createPublicClient();
       const [areaResult, shopResult] = await Promise.all([
         db.from("tambons").select("id,name,slug").eq("is_active", true).not("slug", "is", null).order("name"),
         db.from("merchants").select("id,name,category,tambon_id").eq("is_open", true).order("name"),
