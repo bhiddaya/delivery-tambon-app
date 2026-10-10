@@ -54,6 +54,18 @@ test('liff message without a GPS pin leaves out coordinates and keeps the order 
   assert(text.endsWith('items=i1x2,i2x1]'));
 });
 
+test('liff message shows the estimated delivery fee and total only when an estimate exists', () => {
+  const { buildOrderMessage } = load();
+  const withEstimate = buildOrderMessage(draft({ estimate: { fee: 90, km: 5.5 } }), 'liff').split('\n');
+  assert(withEstimate.includes('รวมสินค้า 140 บาท'));
+  assert(withEstimate.includes('ค่าส่งประมาณ 90 บาท (≈ 5.5 กม.)'));
+  assert(withEstimate.includes('รวมประมาณ 230 บาท'));
+  assert(withEstimate.at(-1).startsWith('[order:v1 '));
+  assert(!buildOrderMessage(draft({ estimate: null }), 'liff').includes('ประมาณ'));
+  assert(buildOrderMessage(draft({ estimate: { fee: 35, km: null } }), 'liff').includes('ค่าส่งประมาณ 35 บาท\n'));
+  assert(!buildOrderMessage(draft({ estimate: { fee: 90, km: 5.5 } }), 'web').includes('ประมาณ'));
+});
+
 test('web message keeps the old layout and adds coordinates only when a pin exists', () => {
   const { buildOrderMessage } = load();
   const withPin = buildOrderMessage(draft(), 'web').split('\n');

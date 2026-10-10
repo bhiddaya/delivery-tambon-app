@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { LiffSendError, errorCode } from "@/lib/liff-send";
 
 /**
  * เชื่อม LIFF (LINE Front-end Framework) เข้ากับแอป
@@ -48,9 +49,17 @@ export type LiffContextValue = {
   /**
    * ส่งข้อความในนามผู้ใช้เข้าแชตที่เปิดหน้านี้ขึ้นมา (เช่นแชตกับ OA บวรไทย)
    * ต้องเปิดจากแชตในแอป LINE และต้องเปิดสิทธิ์ chat_message.write ที่ LIFF ในคอนโซล LINE
-   * โยน error ถ้าส่งไม่ได้ ให้ผู้เรียกมีทางสำรอง
+   * ถ้าผู้ใช้ยังไม่เคยอนุญาต จะให้ LINE ขออนุญาตก่อนส่ง
+   * โยน LiffSendError ถ้าส่งไม่ได้ (บอกสาเหตุ) ให้ผู้เรียกมีทางสำรอง
    */
   sendText: (text: string) => Promise<void>;
+  /** สถานะสิทธิ์ส่งข้อความเข้าแชต "unknown" = ตรวจไม่ได้ (เช่นเปิดนอกแอป LINE) */
+  chatPermission: () => Promise<"granted" | "prompt" | "unavailable" | "unknown">;
+  /**
+   * ถ้ายังไม่เคยอนุญาตส่งข้อความ ให้ LINE แสดงหน้าขออนุญาต (หลังอนุญาต LINE อาจโหลดหน้าใหม่)
+   * เรียกตั้งแต่เข้าหน้าแรกของ LIFF ก่อนที่ลูกค้าจะมีตะกร้า
+   */
+  askChatPermission: () => Promise<void>;
   /** ปิดหน้า LIFF กลับไปที่แชต (ไม่ทำอะไรถ้าไม่ได้เปิดในแอป LINE) */
   closeWindow: () => void;
 };
@@ -66,13 +75,27 @@ const LiffContext = createContext<LiffContextValue>({
   getIdToken: () => null,
   relogin: () => {},
   sendText: async () => {
-    throw new Error("LIFF ยังไม่พร้อม");
+    throw new LiffSendError("not_in_client");
   },
+  chatPermission: async () => "unknown",
+  askChatPermission: async () => {},
   closeWindow: () => {},
 });
 
 export function useLiff() {
   return useContext(LiffContext);
+}
+
+type Sdk = typeof import("@line/liff").default;
+
+/** ถาม LINE ว่าผู้ใช้อนุญาตให้ส่งข้อความเข้าแชตหรือยัง (unavailable = LIFF นี้ไม่ได้เปิดสิทธิ์ chat_message.write ที่คอนโซล) */
+async function queryChat(liff: Sdk | null): Promise<"granted" | "prompt" | "unavailable" | "unknown"> {
+  if (!liff) return "unknown";
+  try {
+    return (await liff.permission.query("chat_message.write")).state;
+  } catch {
+    return "unknown";
+  }
 }
 
 export default function LiffProvider({
@@ -176,9 +199,32 @@ export default function LiffProvider({
         }
         liff.login({ redirectUri: window.location.href });
       },
+      chatPermission: () => queryChat(liff),
+      askChatPermission: async () => {
+        if (!liff || !liff.isInClient()) return;
+        if ((await queryChat(liff)) !== "prompt") return;
+        try {
+          await liff.permission.requestAll();
+        } catch {
+          // ผู้ใช้ไม่อนุญาตหรือปิดหน้าต่าง: ตอนกดสั่งเลยจะมีทางสำรองเปิด LINE ให้ส่งเอง
+        }
+      },
       sendText: async (text: string) => {
-        if (!liff || !liff.isInClient()) throw new Error("ต้องเปิดจากแอป LINE");
-        await liff.sendMessages([{ type: "text", text }]);
+        if (!liff || !liff.isInClient()) throw new LiffSendError("not_in_client");
+        const state = await queryChat(liff);
+        if (state === "unavailable") throw new LiffSendError("scope_unavailable");
+        if (state === "prompt") {
+          try {
+            await liff.permission.requestAll();
+          } catch (err) {
+            throw new LiffSendError("failed", errorCode(err));
+          }
+        }
+        try {
+          await liff.sendMessages([{ type: "text", text }]);
+        } catch (err) {
+          throw new LiffSendError("failed", errorCode(err));
+        }
       },
       closeWindow: () => {
         if (liff && liff.isInClient()) liff.closeWindow();
