@@ -31,9 +31,9 @@ const draft = (over = {}) => ({
   ...over,
 });
 
-test('liff message: readable lines for people plus one machine line for the bot', () => {
+test('order message: readable lines for people plus one machine line for the bot', () => {
   const { buildOrderMessage } = load();
-  const lines = buildOrderMessage(draft(), 'liff').split('\n');
+  const lines = buildOrderMessage(draft()).split('\n');
   assert.equal(lines[0], '🛒 รายการสั่งซื้อ');
   assert(lines.includes('จุดส่ง: 99/9 ซอย ทดสอบ ตำบลคลองกุ่ม'));
   assert(lines.includes('พิกัด: 13.756300, 100.501800'));
@@ -41,14 +41,33 @@ test('liff message: readable lines for people plus one machine line for the bot'
   assert.equal(lines.at(-1), '[order:v1 shop=a422df01-6ade-4d0c-ad07-a68c6371e3c7 area=khalong-kum items=i1x2,i2x1 lat=13.756300 lng=100.501800]');
 });
 
+test('web OA link preserves the order and the bot reader accepts it', () => {
+  const { buildOrderMessage } = load();
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/lib/tambon-links.ts', 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  }).outputText, { exports, require: () => ({ tambonDisplayName: name => name }) });
+  const text = buildOrderMessage(draft());
+  const link = new URL(exports.lineOaTextLink(text));
+  assert.equal(link.pathname, '/R/oaMessage/@227eostj/');
+  const delivered = decodeURIComponent(link.search.slice(1));
+  assert.equal(delivered, text);
+  assert(!delivered.includes('#khalong-kum'));
+  const read = new Function('$input', fs.readFileSync('n8n/liff-order/read-message.js', 'utf8'));
+  const result = read({ first: () => ({ json: { userId: 'TEST-web-order', text: delivered } }) });
+  assert.equal(result.length, 1);
+  assert.equal(result[0].json.text, text);
+  assert.equal(result[0].json.test, true);
+});
+
 test('liff message never contains # (the bot reads #slug as a set-tambon command)', () => {
   const { buildOrderMessage } = load();
-  assert(!buildOrderMessage(draft(), 'liff').includes('#'));
+  assert(!buildOrderMessage(draft()).includes('#'));
 });
 
 test('liff message without a GPS pin leaves out coordinates and keeps the order code', () => {
   const { buildOrderMessage } = load();
-  const text = buildOrderMessage(draft({ pin: null }), 'liff');
+  const text = buildOrderMessage(draft({ pin: null }));
   assert(!text.includes('พิกัด'));
   assert(!/lat=|lng=/.test(text));
   assert(text.endsWith('items=i1x2,i2x1]'));
@@ -56,22 +75,11 @@ test('liff message without a GPS pin leaves out coordinates and keeps the order 
 
 test('liff message shows the estimated delivery fee and total only when an estimate exists', () => {
   const { buildOrderMessage } = load();
-  const withEstimate = buildOrderMessage(draft({ estimate: { fee: 90, km: 5.5 } }), 'liff').split('\n');
+  const withEstimate = buildOrderMessage(draft({ estimate: { fee: 90, km: 5.5 } })).split('\n');
   assert(withEstimate.includes('รวมสินค้า 140 บาท'));
   assert(withEstimate.includes('ค่าส่งประมาณ 90 บาท (≈ 5.5 กม.)'));
   assert(withEstimate.includes('รวมประมาณ 230 บาท'));
   assert(withEstimate.at(-1).startsWith('[order:v1 '));
-  assert(!buildOrderMessage(draft({ estimate: null }), 'liff').includes('ประมาณ'));
-  assert(buildOrderMessage(draft({ estimate: { fee: 35, km: null } }), 'liff').includes('ค่าส่งประมาณ 35 บาท\n'));
-  assert(!buildOrderMessage(draft({ estimate: { fee: 90, km: 5.5 } }), 'web').includes('ประมาณ'));
-});
-
-test('web message keeps the old layout and adds coordinates only when a pin exists', () => {
-  const { buildOrderMessage } = load();
-  const withPin = buildOrderMessage(draft(), 'web').split('\n');
-  assert.equal(withPin[0], 'ตำบลคลองกุ่ม #khalong-kum');
-  assert.equal(withPin[1], 'ขอสั่งจากร้าน ร้านส้มตำ #1');
-  assert(withPin.includes('พิกัด: 13.756300, 100.501800'));
-  assert.equal(withPin.at(-1), 'กรุณายืนยันร้านพร้อมรับ ค่าส่ง ยอดรวม และวิธีชำระก่อนสร้างออเดอร์');
-  assert(!buildOrderMessage(draft({ pin: null }), 'web').includes('พิกัด'));
+  assert(!buildOrderMessage(draft({ estimate: null })).includes('ประมาณ'));
+  assert(buildOrderMessage(draft({ estimate: { fee: 35, km: null } })).includes('ค่าส่งประมาณ 35 บาท\n'));
 });
