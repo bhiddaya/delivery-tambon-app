@@ -13,13 +13,13 @@ const esbuild = toolRequire('esbuild');
 const React = projectRequire(base + '/node_modules/react');
 const cache = base + '/node_modules/.cache/rebuilt-ui.cjs';
 const dom = new JSDOM('<div id="root"></div>', { url: 'https://example.test/customer' });
-global.window = dom.window; global.document = dom.window.document; global.IS_REACT_ACT_ENVIRONMENT = true;
+global.localStorage = dom.window.localStorage; global.sessionStorage = dom.window.sessionStorage; global.IntersectionObserver = class { observe() {} disconnect() {} }; global.window = dom.window; global.document = dom.window.document; global.IS_REACT_ACT_ENVIRONMENT = true;
 Object.defineProperty(global, 'navigator', { value: dom.window.navigator, configurable: true });
 const { createRoot } = projectRequire(base + '/node_modules/react-dom/client');
 window.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
 window.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new window.Event('close')); };
-const profile = { id: 'user', role: 'customer', tambon_id: 'area', full_name: 'ผู้ทดสอบจำลอง', is_test: false, approved: true, line_user_id: 'mock-only', suspended_at: null };
-const shop = { id: 'shop', profile_id: 'user', tambon_id: 'area', name: 'ร้านจำลอง', category: 'อาหาร', is_open: true, is_test: false, address: 'บ้านเลขที่จำลอง' };
+const profile = { id: 'user', role: 'customer', tambon_id: 'area', full_name: 'ผู้ทดสอบจำลอง', is_test: false, approved: true, line_user_id: 'mock-only', phone: '66812345678', suspended_at: null };
+const shop = { id: 'shop', profile_id: 'user', tambon_id: 'area', name: 'ร้านจำลอง', category: 'อาหาร', is_open: true, hours_enabled: false, opening_hours: null, is_test: false, address: 'บ้านเลขที่จำลอง' };
 const item = { id: 'rice', merchant_id: 'shop', name: 'ข้าวผัด', price: 45, is_available: true, is_hidden: false, photo_url: null };
 const area = { id: 'area', name: 'ตำบลจำลอง', slug: 'mock-area', is_active: true, intake_blocked: false, delivery_fee_base: null, delivery_fee_per_km: null };
 const order = { id: 123, customer_id: 'user', tambon_id: 'area', merchant_id: 'shop', driver_id: null, type: 'food', status: 'pending', is_test: false, items_subtotal: 45, delivery_fee: 20, price: 65, pickup: 'ร้านจำลอง', dropoff: 'บ้านผู้รับจำลอง', note: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), delivered_at: null, payment_method: 'เงินสดปลายทาง' };
@@ -28,6 +28,20 @@ function setup(overrides = {}) {
   state = { tables: structuredClone({ profiles: [profile], merchants: [shop], menu_items: [item], tambons: [area], orders: [], order_items: [], drivers: [{ profile_id: 'user', vehicle_type: 'motorcycle', is_online: true }], settlements: [], admin_scopes: [], tambon_board_posts: [], ...overrides }), calls: [], fail: false, race: false };
   const db = {
     from(table) { return new Query(table); },
+    async rpc(name,args) {
+      state.calls.push({rpc:name,args});
+      if(name==='shop_is_open') return {data:state.tables.merchants[0]?.is_open??false,error:null};
+      if(name==='register_line_customer') return {data:{ok:true},error:null};
+      if(name==='partner_order_action') {
+        if(state.race) return {data:{ok:false},error:null};
+        const o=state.tables.orders.find(o=>o.id===args.p_order_id);
+        if(o) { o.status=args.p_action==='deliver'?'delivered':args.p_action==='pickup'?'in_progress':'accepted'; o.driver_id='user'; }
+        return {data:{ok:true},error:null};
+      }
+      if(name==='customer_food_review') { state.quote={token:'qa-token',items:args.p_items.map(i=>({id:i.id,name:'ข้าวผัด',qty:i.qty,price:45})),items_total:args.p_items.reduce((n,i)=>n+i.qty*45,0),delivery_fee:20,point:{lat:13,lng:100,label:'บ้านเดิม'}};state.quote.grand_total=state.quote.items_total+20;return {data:{ok:true,view:'review',quote:state.quote},error:null}; }
+      if(name==='customer_food_confirm') { if (!state.tables.orders.some(o=>o.id===321)) state.tables.orders.push({...order,id:321}); if(state.loseConfirm) { state.loseConfirm=false; return {data:null,error:{message:'lost response'}}; } return {data:{ok:true,view:'confirmed',order_id:321},error:null}; }
+      return {data:null,error:null};
+    },
     channel() { const channel = { on() { return channel; }, subscribe() {} }; return channel; },
     removeChannel() { return Promise.resolve(); },
     auth: { async signOut() { return { error: null }; } },
@@ -40,6 +54,7 @@ class Query {
   eq(field, value) { this.filters.push(row => row[field] === value); (this.conditions ??= []).push(['eq', field, value]); return this; }
   in(field, values) { this.filters.push(row => values.includes(row[field])); return this; }
   is(field, value) { this.filters.push(row => row[field] == value); (this.conditions ??= []).push(['is', field, value]); return this; }
+  or() { return this; }
   gte(field, value) { this.filters.push(row => row[field] >= value); return this; }
   order() { return this; }
   limit(n) { this.maximum = n; return this; }
@@ -77,16 +92,17 @@ async function value(element, text) {
 (async () => {
   fs.mkdirSync(path.dirname(cache), { recursive: true });
   await esbuild.build({
-    stdin: { contents: `export {default as CustomerCatalog} from './src/rebuilt/CustomerCatalog'; export {default as ShopOrdering} from './src/rebuilt/ShopOrdering'; export {default as MerchantWorkspace} from './src/rebuilt/MerchantWorkspace'; export {default as MerchantOrders} from './src/rebuilt/MerchantOrders'; export {default as DriverWorkspace} from './src/rebuilt/DriverWorkspace'; export {default as CustomerOrders} from './src/rebuilt/CustomerOrders'; export {default as AdminOverview} from './src/rebuilt/AdminOverview'; export {default as ServiceRequest} from './src/rebuilt/ServiceRequest'; export {default as AppShell} from './src/components/AppShell';`, resolveDir: base, loader: 'tsx' },
+    stdin: { contents: `export {default as JobSound} from './src/components/JobSound'; export {default as QuickFoodOrder} from './src/components/QuickFoodOrder'; export {default as RegisterCustomer} from './src/app/liff/register/page'; export {default as CustomerCatalog} from './src/rebuilt/CustomerCatalog'; export {default as ShopOrdering} from './src/rebuilt/ShopOrdering'; export {default as MerchantWorkspace} from './src/rebuilt/MerchantWorkspace'; export {default as MerchantOrders} from './src/rebuilt/MerchantOrders'; export {default as DriverWorkspace} from './src/rebuilt/DriverWorkspace'; export {default as CustomerOrders} from './src/rebuilt/CustomerOrders'; export {default as AdminOverview} from './src/rebuilt/AdminOverview'; export {default as ServiceRequest} from './src/rebuilt/ServiceRequest'; export {default as AppShell} from './src/components/AppShell';`, resolveDir: base, loader: 'tsx' },
     absWorkingDir: base, bundle: true, platform: 'node', format: 'cjs', outfile: cache, tsconfig: base + '/tsconfig.json', external: ['react', 'react/jsx-runtime'],
     plugins: [{ name: 'offline-only', setup(build) {
-      build.onResolve({ filter: /^@\/lib\/(supabase\/client|session-context)$/ }, args => ({ path: args.path, namespace: 'mock' }));
+      build.onResolve({ filter: /^@\/lib\/(supabase\/client|session-context|use-line-session)$/ }, args => ({ path: args.path, namespace: 'mock' }));
       build.onResolve({ filter: /^next\/(navigation|link|image)$/ }, args => ({ path: args.path, namespace: 'mock' }));
       build.onLoad({ filter: /.*/, namespace: 'mock' }, args => {
         let contents;
         if (args.path.endsWith('supabase/client')) contents = 'export const createClient=()=>globalThis.__deliveryTest.db;';
-        else if (args.path.endsWith('session-context')) contents = 'export const useSession=()=>({profile:globalThis.__deliveryTest.profile});';
-        else if (args.path === 'next/navigation') contents = 'export const useParams=()=>({id:globalThis.__deliveryTest.shopId}); export const usePathname=()=>globalThis.__deliveryTest.pathname; export const useRouter=()=>({push:()=>{},refresh:()=>{}});';
+        else if (args.path.endsWith('session-context')) contents = 'export const useSession=()=>({profile:globalThis.__deliveryTest.profile}); export const useOptionalSession=useSession;';
+        else if (args.path.endsWith('use-line-session')) contents = 'export const useLineSession=()=>({ready:true,profile:globalThis.__deliveryTest.profile,liff:{status:"ready",isLoggedIn:true,profile:{displayName:"QA"}}});';
+        else if (args.path === 'next/navigation') contents = 'export const useParams=()=>({id:globalThis.__deliveryTest.shopId}); export const usePathname=()=>globalThis.__deliveryTest.pathname; export const useRouter=()=>({push:(v)=>{globalThis.__deliveryTest.next=v},replace:(v)=>{globalThis.__deliveryTest.next=v},refresh:()=>{}});';
         else if (args.path === 'next/link') contents = 'import React from "react"; export default function Link({children,...props}){return React.createElement("a",props,children)}';
         else contents = 'import React from "react"; export default function Image({fill,unoptimized,sizes,...props}){return React.createElement("img",props)}';
         return { contents, loader: 'js', resolveDir: base };
@@ -126,10 +142,10 @@ async function value(element, text) {
   await value(host.querySelector('textarea'), 'บ้านเลขที่จำลอง 1'); assert(!button('ตรวจรายการ').disabled);
   await click(button('ตรวจรายการ'));
   const handoff = host.querySelector('a[href*="line.me"]'); assert(handoff);
-  const message = decodeURIComponent(handoff.href); assert(message.includes('ข้าวผัด × 2')); assert(message.includes('รวมสินค้า 90 บาท')); assert(message.includes('ยืนยันร้านพร้อมรับ ค่าส่ง'));
+  const message = decodeURIComponent(handoff.href); assert(message.includes('ข้าวผัด × 2')); assert(message.includes('รวมสินค้า 90 บาท')); assert(message.includes('[order:v1 shop=shop'));
   assert(!state.calls.some(c => c.table === 'orders' && c.operation !== 'read'), 'review must never create an order');
   await click(button('กลับไปแก้รายการ')); await click(host.querySelector('[aria-label="ลด ข้าวผัด"]')); assert(host.textContent.includes('45 บาท')); await unmount();
-  setup({ merchants: [{ ...shop, is_open: false }] }); await mount(ui.ShopOrdering); assert(host.textContent.includes('ร้านปิดรับ')); assert(host.querySelector('[aria-label="เพิ่ม ข้าวผัด ลงรายการ"]').disabled); await unmount();
+  sessionStorage.clear(); setup({ merchants: [{ ...shop, is_open: false }] }); await mount(ui.ShopOrdering); assert(host.textContent.includes('ร้านปิดรับ')); assert(host.querySelector('[aria-label="เพิ่ม ข้าวผัด ลงรายการ"]').disabled); await unmount();
   console.log('PASS basket: quantities, current subtotal, missing fee, review, user-controlled LINE handoff, closed shop');
 
   setup({ orders: [{ ...order, status: 'delivered' }] }); await mount(ui.CustomerOrders);
@@ -148,13 +164,68 @@ async function value(element, text) {
 
   setup({ orders: [{ ...order }] }); global.__deliveryTest.profile = { ...profile, role: 'driver' }; state.race = true; await mount(ui.DriverWorkspace);
   await click(button('รับงานนี้')); assert(host.textContent.includes('อัปเดตไม่สำเร็จ'));
-  const claim = state.calls.find(c => c.table === 'orders' && c.patch?.status === 'accepted');
-  assert(claim.conditions.some(c => c[0] === 'eq' && c[1] === 'status' && c[2] === 'pending')); assert(claim.conditions.some(c => c[0] === 'is' && c[1] === 'driver_id' && c[2] === null)); await unmount();
+  const claim = state.calls.find(c => c.rpc === 'partner_order_action');
+  assert.equal(claim.args.p_action,'accept_driver'); assert.equal(claim.args.p_order_id,123); assert(claim.args.p_action_id); await unmount();
   setup({ orders: [{ ...order, driver_id: 'user', status: 'in_progress' }] }); global.__deliveryTest.profile = { ...profile, role: 'driver' }; await mount(ui.DriverWorkspace);
   await click(button('ส่งสำเร็จแล้ว')); assert(!state.calls.some(c => c.patch?.status === 'delivered'));
-  await click(button('ยืนยันส่งสำเร็จ')); assert(state.calls.some(c => c.patch?.status === 'delivered'));
+  await click(button('ยืนยันส่งสำเร็จ')); assert(state.calls.some(c => c.rpc==='partner_order_action' && c.args.p_action==='deliver'));
   assert(!state.calls.some(c => c.table === 'drivers' && c.patch && ('today_jobs' in c.patch || 'today_earn' in c.patch)), 'delivery never overwrites finance counters'); await unmount();
   console.log('PASS rider race handling, delivery confirmation and no financial-counter writes');
+
+  sessionStorage.clear(); setup(); await mount(ui.QuickFoodOrder);
+  await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(host.querySelector('[aria-label="ลด ข้าวผัด"]'));
+  assert.equal(state.calls.filter(c=>c.rpc?.startsWith('customer_food')).length,0,'edits stay local');
+  assert(!host.textContent.includes('รวมชำระ'));
+  await click(button('สรุปยอด')); assert(host.textContent.includes('รวมชำระ')); assert(host.textContent.includes('65 บาท')); assert(host.textContent.includes('บ้านเดิม'));
+  assert(!state.calls.some(c=>c.rpc==='customer_food_confirm'));
+  await click(button('ยืนยันสั่งและแสดง QR')); assert(state.calls.some(c=>c.rpc==='customer_food_confirm')); assert(host.textContent.includes('ออเดอร์ #321')); await unmount();
+  sessionStorage.clear(); setup(); global.__deliveryTest.profile=null; await mount(ui.QuickFoodOrder); await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(button('สรุปยอด')); assert(global.__deliveryTest.next.startsWith('/liff/register?next=')); assert(!state.calls.some(c=>c.rpc==='customer_food_review')); await unmount();
+  console.log('PASS quick LINE checkout: silent immediate edits, explicit summary, shipping, saved point, explicit confirm and first-customer signup redirect');
+
+  sessionStorage.clear(); setup(); await mount(ui.QuickFoodOrder);
+  await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(button('สรุปยอด'));
+  state.loseConfirm=true; await click(button('ยืนยันสั่งและแสดง QR'));
+  assert(host.textContent.includes('กดซ้ำได้')); assert.equal(state.tables.orders.length,1);
+  const token=state.calls.find(c=>c.rpc==='customer_food_confirm').args.p_token;
+  await unmount(); await mount(ui.QuickFoodOrder); assert(button('ยืนยันสั่งและแสดง QR'));
+  await click(button('ยืนยันสั่งและแสดง QR'));
+  assert.equal(state.tables.orders.length,1); assert.equal(state.calls.filter(c=>c.rpc==='customer_food_review').length,1);
+  assert(state.calls.filter(c=>c.rpc==='customer_food_confirm').every(c=>c.args.p_token===token));
+  assert(host.textContent.includes('ออเดอร์ #321')); await unmount();
+  console.log('PASS lost confirm response: reload preserves quote token and retries without another review/order');
+
+  setup(); global.__deliveryTest.profile=null; await mount(ui.RegisterCustomer);
+  const signupFields=host.querySelectorAll('form input'); await value(signupFields[0],'ลูกค้าทดสอบ'); await value(signupFields[1],'0812345678');
+  await React.act(async()=>host.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
+  const signup=state.calls.find(c=>c.rpc==='register_line_customer'); assert(signup,host.textContent); assert.equal(signup.args.p_name,'ลูกค้าทดสอบ'); assert.equal(signup.args.p_tambon_id,'area'); assert(!('role' in signup.args)); assert.equal(global.__deliveryTest.next,'/liff'); await unmount();
+  setup(); await mount(ui.RegisterCustomer); assert.equal(global.__deliveryTest.next,'/liff'); await unmount();
+  console.log('PASS customer signup: name/phone/area submission, no role escalation and complete returning customer skips form');
+
+  const played=[];
+  global.AudioContext=class {
+    state='running'; currentTime=0; destination={};
+    async resume() { this.state='running'; } async close() { this.state='closed'; }
+    createGain() { return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}; }
+    createOscillator() { const tone={frequency:{value:0},connect(){},disconnect(){},start(at){this.at=at;},stop(at){this.stopped=at===undefined;}};played.push(tone);return tone; }
+  };
+  let visibility='visible'; Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>visibility});
+  localStorage.clear(); setup(); await mount(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1]});
+  assert.equal(played.length,0,'opening jobs never autoplays');
+  const settingsInputs=host.querySelectorAll('input[type="number"]');
+  await value(settingsInputs[0],'4');await value(settingsInputs[1],'3');await value(settingsInputs[2],'5');
+  await click(button('ทดลองเสียง')); assert.equal(played.length,40); assert(played[10].at>8,'five-second gap between three-second rounds');
+  await click(button('หยุดเสียงรอบนี้')); assert(played.every(t=>t.stopped));
+  await React.act(async()=>root.render(React.createElement(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1,2]})));
+  assert.equal(played.length,80,'one new job rings');
+  await React.act(async()=>root.render(React.createElement(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1,2]})));
+  assert.equal(played.length,80,'same jobs do not ring twice');
+  await React.act(async()=>root.render(React.createElement(ui.JobSound,{scope:'shop-user',streamScope:'other-filter',kind:'merchant',ids:[1,2,3]})));
+  assert.equal(played.length,80,'changing filter does not announce older jobs');
+  visibility='hidden';await React.act(async()=>document.dispatchEvent(new window.Event('visibilitychange')));assert(played.every(t=>t.stopped));await unmount();
+  await mount(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1,2]});assert.equal(host.querySelector('input[type="number"]').value,'4');assert(button('เปิดเสียงงานใหม่'));await unmount();
+  await mount(ui.JobSound,{scope:'rider-user',kind:'driver',ids:[1]});assert.equal(host.querySelector('select').value,'pulse');assert.equal(host.querySelector('input[type="number"]').value,'3');await unmount();visibility='visible';
+  console.log('PASS custom job sound: rounds/duration/gaps, device preferences, role tones, new jobs only, stop and hidden-page cleanup');
+
 
   setup(); state.fail = true; await mount(ui.CustomerCatalog); assert(host.querySelector('[role="alert"]')); assert(!host.textContent.includes('ยังไม่มีร้านเปิด')); state.fail = false; await click(button('ลองอีกครั้ง')); assert(host.textContent.includes('ร้านจำลอง')); await unmount();
   setup({ tambons: [area, { ...area, id: 'unmanaged', name: 'ตำบลที่ไม่มีสิทธิ์' }] }); global.__deliveryTest.profile = { ...profile, role: 'admin' }; await mount(ui.AdminOverview); assert(!host.textContent.includes('ตำบลที่ไม่มีสิทธิ์')); assert(host.textContent.includes('ยังไม่ตั้งค่าส่ง 1 ตำบล')); assert(host.textContent.includes('0 บาท')); await unmount();

@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import JobSound from "@/components/JobSound";
 import QuickActions from "@/components/QuickActions";
 import { MapPin, Navigation, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -29,7 +30,7 @@ export default function DriverWorkspace() {
     ]);
     if (driver.error || ownProfile.error || activeOrders.error || doneOrders.error || settlements.error) throw new Error("driver unavailable");
     const eligible = ownProfile.data.approved && !ownProfile.data.suspended_at;
-    const pending = eligible && driver.data?.is_online ? await db.from("orders").select("*").eq("tambon_id", profile.tambon_id ?? "00000000-0000-0000-0000-000000000000").eq("is_test", profile.is_test).eq("status", "pending").is("driver_id", null).order("created_at").limit(50) : { data: [], error: null };
+    const pending = eligible && driver.data?.is_online ? await db.from("orders").select("*").eq("tambon_id", profile.tambon_id ?? "00000000-0000-0000-0000-000000000000").eq("is_test", profile.is_test).eq("status", "pending").is("driver_id", null).or("type.neq.food,customer_paid_at.not.is.null").order("created_at").limit(50) : { data: [], error: null };
     if (pending.error) throw new Error("pending unavailable");
     return { driver: driver.data, eligible, mine: [...(activeOrders.data ?? []), ...(doneOrders.data ?? [])], pending: (pending.data ?? []).filter(o => !o.required_vehicle_type || o.required_vehicle_type === driver.data?.vehicle_type), settlements: settlements.data ?? [], loaded: Date.now() };
   }, [profile.id, profile.tambon_id, profile.is_test]);
@@ -45,16 +46,16 @@ export default function DriverWorkspace() {
   async function accept(order: OrderRow) {
     if (!data?.eligible || !data.driver?.is_online || active.length) return;
     await run(async () => {
-      const result = await createClient().from("orders").update({ driver_id: profile.id, status: "accepted" }).eq("id", order.id).eq("tambon_id", profile.tambon_id!).eq("is_test", profile.is_test).eq("status", "pending").is("driver_id", null).select("id");
-      if (result.error || result.data?.length !== 1) throw new Error("not accepted");
+      const result = await createClient().rpc("partner_order_action", { p_order_id: order.id, p_action: "accept_driver", p_action_id: crypto.randomUUID() });
+      if (result.error || !(result.data as { ok?: boolean })?.ok) throw new Error("not accepted");
     });
   }
   async function advance(order: OrderRow) {
     const next = nextDriverStatus(order.status);
     if (!next || !data?.eligible) return;
     await run(async () => {
-      const result = await createClient().from("orders").update({ status: next }).eq("id", order.id).eq("driver_id", profile.id).eq("status", order.status).select("id");
-      if (result.error || result.data?.length !== 1) throw new Error("not updated");
+      const result = await createClient().rpc("partner_order_action", { p_order_id: order.id, p_action: next === "in_progress" ? "pickup" : "deliver", p_action_id: crypto.randomUUID() });
+      if (result.error || !(result.data as { ok?: boolean })?.ok) throw new Error("not updated");
     });
   }
   async function locate() {
@@ -69,6 +70,7 @@ export default function DriverWorkspace() {
     return <><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold">{TYPE_LABEL[order.type]} #{order.id}</h3><StatusChip status={order.status} /></div><div className="mt-4 grid gap-4 sm:grid-cols-2">{[{ label: "จุดรับ", address: order.pickup }, { label: "จุดส่ง", address: order.dropoff }].map(p => <div key={p.label}><p className="text-xs text-ink-soft">{p.label}</p><p className="mt-2 text-sm leading-7">{p.address || "ดูรายละเอียดกับตัวแทน"}</p>{mapsLink(p.address) && <a href={mapsLink(p.address)!} target="_blank" rel="noreferrer" className="mt-1 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-indigo"><Navigation size={16} aria-hidden="true" />เปิดแผนที่</a>}</div>)}</div>{order.note && <p className="mt-3 whitespace-pre-wrap rounded-xl bg-surface-2 p-3 text-sm leading-7">{order.note}</p>}<p className="mt-4 text-sm text-ink-soft">{order.type === "ride" ? "ค่าเรียกรถ" : "ค่าส่ง/บริการ"}ที่ลูกค้าชำระ <strong className="ml-2 text-ink">{money(Number(order.type === "ride" ? order.price : order.delivery_fee))}</strong></p></>;
   }
   return <div>
+    <JobSound key={profile.id} kind="driver" scope={profile.id} ids={data && !error ? [...data.pending, ...active].map(o => o.id) : null} />
     <PageIntro eyebrow="งานใกล้บ้าน รายได้ในชุมชน" title="งานจัดส่งของคุณ" description="เปิดสถานะพร้อมรับ ตรวจจุดรับจุดส่ง แล้วอัปเดตงานตามการจัดส่งจริง" action={<button className={secondaryButton} onClick={refresh}><RefreshCw size={16} aria-hidden="true" />อัปเดต</button>} />
     <QuickActions role="driver" />
     <DataState loading={loading} error={error} retry={refresh} />

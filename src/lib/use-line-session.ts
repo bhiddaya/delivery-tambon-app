@@ -1,0 +1,32 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useLiff } from "@/components/LiffProvider";
+import { signInWithLineIdToken } from "@/lib/line-login";
+import { createClient } from "@/lib/supabase/client";
+import type { Tables } from "@/lib/types";
+
+/** Always exchange the verified LINE token; a leftover browser session may belong to somebody else. */
+export function useLineSession() {
+  const liff = useLiff();
+  const token = liff.status === "ready" && liff.isLoggedIn ? liff.getIdToken() : null;
+  const [state, setState] = useState<{ token: string | null; profile: Tables<"profiles"> | null; ready: boolean; error: string }>({ token: null, profile: null, ready: false, error: "" });
+  useEffect(() => {
+    if (!token) return;
+    let live = true;
+    (async () => {
+      try {
+        await signInWithLineIdToken(token);
+        const db = createClient();
+        const { data: { user }, error } = await db.auth.getUser();
+        if (error || !user) throw new Error("เข้าสู่ระบบไม่สำเร็จ");
+        const result = await db.from("profiles").select("*").eq("id", user.id).maybeSingle();
+        if (result.error) throw new Error("โหลดข้อมูลบัญชีไม่ได้");
+        if (live) setState({ token, profile: result.data, ready: true, error: "" });
+      } catch (e) {
+        if (live) setState({ token, profile: null, ready: false, error: e instanceof Error ? e.message : "เข้าสู่ระบบไม่สำเร็จ" });
+      }
+    })();
+    return () => { live = false; };
+  }, [token]);
+  return { ...state, ready: state.ready && state.token === token, liff };
+}

@@ -38,6 +38,7 @@ async function render(searchParams = {}) {
     h: (type, props, ...children) => ({ type, props, children }),
     require: name => ({
       'next/link': { default: 'Link' },
+      '@/components/LiffRememberedArea': { default: 'LiffRememberedArea' },
       'lucide-react': { ChevronRight: 'ChevronRight', Store: 'Store' },
       '@/lib/supabase/server': {
         isSupabaseConfigured: () => true,

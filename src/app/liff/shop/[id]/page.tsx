@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import ShopOrdering from "@/rebuilt/ShopOrdering";
+import QuickFoodOrder from "@/components/QuickFoodOrder";
 
 export const metadata: Metadata = {
   title: "เมนูร้าน — บวรไทย",
-  description: "เลือกเมนู ใส่ตะกร้า ปักตำแหน่งจุดส่ง แล้วกดสั่งเลย",
+  description: "เพิ่มลดอาหารได้ต่อเนื่อง เลือกครบแล้วสรุปอาหารและค่าส่ง ยืนยันก่อนแสดง QR",
 };
 
-/** หน้าร้านของ LIFF: ในแอป LINE ปุ่ม "สั่งเลย" ส่งรายการเข้าแชตให้ นอกแอป LINE ใช้ทางเดิมของหน้าเว็บ */
-export default function LiffShopPage() {
-  return <ShopOrdering mode="liff" />;
+/** Remount the basket when the shop changes; never carry another shop's quantities into this one. */
+export default async function LiffShopPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <QuickFoodOrder key={id} />;
 }

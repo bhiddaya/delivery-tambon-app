@@ -25,13 +25,15 @@ export async function loadShopPage(db: Db, id: string, scope: ShopScope): Promis
   if (!row) return { shop: null, menu: [], area: null };
   const shop: ShopInfo = { id: row.id, name: row.name, category: row.category, tambon_id: row.tambon_id, is_open: row.is_open, address: row.address ?? null };
 
-  const [menu, areaResult] = await Promise.all([
+  const [menu, areaResult, availability] = await Promise.all([
     db.from("menu_items").select("*").eq("merchant_id", id).eq("is_hidden", false).order("name"),
     scope
       ? db.from("tambons").select("id,name,slug,is_active,intake_blocked,delivery_fee_base,delivery_fee_per_km").eq("id", row.tambon_id).maybeSingle()
       : db.from("tambons").select("id,name,slug,is_active,delivery_fee_base,delivery_fee_per_km").eq("id", row.tambon_id).maybeSingle(),
+    db.rpc("shop_is_open", { p_merchant_id: id }),
   ]);
-  if (menu.error || areaResult.error) throw new Error("shop details unavailable");
+  if (availability.error || menu.error || areaResult.error) throw new Error("shop details unavailable");
+  shop.is_open = Boolean(availability.data);
   const a = areaResult.data as AreaRow | null;
   const area: AreaInfo | null = a ? { id: a.id, name: a.name, slug: a.slug, is_active: a.is_active, delivery_fee_base: a.delivery_fee_base, delivery_fee_per_km: a.delivery_fee_per_km, intake_blocked: a.intake_blocked ?? false } : null;
   return { shop, menu: menu.data ?? [], area };

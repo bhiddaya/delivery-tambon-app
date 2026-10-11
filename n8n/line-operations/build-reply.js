@@ -1,0 +1,134 @@
+// LINE chat: choose and edit first; quote delivery only on review; QR only after confirmation.
+const req = $('แยกคำสั่ง').item.json;
+const r = $json || {};
+const base='https://delivery-tambon-app-v3.vercel.app';
+const uri=(label,url)=>({type:'uri',label:cut(label,20),uri:url});
+const nonce=()=> 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const n=Math.floor(Math.random()*16);return (c==='x'?n:(n&3)|8).toString(16)});
+const partner=(label,action,extra={})=>postback(label,'food=partner&id='+encodeURIComponent(JSON.stringify({action,action_id:nonce(),...extra})));
+const G = '#2e6b4a', O = '#c9731a';
+const cut = (v, n) => { const s = String(v || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+const baht = n => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });
+const txt = (text, extra = {}) => ({ type: 'text', text: String(text || '-'), wrap: true, size: 'sm', ...extra });
+const postback = (label, data, display) => ({ type: 'postback', label: cut(label, 20), data, ...(/^food=(?:add|rm)(?:&|$)/.test(data) ? {} : { displayText: display || label }) });
+const button = (label, data, color = G) => ({ type: 'button', style: 'primary', height: 'sm', color, action: postback(label, data) });
+const quick = actions => ({ items: actions.slice(0, 13).map(action => ({ type: 'action', action })) });
+const nav = (c = {}, itemId) => {
+  const actions = [uri('เลือกในหน้าเดียว',base+'/liff'),uri('สมัครลูกค้าใหม่',base+'/liff/register'),partner('งานร้านค้า / ไรเดอร์','home')];
+  if (itemId) actions.push(postback('+1 รายการนี้', 'food=add&id=' + itemId), postback('−1 รายการนี้', 'food=rm&id=' + itemId));
+  if (c.merchant_id) actions.push(postback('เลือกเพิ่ม', 'food=menu&id=' + c.merchant_id));
+  actions.push(postback('เพิ่ม / ลดสินค้า', 'food=cart'), postback('สรุปยอด', 'food=review'));
+  actions.push(postback('ร้าน / เมนู', 'food=shops'));
+  return quick(actions);
+};
+const flex = (altText, contents, quickReply) => ({ type: 'flex', altText: cut(altText, 400), contents, ...(quickReply ? { quickReply } : {}) });
+const box = contents => ({ type: 'box', layout: 'vertical', spacing: 'md', contents });
+const bubble = (title, rows, buttons = []) => ({ type: 'bubble', body: box([txt(title, { weight: 'bold', size: 'lg' }), ...rows]), ...(buttons.length ? { footer: box(buttons) } : {}) });
+const moneyRow = (label, amount, bold = false) => ({ type: 'box', layout: 'horizontal', contents: [txt(label, { flex: 4, ...(bold ? { weight: 'bold' } : {}) }), txt(baht(amount), { flex: 2, align: 'end', ...(bold ? { weight: 'bold', color: O } : {}) })] });
+const picker = list => !list?.length ? [{ type: 'text', text: 'ขณะนี้ยังไม่มีพื้นที่เปิดบริการครับ' }] : [flex('เลือกพื้นที่สั่งอาหาร', { type: 'carousel', contents: list.slice(0, 10).map(t => bubble(t.name, [txt([t.district, t.province].filter(Boolean).join(' · '))], [button('เลือกพื้นที่นี้', 'food=tambon&id=' + encodeURIComponent(t.slug))])) })];
+const cart = r.cart || {};
+const view = r.view || req.action;
+let messages = [];
+if (r.handled === false) {
+  // The main workflow will continue its original location handling without a reply here.
+} else if (r.ok && view==='partner_reject_confirm') {
+  messages=[flex('ยืนยันรับออเดอร์ไม่ได้',bubble('ออเดอร์ #'+r.order_id,[txt('ยืนยันว่าร้านรับออเดอร์นี้ไม่ได้ ระบบจะยกเลิกออเดอร์ที่ยังไม่มีสลิปหรือรับเงิน')],[{type:'button',style:'primary',color:G,action:partner('ยืนยันรับไม่ได้','reject_shop',{order_id:r.order_id})},{type:'button',style:'link',action:partner('กลับไปดูงาน','home')}]))];
+} else if (r.ok && view==='partner_result') {
+  messages=[{type:'text',text:r.text||(r.duplicate?'สถานะนี้บันทึกแล้ว':'บันทึกสถานะงานแล้ว'),quickReply:quick([partner('ดูงานล่าสุด','home')])}];
+} else if (r.ok && view==='partner') {
+  const cards=[bubble(r.title||'งานของคุณ',[txt(r.text||'ดูรายการและเลือกงานของคุณ')],Object.entries(r.links||{}).map(([label,url])=>({type:'button',style:'link',height:'sm',action:uri(label,url)})))];
+  if(r.role==='merchant') { cards[0].footer ||= box([]); cards[0].footer.contents.push({type:'button',style:'primary',color:G,action:partner(r.shop_open?'พักรับงาน':'เปิดร้าน',r.shop_open?'close_shop':'open_shop')}); }
+  for(const j of (r.jobs||[]).slice(0,7)) {
+    const rows=[txt('ออเดอร์ #'+j.id,{weight:'bold'}),txt((j.items||[]).map(i=>i.name+' × '+i.qty).join('\n')||('จุดรับ: '+(j.pickup||'-'))),txt('จุดส่ง: '+(j.dropoff||'-'))];
+    if(j.note)rows.push(txt(j.note));
+    const actions=[];
+    if(r.role==='merchant') {
+      rows.push(txt(j.customer_paid_at?'ตัวแทนยืนยันเงินแล้ว':'รอตรวจเงิน · ตรวจรายการก่อนเตรียมอาหาร'));
+      if(!j.merchant_accepted_at)actions.push(partner('รับออเดอร์','accept_shop',{order_id:j.id}));
+      if(j.status==='pending' && !j.customer_paid_at && !j.slip_submitted_at && !j.driver_id)actions.push(partner('รับไม่ได้','reject_shop_prompt',{order_id:j.id}));
+      if(!j.food_ready_at && j.customer_paid_at)actions.push(partner('อาหารพร้อมรับ','ready',{order_id:j.id}));
+    } else { actions.push(partner(j.status==='pending'?'รับงานนี้':j.status==='accepted'?'รับอาหารแล้ว':'ยืนยันส่งถึงแล้ว',j.status==='pending'?'accept_driver':j.status==='accepted'?'pickup':'deliver',{order_id:j.id})); }
+    cards.push(bubble('งาน #'+j.id,rows,actions.map(action=>({type:'button',style:'primary',color:G,action}))));
+  }
+  for(const p of (r.payouts||[]).slice(0,Math.max(0,10-cards.length)))cards.push(bubble('เงินโอนเข้า '+baht(p.amount),[txt('เปิดแอปธนาคารตรวจเงินจริงก่อนกดยืนยัน')],[{type:'button',style:'primary',color:G,action:partner('ตรวจพบเงินเข้าแล้ว','confirm_payout',{settlement_id:p.id})}]));
+  messages=[flex(r.title||'งานของคุณ',cards.length===1?cards[0]:{type:'carousel',contents:cards.slice(0,10)},quick([partner('อัปเดตงาน','home'),uri('เลือกอาหาร',base+'/liff')]))];
+} else if (!r.ok && ['need_tambon', 'tambon_unavailable'].includes(r.error)) {
+  messages = picker(r.tambons);
+} else if (!r.ok) {
+  const errors = {
+    contact_agent: 'ออเดอร์มีสลิปหรือรับเงินแล้ว ให้ตัวแทนตรวจและคืนเงินก่อนยกเลิก', not_staff: 'บัญชีนี้ไม่มีสิทธิ์การเงินตำบล',
+    not_approved: 'บัญชีนี้ยังไม่ได้รับอนุมัติ กรุณาติดต่อตัวแทนตำบล',
+    not_your_shop: 'ออเดอร์นี้ไม่ใช่ร้านของคุณ', not_your_job: 'งานนี้ไม่ได้มอบหมายให้คุณ',
+    not_driver: 'งานนี้ไม่อยู่ในตำบลหรือสิทธิ์ของคุณ', job_not_ready: 'งานยังไม่พร้อมหรือมีคนรับไปแล้ว',
+    driver_offline: 'เปิดออนไลน์และเลือกยานพาหนะให้ตรงงานก่อนครับ', active_job: 'ทำงานปัจจุบันให้เสร็จก่อนรับงานใหม่',
+    wrong_step: 'อัปเดตตามขั้นตอน รับอาหารก่อน แล้วจึงยืนยันส่งถึง', payment_required: 'รอตัวแทนยืนยันเงินก่อนครับ',
+    closed_order: 'งานนี้ปิดแล้ว กดดูงานล่าสุดได้ครับ', account_suspended: 'บัญชีถูกพักใช้งาน ติดต่อผู้ดูแล',
+    empty_cart: 'ตะกร้ายังว่าง เลือกอาหารก่อนครับ',
+    shop_closed: 'ร้านปิดหรือไม่อยู่ในพื้นที่บริการ กรุณาเลือกร้านใหม่ครับ',
+    item_unavailable: 'รายการนี้ไม่พร้อมขายแล้ว เลือกเมนูอื่นได้ครับ',
+    intake_blocked: 'พื้นที่นี้หยุดรับออเดอร์ชั่วคราวครับ',
+    shop_no_pin: 'ร้านยังไม่ได้ตั้งจุดรับสินค้า จึงยังคำนวณค่าส่งไม่ได้ครับ',
+    too_far: 'จุดส่งอยู่นอกระยะบริการ 30 กม. กรุณาเปลี่ยนจุดส่งครับ',
+    bad_point: 'ตำแหน่งไม่ถูกต้อง กรุณาส่งตำแหน่งจาก LINE อีกครั้งครับ',
+    cart_changed: 'มีรายการไม่พร้อมขาย กรุณาปรับตะกร้าหรือล้างตะกร้าแล้วเลือกใหม่ครับ',
+    review_required: 'รายการถูกแก้ไขแล้ว กด “สรุปยอด” เพื่อตรวจยอดล่าสุดครับ',
+    qty_limit: 'รายการนี้ครบ 99 ชิ้นแล้วครับ',
+    order_cancelled: 'ออเดอร์นี้ถูกยกเลิกแล้วครับ เลือกสินค้าเพื่อสั่งใหม่ได้',
+    role_fixed_tambon: 'บัญชีร้านค้า/ไรเดอร์เปลี่ยนพื้นที่เองไม่ได้ กรุณาติดต่อผู้ดูแลครับ'
+  };
+  const actions = nav(cart).items.map(i => i.action);
+  if (['too_far', 'bad_point'].includes(r.error)) actions.unshift({ type: 'location', label: 'ส่งจุดจัดส่ง' }, postback('เปลี่ยนจุดส่ง', 'food=location'));
+  if (r.error === 'cart_changed') actions.unshift(postback('ล้างตะกร้า', 'food=clear'));
+  messages = [{ type: 'text', text: errors[r.error] || 'ระบบยังทำรายการไม่ได้ กรุณาลองอีกครั้งครับ', quickReply: quick(actions) }];
+} else if (view === 'need_location') {
+  messages = [{ type: 'text', text: 'ส่งตำแหน่งจัดส่งครั้งนี้ เพื่อสรุปค่าอาหารและค่าส่งครับ', quickReply: quick([{ type: 'location', label: 'ส่งจุดจัดส่ง' }, ...(cart.merchant_id ? [postback('เลือกเพิ่ม', 'food=menu&id=' + cart.merchant_id)] : [])]) }];
+} else if (view === 'review') {
+  const q = r.quote;
+  const rows = q.items.map(i => moneyRow(cut(i.name, 70) + ' ×' + i.qty, i.line_total));
+  rows.push({ type: 'separator' }, moneyRow('ค่าอาหาร', q.items_total), moneyRow('ค่าจัดส่ง', q.delivery_fee), moneyRow('รวมที่ต้องชำระ', q.grand_total, true), txt('ส่งที่: ' + q.point.label, { color: '#666666', size: 'xs' }));
+  rows.push({ type: 'button', style: 'link', height: 'sm', action: { type: 'uri', label: 'ดูจุดส่งบนแผนที่', uri: 'https://www.google.com/maps?q=' + q.point.lat + ',' + q.point.lng } });
+  if (r.notice) rows.unshift(txt(r.notice, { color: O }));
+  messages = [flex('สรุปยอด ' + baht(q.grand_total) + ' รวมค่าจัดส่ง', bubble('ตรวจรายการก่อนชำระ', rows, [button('ยืนยันและชำระเงิน', 'food=confirm&id=' + q.token), button('เพิ่ม / ลดสินค้า', 'food=cart', O), button('เปลี่ยนจุดส่ง', 'food=location', '#777777')]))];
+} else if (view === 'confirmed') {
+  const rows = (r.items || []).map(i => moneyRow(cut(i.name, 70) + ' ×' + i.qty, i.line_total));
+  rows.push({ type: 'separator' }, moneyRow('ค่าอาหาร', r.items_total), moneyRow('ค่าจัดส่ง', r.delivery_fee), moneyRow('ยอดชำระ', r.grand_total, true), txt('ส่งที่: ' + r.point.label, { size: 'xs', color: '#666666' }));
+  messages = [flex('ออเดอร์ #' + r.order_id + ' · ' + baht(r.grand_total), bubble('ออเดอร์ #' + r.order_id, rows))];
+  const payment = r.payment || {};
+  if (payment.text) messages.push({ type: 'text', text: String(payment.text).replace(/\\n/g, '\n') });
+  if (payment.qr_url) messages.push({ type: 'image', originalContentUrl: payment.qr_url, previewImageUrl: payment.qr_url });
+  if (!payment.text && !payment.qr_url) messages.push({ type: 'text', text: 'ออเดอร์นี้อยู่ในขั้นตอนตรวจสอบหรือชำระเงินแล้วครับ' });
+} else if (view === 'tambons') {
+  messages = picker(r.tambons);
+} else if (['shops', 'set_tambon'].includes(view)) {
+  const shops = r.shops || [];
+  messages = shops.length ? [flex('เลือกร้านอาหาร', { type: 'carousel', contents: shops.slice(0, 10).map(s => {
+    const b = bubble(s.name, [txt(s.count + ' รายการ')], [button('ดูเมนู', 'food=menu&id=' + s.id)]);
+    if (s.photo) b.hero = { type: 'image', url: s.photo, size: 'full', aspectRatio: '20:13', aspectMode: 'cover' };
+    return b;
+  }) }, quick([postback('เปลี่ยนพื้นที่', 'food=tambons')]))] : [{ type: 'text', text: 'ขณะนี้ยังไม่มีร้านเปิดในพื้นที่นี้ครับ', quickReply: quick([postback('เปลี่ยนพื้นที่', 'food=tambons')]) }];
+} else if (['menu', 'search'].includes(view)) {
+  const items = r.items || [];
+  if (!items.length) messages = [{ type: 'text', text: 'ไม่พบรายการพร้อมขายครับ', quickReply: nav(cart) }];
+  else {
+    const cards = items.slice(0, 11).map(i => {
+      const b = bubble(i.name, [txt(baht(i.price), { color: O, weight: 'bold', size: 'lg' }), ...(i.shop_name ? [txt(i.shop_name, { size: 'xs' })] : [])], [button('+1 ใส่ตะกร้า', 'food=add&id=' + i.id), button('ดูตะกร้า', 'food=cart', O), button('สรุปยอด', 'food=review')]);
+      if (i.photo) b.hero = { type: 'image', url: i.photo, size: 'full', aspectRatio: '20:13', aspectMode: 'cover' };
+      return b;
+    });
+    cards.push(bubble('เลือกได้ต่อเนื่อง', [txt('กด +1 ที่อาหาร เพิ่มหรือลดได้ในตะกร้า เลือกครบแล้วกด “สรุปยอด”'), txt('ดูรายการล่าสุดได้ในตะกร้า')], [button('เพิ่ม / ลดสินค้า', 'food=cart', O), button('สรุปยอด', 'food=review')]));
+    messages = [flex(r.shop?.name || 'เมนูอาหาร', { type: 'carousel', contents: cards }, quick([...nav(cart).items.map(i => i.action), postback('เปลี่ยนพื้นที่', 'food=tambons')]))];
+  }
+} else if (['add', 'remove'].includes(view)) {
+  // Successful edits are stored by the RPC; keep the menu on screen.
+  // A shop switch must still explain why the previous cart was cleared.
+  if (r.reset) messages = [{ type: 'text', text: 'เปลี่ยนร้านและล้างตะกร้าเดิมแล้ว', quickReply: nav(cart) }];
+} else if (['cart', 'clear'].includes(view)) {
+  if (!cart.count) messages = [{ type: 'text', text: view === 'clear' ? 'ล้างตะกร้าแล้วครับ' : 'ตะกร้ายังว่าง เลือกอาหารก่อนครับ', quickReply: nav(cart) }];
+  else {
+    const rows = cart.items.map(i => ({ type: 'box', layout: 'vertical', spacing: 'xs', contents: [txt(i.name + ' ×' + i.qty, { weight: 'bold' }), { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [button('−1', 'food=rm&id=' + i.id, O), button('+1', 'food=add&id=' + i.id)] }] }));
+    // At most 10 editable rows per bubble; leave room for a footer and LINE payload limits.
+    for (let start = 0; start < rows.length && messages.length < 4; start += 10) {
+      messages.push(flex('ตะกร้า ' + cart.count + ' ชิ้น · เพิ่ม / ลดได้', bubble('ปรับตะกร้า', rows.slice(start, start + 10), [button('สรุปยอด', 'food=review'), button('เลือกเพิ่ม', 'food=menu&id=' + cart.merchant_id, O), button('ล้างตะกร้า', 'food=clear', '#777777')]), nav(cart)));
+    }
+  }
+}
+return { json: { replyToken: req.replyToken, messages: messages.slice(0, 5), push: null, action: req.action, handled: r.handled !== false, result: r } };

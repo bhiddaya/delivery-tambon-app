@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import LiffRememberedArea from "@/components/LiffRememberedArea";
 import Link from "next/link";
 import { ChevronRight, Store } from "lucide-react";
 import { createPublicClient, isSupabaseConfigured } from "@/lib/supabase/server";
@@ -48,7 +49,8 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
 
   return (
     <div>
-      <h1 className="font-head text-2xl font-semibold">สั่งอาหาร</h1>
+      <LiffRememberedArea areas={areas} shops={shops} slug={slug} />
+      <h1 className="font-head text-2xl font-semibold">สั่งอาหาร</h1><Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-indigo" href="/liff/register">สมัครลูกค้าใหม่</Link>
       <p className="mt-1 text-sm text-[#5b6478]">เลือกร้านที่เปิดอยู่ ดูเมนู รูป ราคา แล้วสั่งได้เลย</p>
       {failed ? (
         <p role="status" className="mt-6 rounded-2xl bg-[#fbebd6] p-5 text-sm leading-7 text-[#75450f]">ยังโหลดรายชื่อร้านไม่ได้ กรุณาลองใหม่อีกครั้ง</p>
