@@ -2,6 +2,9 @@
 const req = $('แยกคำสั่ง').item.json;
 const r = $json || {};
 const base='https://delivery-tambon-app-v3.vercel.app';
+// Public LIFF ID verified from the production application's configured SDK.
+const liffBase='https://liff.line.me/2011443365-RD1UinVM';
+const menuUrl=id=>liffBase+'/liff/shop/'+encodeURIComponent(String(id));
 const uri=(label,url)=>({type:'uri',label:cut(label,20),uri:url});
 const nonce=()=> 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const n=Math.floor(Math.random()*16);return (c==='x'?n:(n&3)|8).toString(16)});
 const partner=(label,action,extra={})=>postback(label,'food=partner&id='+encodeURIComponent(JSON.stringify({action,action_id:nonce(),...extra})));
@@ -13,9 +16,9 @@ const postback = (label, data, display) => ({ type: 'postback', label: cut(label
 const button = (label, data, color = G) => ({ type: 'button', style: 'primary', height: 'sm', color, action: postback(label, data) });
 const quick = actions => ({ items: actions.slice(0, 13).map(action => ({ type: 'action', action })) });
 const nav = (c = {}, itemId) => {
-  const actions = [uri('เลือกในหน้าเดียว',base+'/liff'),uri('สมัครลูกค้าใหม่',base+'/liff/register'),partner('งานร้านค้า / ไรเดอร์','home')];
+  const actions = [uri('ติ๊กเลือกอาหาร',c.merchant_id?menuUrl(c.merchant_id):liffBase+'/liff'),uri('สมัครลูกค้าใหม่',liffBase+'/liff/register'),partner('งานร้านค้า / ไรเดอร์','home')];
   if (itemId) actions.push(postback('+1 รายการนี้', 'food=add&id=' + itemId), postback('−1 รายการนี้', 'food=rm&id=' + itemId));
-  if (c.merchant_id) actions.push(postback('เลือกเพิ่ม', 'food=menu&id=' + c.merchant_id));
+  if (c.merchant_id) actions.push(uri('เปิดเมนูร้าน',menuUrl(c.merchant_id)));
   actions.push(postback('เพิ่ม / ลดสินค้า', 'food=cart'), postback('สรุปยอด', 'food=review'));
   actions.push(postback('ร้าน / เมนู', 'food=shops'));
   return quick(actions);
@@ -101,11 +104,19 @@ if (r.handled === false) {
 } else if (['shops', 'set_tambon'].includes(view)) {
   const shops = r.shops || [];
   messages = shops.length ? [flex('เลือกร้านอาหาร', { type: 'carousel', contents: shops.slice(0, 10).map(s => {
-    const b = bubble(s.name, [txt(s.count + ' รายการ')], [button('ดูเมนู', 'food=menu&id=' + s.id)]);
+    const b = bubble(s.name, [txt(s.count + ' รายการ · ติ๊กเลือกและปรับจำนวนได้ทันที')], [{type:'button',style:'primary',height:'sm',color:G,action:uri('ติ๊กเลือกอาหาร',menuUrl(s.id))}]);
     if (s.photo) b.hero = { type: 'image', url: s.photo, size: 'full', aspectRatio: '20:13', aspectMode: 'cover' };
     return b;
   }) }, quick([postback('เปลี่ยนพื้นที่', 'food=tambons')]))] : [{ type: 'text', text: 'ขณะนี้ยังไม่มีร้านเปิดในพื้นที่นี้ครับ', quickReply: quick([postback('เปลี่ยนพื้นที่', 'food=tambons')]) }];
-} else if (['menu', 'search'].includes(view)) {
+} else if (view === 'menu') {
+  const shopId = r.shop?.id || req.arg || cart.merchant_id;
+  if (!shopId || !(r.items || []).length) messages = [{type:'text',text:'ไม่พบรายการพร้อมขายครับ',quickReply:nav(cart)}];
+  else {
+    const actions=[{type:'button',style:'primary',height:'sm',color:G,action:uri('เปิดเมนูติ๊กเลือก',menuUrl(shopId))}];
+    if(cart.count) actions.push(button('ดูตะกร้าเดิมในแชต','food=cart',O));
+    messages=[flex(r.shop?.name||'เลือกอาหาร',bubble(r.shop?.name||'เลือกอาหาร',[txt('รูปเล็ก พร้อมชื่อและราคา ติ๊กเลือกแล้วเห็นจำนวนทันที'),txt('เลือกครบแล้วกดสรุปยอดในหน้าเมนู เพื่อดูค่าอาหารและค่าขนส่ง')],actions),nav(cart))];
+  }
+} else if (view === 'search') {
   const items = r.items || [];
   if (!items.length) messages = [{ type: 'text', text: 'ไม่พบรายการพร้อมขายครับ', quickReply: nav(cart) }];
   else {

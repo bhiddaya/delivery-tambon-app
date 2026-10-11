@@ -17,5 +17,14 @@ r=render(req,{ok:true,view:'partner_result',duplicate:true});assert.equal(r.mess
 r=render(req,{ok:true,view:'partner',role:'merchant',jobs:[{id:2,status:'pending'}],links:{}});assert(JSON.stringify(r.messages).includes('reject_shop_prompt'));
 r=render(req,{ok:true,view:'partner_reject_confirm',order_id:2});assert(JSON.stringify(r.messages).includes('reject_shop'));assert(!JSON.stringify(r.messages).includes('reject_shop_prompt'));
 for(const action of ['add','remove'])assert.deepEqual(render({action,test:true},{ok:true,cart:{count:2}}).messages,[]);
+r=render({action:'shops',test:true},{ok:true,view:'shops',shops:[{id:'shop-123',name:'ร้านทดสอบ',count:3}]});
+let action=r.messages[0].contents.contents[0].footer.contents[0].action;
+assert.equal(action.type,'uri');assert.equal(action.uri,'https://liff.line.me/2011443365-RD1UinVM/liff/shop/shop-123');
+r=render({action:'menu',arg:'shop-123',test:true},{ok:true,view:'menu',shop:{name:'ร้านทดสอบ'},items:[{id:'item-1',name:'อาหาร',price:40}],cart:{count:2,merchant_id:'shop-123'}});
+action=r.messages[0].contents.footer.contents[0].action;
+assert.equal(action.type,'uri');assert(action.uri.endsWith('/liff/shop/shop-123'));
+assert(r.messages[0].contents.footer.contents.some(b=>b.action.data==='food=cart'),'old chat basket remains accessible');
+assert(!JSON.stringify(r.messages).includes('food=add'),'menu entry opens immediate checkbox UI instead of old add cards');
+assert(r.messages[0].quickReply.items.some(i=>i.action.type==='uri'&&i.action.uri===action.uri));
 for(const w of [main,child]){assert.equal(new Set(w.nodes.map(n=>n.name)).size,w.nodes.length);for(const n of w.nodes.filter(n=>n.type==='n8n-nodes-base.code'))new Function(n.parameters.jsCode);}
-console.log('PASS 9 workflow checks: signup/role text, partner postback, direct routing, signup link, driver action, retry response, silent cart and unique nodes');
+console.log('PASS 12 workflow checks: signup/role text, partner postback, direct routing, signup link, driver action, retry response, silent cart, LIFF shop entry, old menu links and unique nodes');
