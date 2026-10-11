@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Minus, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useLineSession } from "@/lib/use-line-session";
 import { money } from "@/lib/domain";
@@ -10,8 +9,9 @@ import type { Tables } from "@/lib/types";
 import { loadShopPage } from "@/rebuilt/shop-data";
 import { useLiveData } from "@/rebuilt/use-live-data";
 import { basketLines, type Basket } from "@/rebuilt/order-logic";
-import { DataState, ProductPhoto, Panel, inputClass, primaryButton, secondaryButton } from "@/rebuilt/primitives";
+import { DataState, Panel, inputClass, primaryButton, secondaryButton } from "@/rebuilt/primitives";
 import { CustomerSlipCard } from "@/components/CustomerSlipCard";
+import FoodMenuRow from "@/components/FoodMenuRow";
 
 type Quote = { token: string; expires_at: string; items: { id: string; name: string; qty: number; price: number }[]; items_total: number; delivery_fee: number; grand_total: number; point: { lat: number; lng: number; label: string } };
 type Result = { ok: boolean; error?: string; notice?: string; view?: string; quote?: Quote; order_id?: number };
@@ -58,6 +58,7 @@ export default function QuickFoodOrder() {
   const lines = basketLines(data?.menu ?? [], basket);
   const count = lines.reduce((n, x) => n + x.quantity, 0);
   function quantity(item: string, delta: number) { setBasket(v => ({ ...v, [item]: Math.max(0, Math.min(99, (v[item] ?? 0) + delta)) })); setQuote(null); setMessage(""); }
+  function select(item: string, selected: boolean) { setBasket(v => ({ ...v, [item]: selected ? Math.max(1, v[item] ?? 0) : 0 })); setQuote(null); setMessage(""); }
   async function review() {
     setMessage("");
     if (!session.ready) { if (session.liff.status === "ready" && !session.liff.isLoggedIn) session.liff.login(); else setMessage(session.error || "รอการตรวจบัญชี LINE สักครู่"); return; }
@@ -90,10 +91,11 @@ export default function QuickFoodOrder() {
     navigator.geolocation.getCurrentPosition(p => { setPoint({ lat: p.coords.latitude, lng: p.coords.longitude, label: "ตำแหน่งจัดส่งที่เลือก" }); setNeedPoint(true); setBusy(false); }, () => { setMessage("ยังอ่านตำแหน่งไม่ได้ อนุญาตตำแหน่งให้ LINE แล้วลองใหม่"); setBusy(false); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   }
   return <div><Link href="/liff" className="mb-4 inline-flex min-h-11 items-center text-sm text-indigo">← เปลี่ยนร้าน</Link><DataState loading={loading} error={error} retry={refresh} />{data?.shop && <>
-    <h1 className="text-2xl font-semibold">{data.shop.name}</h1><p className="mb-4 mt-2 text-sm text-ink-soft">กด + หรือ − ได้ต่อเนื่อง เลือกครบแล้วค่อยสรุปยอด</p>
+    <h1 className="text-2xl font-semibold">{data.shop.name}</h1><p className="mb-4 mt-2 text-sm leading-6 text-ink-soft">ติ๊กช่องสี่เหลี่ยมเพื่อเลือกอาหาร แล้วกด + / − ปรับจำนวน เอาติ๊กออกเพื่อลบ เลือกครบแล้วค่อยสรุปยอด</p>
     {orderId ? <Panel><h2 className="text-lg font-semibold">ออเดอร์ #{orderId}</h2><DataState loading={receipt.loading} error={receipt.error} retry={receipt.refresh} />{receipt.data && <><p className="my-3 text-sm">{receipt.data.order.status === "cancelled" ? "ออเดอร์ถูกยกเลิก" : "ยืนยันรายการแล้ว"}</p>{receipt.data.order.status !== "cancelled" && <CustomerSlipCard order={receipt.data.order} tambon={receipt.data.area} onChanged={receipt.refresh} />}</>}<button className={`${secondaryButton} mt-4`} onClick={() => { setOrderId(null); setNote(""); }}>สั่งรายการใหม่</button></Panel> : <>
     <input type="search" aria-label="ค้นหาอาหาร" className={`${inputClass} mb-4`} placeholder="ค้นหาอาหาร" value={query} onChange={e => setQuery(e.target.value)} />
-    <div className="grid gap-3 sm:grid-cols-2">{data.menu.filter(i => i.name.includes(query.trim())).map(item => <article key={item.id} className="flex gap-3 rounded-2xl border border-border bg-surface p-3"><ProductPhoto src={item.photo_url} name={item.name} className="h-24 w-24 shrink-0 rounded-xl" /><div className="min-w-0 flex-1"><h2 className="font-semibold">{item.name}</h2><p className="my-2 text-sm">{money(Number(item.price))}</p><div className="flex items-center gap-3"><button disabled={busy || !(basket[item.id] > 0)} aria-label={`ลด ${item.name}`} className="flex h-11 w-11 items-center justify-center rounded-lg border border-border disabled:opacity-30" onClick={() => quantity(item.id, -1)}><Minus size={18} /></button><output className="min-w-5 text-center">{basket[item.id] ?? 0}</output><button disabled={busy || !item.is_available || !data.shop?.is_open || basket[item.id] >= 99} aria-label={`เพิ่ม ${item.name}`} className="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo text-white disabled:opacity-30" onClick={() => quantity(item.id, 1)}><Plus size={18} /></button></div>{!item.is_available && <p className="mt-2 text-xs text-clay">หมดชั่วคราว</p>}</div></article>)}</div>
+    <p role="status" className="mb-3 text-sm font-semibold text-jade">{count ? `เลือกแล้ว ${lines.length} รายการ · ${count} ชิ้น` : "ยังไม่ได้เลือกอาหาร"}</p>
+    <div className="grid gap-3 sm:grid-cols-2">{data.menu.filter(i => i.name.includes(query.trim())).map(item => <FoodMenuRow key={item.id} name={item.name} photo={item.photo_url} price={Number(item.price)} quantity={basket[item.id] ?? 0} unavailable={!item.is_available || !data.shop?.is_open} unavailableText={!item.is_available ? "หมดชั่วคราว" : "ร้านปิด"} busy={busy} onSelect={selected => select(item.id, selected)} onAdjust={delta => quantity(item.id, delta)} />)}</div>
     <Panel className="my-5" ><h2 className="mb-3 font-semibold">เลือกแล้ว {count} ชิ้น</h2><label className="block text-sm">หมายเหตุ (ถ้ามี)<input disabled={busy} className={`${inputClass} mt-2`} maxLength={300} value={note} onChange={e => { setNote(e.target.value); setQuote(null); }} placeholder="เช่น ไม่เผ็ด" /></label>
       {(needPoint || point) && <div className="mt-4"><p className="mb-2 text-sm">{point ? "เลือกตำแหน่งแล้ว" : "เลือกจุดส่งครั้งแรก"}</p><button className={secondaryButton} disabled={busy} onClick={locate}>{point ? "เปลี่ยนตำแหน่ง" : "ใช้ตำแหน่งปัจจุบัน"}</button><label className="mt-3 block text-sm">บ้านเลขที่ / จุดสังเกต<input disabled={busy} maxLength={500} className={`${inputClass} mt-2`} value={address} onChange={e => { setAddress(e.target.value); setQuote(null); }} /></label></div>}
       {quote && <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm"><h3 className="font-semibold">ตรวจรายการก่อนยืนยัน</h3>{quote.items.map(i => <p key={i.id} className="flex justify-between gap-3"><span>{i.name} × {i.qty}</span><span>{money(Number(i.price) * i.qty)}</span></p>)}<p className="flex justify-between"><span>รวมอาหาร</span><strong>{money(Number(quote.items_total))}</strong></p><p className="flex justify-between"><span>ค่าขนส่ง</span><strong>{money(Number(quote.delivery_fee))}</strong></p><p className="flex justify-between text-base"><span>รวมชำระ</span><strong>{money(Number(quote.grand_total))}</strong></p><p className="py-2 leading-7">ส่งที่: {quote.point.label} <a className="text-indigo underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${quote.point.lat},${quote.point.lng}`}>ดูแผนที่</a></p><button className={secondaryButton} disabled={busy} onClick={locate}>เปลี่ยนจุดส่ง</button><p className="text-xs leading-6 text-ink-soft">กดยืนยันเพื่อสร้างออเดอร์และแสดง QR จ่ายเงิน ตัวแทนจะตรวจเงินเข้าจริงก่อนเรียกไรเดอร์</p></div>}

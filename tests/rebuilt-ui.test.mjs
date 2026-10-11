@@ -173,17 +173,24 @@ async function value(element, text) {
   console.log('PASS rider race handling, delivery confirmation and no financial-counter writes');
 
   sessionStorage.clear(); setup(); await mount(ui.QuickFoodOrder);
-  await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(host.querySelector('[aria-label="ลด ข้าวผัด"]'));
+  const foodCheckbox = () => host.querySelector('input[type="checkbox"][aria-label="เลือก ข้าวผัด"]');
+  assert.equal(foodCheckbox().checked, false);
+  await click(foodCheckbox()); assert.equal(foodCheckbox().checked, true);
+  assert(host.textContent.includes('เลือกแล้ว 1 รายการ · 1 ชิ้น'));
+  await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); assert.equal(host.querySelector('[aria-label="จำนวน ข้าวผัด"]').textContent, '2');
+  await click(foodCheckbox()); assert.equal(foodCheckbox().checked, false); assert(!host.querySelector('[aria-label="จำนวน ข้าวผัด"]'));
+  assert(button('สรุปยอด').disabled);
+  await click(foodCheckbox()); await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(host.querySelector('[aria-label="ลด ข้าวผัด"]'));
   assert.equal(state.calls.filter(c=>c.rpc?.startsWith('customer_food')).length,0,'edits stay local');
   assert(!host.textContent.includes('รวมชำระ'));
   await click(button('สรุปยอด')); assert(host.textContent.includes('รวมชำระ')); assert(host.textContent.includes('65 บาท')); assert(host.textContent.includes('บ้านเดิม'));
   assert(!state.calls.some(c=>c.rpc==='customer_food_confirm'));
   await click(button('ยืนยันสั่งและแสดง QR')); assert(state.calls.some(c=>c.rpc==='customer_food_confirm')); assert(host.textContent.includes('ออเดอร์ #321')); await unmount();
-  sessionStorage.clear(); setup(); global.__deliveryTest.profile=null; await mount(ui.QuickFoodOrder); await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(button('สรุปยอด')); assert(global.__deliveryTest.next.startsWith('/liff/register?next=')); assert(!state.calls.some(c=>c.rpc==='customer_food_review')); await unmount();
+  sessionStorage.clear(); setup(); global.__deliveryTest.profile=null; await mount(ui.QuickFoodOrder); await click(foodCheckbox()); await click(button('สรุปยอด')); assert(global.__deliveryTest.next.startsWith('/liff/register?next=')); assert(!state.calls.some(c=>c.rpc==='customer_food_review')); await unmount();
   console.log('PASS quick LINE checkout: silent immediate edits, explicit summary, shipping, saved point, explicit confirm and first-customer signup redirect');
 
   sessionStorage.clear(); setup(); await mount(ui.QuickFoodOrder);
-  await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]')); await click(button('สรุปยอด'));
+  await click(foodCheckbox()); await click(button('สรุปยอด'));
   state.loseConfirm=true; await click(button('ยืนยันสั่งและแสดง QR'));
   assert(host.textContent.includes('กดซ้ำได้')); assert.equal(state.tables.orders.length,1);
   const token=state.calls.find(c=>c.rpc==='customer_food_confirm').args.p_token;
@@ -193,6 +200,15 @@ async function value(element, text) {
   assert(state.calls.filter(c=>c.rpc==='customer_food_confirm').every(c=>c.args.p_token===token));
   assert(host.textContent.includes('ออเดอร์ #321')); await unmount();
   console.log('PASS lost confirm response: reload preserves quote token and retries without another review/order');
+
+  sessionStorage.clear(); setup({ menu_items: [{ ...item, is_available: false }] }); await mount(ui.QuickFoodOrder);
+  assert(foodCheckbox().disabled); await click(foodCheckbox()); assert.equal(foodCheckbox().checked, false); await unmount();
+  sessionStorage.clear(); setup({ merchants: [{ ...shop, is_open: false }] }); await mount(ui.QuickFoodOrder);
+  assert(foodCheckbox().disabled); assert(host.textContent.includes('ร้านปิด')); await unmount();
+  sessionStorage.clear(); setup(); await mount(ui.QuickFoodOrder); await click(foodCheckbox()); await click(host.querySelector('[aria-label="เพิ่ม ข้าวผัด"]'));
+  await unmount(); await mount(ui.QuickFoodOrder); assert(foodCheckbox().checked); assert.equal(host.querySelector('[aria-label="จำนวน ข้าวผัด"]').textContent, '2');
+  await click(host.querySelector('[aria-label="ลด ข้าวผัด"]')); await click(host.querySelector('[aria-label="ลด ข้าวผัด"]')); assert.equal(foodCheckbox().checked, false); await unmount();
+  console.log('PASS checkbox feedback: sold-out/closed guards, saved quantities, uncheck removes all and decrement to zero clears check');
 
   setup(); global.__deliveryTest.profile=null; await mount(ui.RegisterCustomer);
   const signupFields=host.querySelectorAll('form input'); await value(signupFields[0],'ลูกค้าทดสอบ'); await value(signupFields[1],'0812345678');
