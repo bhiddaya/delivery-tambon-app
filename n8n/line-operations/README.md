@@ -1,5 +1,7 @@
 # n8n activation — existing workflows only
 
+Live status (12 October 2026): both existing workflows are published and verified through the official API. Main active version ea9eef86-9dd3-4a0c-9787-a1fa49c9aa19; food active version dcca8792-c651-4472-8aca-49d7e2f81485. The steps below are recovery/reference instructions, not a request to import or repeat the changes. Historical order #155 completed notice → verified payment → driver pickup → delivered without error output; the revised flow still requires a new real acceptance test. See docs/48-LIVE-LINE-VERIFICATION.md.
+
 Prepared exports are not evidence of a published/live workflow. Use the existing IDs:
 - Food child: Csc8nDWFBvLegG1d (13 nodes)
 - Main LINE OA: l2E6ad3OTi9zsyMT (208 nodes)
