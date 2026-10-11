@@ -4,6 +4,7 @@ import { ProductPhoto } from "@/rebuilt/primitives";
 
 type Props = {
   name: string;
+  description: string | null;
   photo: string | null;
   price: number;
   quantity: number;
@@ -15,12 +16,13 @@ type Props = {
 };
 
 /** Selection feedback stays on the menu; cart edits never send chat messages. */
-export default function FoodMenuRow({ name, photo, price, quantity, unavailable, unavailableText, busy, onSelect, onAdjust }: Props) {
+export default function FoodMenuRow({ name, description, photo, price, quantity, unavailable, unavailableText, busy, onSelect, onAdjust }: Props) {
   const selected = quantity > 0;
   return <article className={`flex items-start gap-3 rounded-2xl border p-3 ${selected ? "border-jade bg-jade-tint" : "border-border bg-surface"}`}>
     <ProductPhoto src={photo} name={name} className="h-20 w-20 shrink-0 rounded-xl" />
     <div className="min-w-0 flex-1">
       <h2 className="break-words text-sm font-semibold leading-6">{name}</h2>
+      {description && <p className="line-clamp-2 break-words text-xs leading-5 text-ink-soft">{description}</p>}
       <p className="mt-1 font-semibold text-indigo">{money(price)}</p>
       {unavailable && <p className="mt-1 text-xs text-clay">{unavailableText}</p>}
       {selected && <div className="mt-2 flex flex-wrap items-center gap-1">
