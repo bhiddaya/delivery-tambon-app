@@ -122,7 +122,7 @@ export default function ShopOrdering({ mode = "web" }: { mode?: "web" | "liff" }
     note,
     pin,
     estimate: delivery,
-  }, mode === "liff" ? "liff" : "web") : "";
+  }) : "";
   // ลิงก์ LINE เปิดแชตได้เฉพาะบนมือถือที่มีแอป LINE — บนคอมพิวเตอร์ให้คัดลอกข้อความไปวางเอง
   async function copyMessage() {
     try { await navigator.clipboard.writeText(message); setCopied(message); } catch { setCopied(""); }
