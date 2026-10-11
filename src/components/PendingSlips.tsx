@@ -28,6 +28,7 @@ export function PendingSlips({ tambonId, onVerified }: { tambonId: string | null
       .from("orders")
       .select("*")
       .not("slip_submitted_at", "is", null)
+      .neq("status", "cancelled")
       .is("customer_paid_at", null)
       .is("payment_rejected_at", null)
       .order("slip_submitted_at", { ascending: true });
@@ -42,7 +43,12 @@ export function PendingSlips({ tambonId, onVerified }: { tambonId: string | null
       pending = pending.eq("tambon_id", tambonId);
       waiting = waiting.eq("tambon_id", tambonId);
     }
-    const [{ data }, { count }] = await Promise.all([pending, waiting]);
+    const [{ data, error: pendingError }, { count, error: waitingError }] = await Promise.all([pending, waiting]);
+    if (pendingError || waitingError) {
+      setRows([]); setUrls({}); setNames({}); setLoading(false);
+      setMessage("โหลดสลิปไม่ได้ กรุณากดอัปเดตแล้วลองใหม่");
+      return;
+    }
     const list = data ?? [];
     setRows(list);
     setWaitingSlip(count ?? 0);

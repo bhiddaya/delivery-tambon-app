@@ -1,0 +1,478 @@
+{
+  "name": "บวรไทย LINE – สั่งอาหาร (ร้าน + เมนู + ตะกร้า)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "6f324105-2194-4aa2-8119-be42a00f0b52",
+      "name": "จากระบบ LINE หลัก",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// แยกคำสั่งสั่งอาหาร: ข้อความ / postback food=... / คำค้นจาก LINE หลัก\n// พิมพ์/กด \"สั่งอาหาร\" → เปิดร้านในแชตตามตำบลที่จำไว้ · food=web เปิดเว็บได้ตามเดิม\nconst j = $input.first().json;\nconst text = String(j.text || '').trim();\nconst pb = String(j.pb || '');\nconst p = {};\npb.split('&').forEach(function (kv) { const i = kv.indexOf('='); if (i > 0) p[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); });\nlet action = '', arg = null;\nif (j.action === 'location') {\n  action = 'location';\n  arg = JSON.stringify({ lat: j.latitude, lng: j.longitude, label: j.locationAddress || '' });\n} else if (p.food) {\n  // tambon = เลือกตำบล (id = slug), tambons = ขอรายชื่อตำบล (ปุ่มเปลี่ยนตำบล)\n  const map = { shops: 'shops', menu: 'menu', add: 'add', rm: 'remove', cart: 'cart', clear: 'clear', checkout: 'review', review: 'review', confirm: 'confirm', location: 'request_location', tambon: 'set_tambon', tambons: 'tambons', web: 'pwa', partner: 'partner' };\n  action = map[p.food] || '';\n  arg = p.id || null;\n} else if (j.term) { action = 'search'; arg = String(j.term); }\nelse if (/^(สมัครลูกค้า(?:ใหม่)?|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(text)) { action='partner'; arg=JSON.stringify({action:/^สมัครลูกค้า/.test(text)?'register':text==='การเงินตำบล'?'finance':'home'}); }\nelse if (/^สั่งอาหาร/.test(text)) { action = 'shops'; }\nif (!action || !j.userId) return [];\nreturn [{ json: { action, arg, userId: j.userId, replyToken: j.replyToken || '', test: String(j.userId).indexOf('TEST') === 0 } }];\n"
+      },
+      "id": "450ed09b-ded5-40a5-8995-eccfddb31542",
+      "name": "แยกคำสั่ง",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kaeoxqiqonwjoqjoiiho.supabase.co/rest/v1/rpc/food_chat_flow",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_action: $json.action, p_user: $json.userId, p_arg: $json.arg }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "0af548ea-a056-4353-94e9-418b36a102f6",
+      "name": "ฐานข้อมูล: food_flow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        80
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "GT3fcKSNKz8drqMe",
+          "name": "Supabase บวรไทย"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// LINE chat: choose and edit first; quote delivery only on review; QR only after confirmation.\nconst req = $('แยกคำสั่ง').item.json;\nconst r = $json || {};\nconst base='https://delivery-tambon-app-v3.vercel.app';\n// Public LIFF ID verified from the production application's configured SDK.\nconst liffBase='https://liff.line.me/2011443365-RD1UinVM';\nconst menuUrl=id=>liffBase+'/liff/shop/'+encodeURIComponent(String(id));\nconst uri=(label,url)=>({type:'uri',label:cut(label,20),uri:url});\nconst nonce=()=> 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const n=Math.floor(Math.random()*16);return (c==='x'?n:(n&3)|8).toString(16)});\nconst partner=(label,action,extra={})=>postback(label,'food=partner&id='+encodeURIComponent(JSON.stringify({action,action_id:nonce(),...extra})));\nconst G = '#2e6b4a', O = '#c9731a';\nconst cut = (v, n) => { const s = String(v || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };\nconst baht = n => '฿' + Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 });\nconst txt = (text, extra = {}) => ({ type: 'text', text: String(text || '-'), wrap: true, size: 'sm', ...extra });\nconst postback = (label, data, display) => ({ type: 'postback', label: cut(label, 20), data, ...(/^food=(?:add|rm)(?:&|$)/.test(data) ? {} : { displayText: display || label }) });\nconst button = (label, data, color = G) => ({ type: 'button', style: 'primary', height: 'sm', color, action: postback(label, data) });\nconst quick = actions => ({ items: actions.slice(0, 13).map(action => ({ type: 'action', action })) });\nconst nav = (c = {}, itemId) => {\n  const actions = [uri('ติ๊กเลือกอาหาร',c.merchant_id?menuUrl(c.merchant_id):liffBase+'/liff'),uri('สมัครลูกค้าใหม่',liffBase+'/liff/register'),partner('งานร้านค้า / ไรเดอร์','home')];\n  if (itemId) actions.push(postback('+1 รายการนี้', 'food=add&id=' + itemId), postback('−1 รายการนี้', 'food=rm&id=' + itemId));\n  if (c.merchant_id) actions.push(uri('เปิดเมนูร้าน',menuUrl(c.merchant_id)));\n  actions.push(postback('เพิ่ม / ลดสินค้า', 'food=cart'), postback('สรุปยอด', 'food=review'));\n  actions.push(postback('ร้าน / เมนู', 'food=shops'));\n  return quick(actions);\n};\nconst flex = (altText, contents, quickReply) => ({ type: 'flex', altText: cut(altText, 400), contents, ...(quickReply ? { quickReply } : {}) });\nconst box = contents => ({ type: 'box', layout: 'vertical', spacing: 'md', contents });\nconst bubble = (title, rows, buttons = []) => ({ type: 'bubble', body: box([txt(title, { weight: 'bold', size: 'lg' }), ...rows]), ...(buttons.length ? { footer: box(buttons) } : {}) });\nconst moneyRow = (label, amount, bold = false) => ({ type: 'box', layout: 'horizontal', contents: [txt(label, { flex: 4, ...(bold ? { weight: 'bold' } : {}) }), txt(baht(amount), { flex: 2, align: 'end', ...(bold ? { weight: 'bold', color: O } : {}) })] });\nconst picker = list => !list?.length ? [{ type: 'text', text: 'ขณะนี้ยังไม่มีพื้นที่เปิดบริการครับ' }] : [flex('เลือกพื้นที่สั่งอาหาร', { type: 'carousel', contents: list.slice(0, 10).map(t => bubble(t.name, [txt([t.district, t.province].filter(Boolean).join(' · '))], [button('เลือกพื้นที่นี้', 'food=tambon&id=' + encodeURIComponent(t.slug))])) })];\nconst cart = r.cart || {};\nconst view = r.view || req.action;\nlet messages = [];\nif (r.handled === false) {\n  // The main workflow will continue its original location handling without a reply here.\n} else if (r.ok && view==='partner_reject_confirm') {\n  messages=[flex('ยืนยันรับออเดอร์ไม่ได้',bubble('ออเดอร์ #'+r.order_id,[txt('ยืนยันว่าร้านรับออเดอร์นี้ไม่ได้ ระบบจะยกเลิกออเดอร์ที่ยังไม่มีสลิปหรือรับเงิน')],[{type:'button',style:'primary',color:G,action:partner('ยืนยันรับไม่ได้','reject_shop',{order_id:r.order_id})},{type:'button',style:'link',action:partner('กลับไปดูงาน','home')}]))];\n} else if (r.ok && view==='partner_result') {\n  messages=[{type:'text',text:r.text||(r.duplicate?'สถานะนี้บันทึกแล้ว':'บันทึกสถานะงานแล้ว'),quickReply:quick([partner('ดูงานล่าสุด','home')])}];\n} else if (r.ok && view==='partner') {\n  const cards=[bubble(r.title||'งานของคุณ',[txt(r.text||'ดูรายการและเลือกงานของคุณ')],Object.entries(r.links||{}).map(([label,url])=>({type:'button',style:'link',height:'sm',action:uri(label,url)})))];\n  if(r.role==='merchant') { cards[0].footer ||= box([]); cards[0].footer.contents.push({type:'button',style:'primary',color:G,action:partner(r.shop_open?'พักรับงาน':'เปิดร้าน',r.shop_open?'close_shop':'open_shop')}); }\n  for(const j of (r.jobs||[]).slice(0,7)) {\n    const rows=[txt('ออเดอร์ #'+j.id,{weight:'bold'}),txt((j.items||[]).map(i=>i.name+' × '+i.qty).join('\\n')||('จุดรับ: '+(j.pickup||'-'))),txt('จุดส่ง: '+(j.dropoff||'-'))];\n    if(j.note)rows.push(txt(j.note));\n    const actions=[];\n    if(r.role==='merchant') {\n      rows.push(txt(j.customer_paid_at?'ตัวแทนยืนยันเงินแล้ว':'รอตรวจเงิน · ตรวจรายการก่อนเตรียมอาหาร'));\n      if(!j.merchant_accepted_at)actions.push(partner('รับออเดอร์','accept_shop',{order_id:j.id}));\n      if(j.status==='pending' && !j.customer_paid_at && !j.slip_submitted_at && !j.driver_id)actions.push(partner('รับไม่ได้','reject_shop_prompt',{order_id:j.id}));\n      if(!j.food_ready_at && j.customer_paid_at)actions.push(partner('อาหารพร้อมรับ','ready',{order_id:j.id}));\n    } else { actions.push(partner(j.status==='pending'?'รับงานนี้':j.status==='accepted'?'รับอาหารแล้ว':'ยืนยันส่งถึงแล้ว',j.status==='pending'?'accept_driver':j.status==='accepted'?'pickup':'deliver',{order_id:j.id})); }\n    cards.push(bubble('งาน #'+j.id,rows,actions.map(action=>({type:'button',style:'primary',color:G,action}))));\n  }\n  for(const p of (r.payouts||[]).slice(0,Math.max(0,10-cards.length)))cards.push(bubble('เงินโอนเข้า '+baht(p.amount),[txt('เปิดแอปธนาคารตรวจเงินจริงก่อนกดยืนยัน')],[{type:'button',style:'primary',color:G,action:partner('ตรวจพบเงินเข้าแล้ว','confirm_payout',{settlement_id:p.id})}]));\n  messages=[flex(r.title||'งานของคุณ',cards.length===1?cards[0]:{type:'carousel',contents:cards.slice(0,10)},quick([partner('อัปเดตงาน','home'),uri('เลือกอาหาร',base+'/liff')]))];\n} else if (!r.ok && ['need_tambon', 'tambon_unavailable'].includes(r.error)) {\n  messages = picker(r.tambons);\n} else if (!r.ok) {\n  const errors = {\n    contact_agent: 'ออเดอร์มีสลิปหรือรับเงินแล้ว ให้ตัวแทนตรวจและคืนเงินก่อนยกเลิก', not_staff: 'บัญชีนี้ไม่มีสิทธิ์การเงินตำบล',\n    not_approved: 'บัญชีนี้ยังไม่ได้รับอนุมัติ กรุณาติดต่อตัวแทนตำบล',\n    not_your_shop: 'ออเดอร์นี้ไม่ใช่ร้านของคุณ', not_your_job: 'งานนี้ไม่ได้มอบหมายให้คุณ',\n    not_driver: 'งานนี้ไม่อยู่ในตำบลหรือสิทธิ์ของคุณ', job_not_ready: 'งานยังไม่พร้อมหรือมีคนรับไปแล้ว',\n    driver_offline: 'เปิดออนไลน์และเลือกยานพาหนะให้ตรงงานก่อนครับ', active_job: 'ทำงานปัจจุบันให้เสร็จก่อนรับงานใหม่',\n    wrong_step: 'อัปเดตตามขั้นตอน รับอาหารก่อน แล้วจึงยืนยันส่งถึง', payment_required: 'รอตัวแทนยืนยันเงินก่อนครับ',\n    closed_order: 'งานนี้ปิดแล้ว กดดูงานล่าสุดได้ครับ', account_suspended: 'บัญชีถูกพักใช้งาน ติดต่อผู้ดูแล',\n    empty_cart: 'ตะกร้ายังว่าง เลือกอาหารก่อนครับ',\n    shop_closed: 'ร้านปิดหรือไม่อยู่ในพื้นที่บริการ กรุณาเลือกร้านใหม่ครับ',\n    item_unavailable: 'รายการนี้ไม่พร้อมขายแล้ว เลือกเมนูอื่นได้ครับ',\n    intake_blocked: 'พื้นที่นี้หยุดรับออเดอร์ชั่วคราวครับ',\n    shop_no_pin: 'ร้านยังไม่ได้ตั้งจุดรับสินค้า จึงยังคำนวณค่าส่งไม่ได้ครับ',\n    too_far: 'จุดส่งอยู่นอกระยะบริการ 30 กม. กรุณาเปลี่ยนจุดส่งครับ',\n    bad_point: 'ตำแหน่งไม่ถูกต้อง กรุณาส่งตำแหน่งจาก LINE อีกครั้งครับ',\n    cart_changed: 'มีรายการไม่พร้อมขาย กรุณาปรับตะกร้าหรือล้างตะกร้าแล้วเลือกใหม่ครับ',\n    review_required: 'รายการถูกแก้ไขแล้ว กด “สรุปยอด” เพื่อตรวจยอดล่าสุดครับ',\n    qty_limit: 'รายการนี้ครบ 99 ชิ้นแล้วครับ',\n    order_cancelled: 'ออเดอร์นี้ถูกยกเลิกแล้วครับ เลือกสินค้าเพื่อสั่งใหม่ได้',\n    role_fixed_tambon: 'บัญชีร้านค้า/ไรเดอร์เปลี่ยนพื้นที่เองไม่ได้ กรุณาติดต่อผู้ดูแลครับ'\n  };\n  const actions = nav(cart).items.map(i => i.action);\n  if (['too_far', 'bad_point'].includes(r.error)) actions.unshift({ type: 'location', label: 'ส่งจุดจัดส่ง' }, postback('เปลี่ยนจุดส่ง', 'food=location'));\n  if (r.error === 'cart_changed') actions.unshift(postback('ล้างตะกร้า', 'food=clear'));\n  messages = [{ type: 'text', text: errors[r.error] || 'ระบบยังทำรายการไม่ได้ กรุณาลองอีกครั้งครับ', quickReply: quick(actions) }];\n} else if (view === 'need_location') {\n  messages = [{ type: 'text', text: 'ส่งตำแหน่งจัดส่งครั้งนี้ เพื่อสรุปค่าอาหารและค่าส่งครับ', quickReply: quick([{ type: 'location', label: 'ส่งจุดจัดส่ง' }, ...(cart.merchant_id ? [postback('เลือกเพิ่ม', 'food=menu&id=' + cart.merchant_id)] : [])]) }];\n} else if (view === 'review') {\n  const q = r.quote;\n  const rows = q.items.map(i => moneyRow(cut(i.name, 70) + ' ×' + i.qty, i.line_total));\n  rows.push({ type: 'separator' }, moneyRow('ค่าอาหาร', q.items_total), moneyRow('ค่าจัดส่ง', q.delivery_fee), moneyRow('รวมที่ต้องชำระ', q.grand_total, true), txt('ส่งที่: ' + q.point.label, { color: '#666666', size: 'xs' }));\n  rows.push({ type: 'button', style: 'link', height: 'sm', action: { type: 'uri', label: 'ดูจุดส่งบนแผนที่', uri: 'https://www.google.com/maps?q=' + q.point.lat + ',' + q.point.lng } });\n  if (r.notice) rows.unshift(txt(r.notice, { color: O }));\n  messages = [flex('สรุปยอด ' + baht(q.grand_total) + ' รวมค่าจัดส่ง', bubble('ตรวจรายการก่อนชำระ', rows, [button('ยืนยันและชำระเงิน', 'food=confirm&id=' + q.token), button('เพิ่ม / ลดสินค้า', 'food=cart', O), button('เปลี่ยนจุดส่ง', 'food=location', '#777777')]))];\n} else if (view === 'confirmed') {\n  const rows = (r.items || []).map(i => moneyRow(cut(i.name, 70) + ' ×' + i.qty, i.line_total));\n  rows.push({ type: 'separator' }, moneyRow('ค่าอาหาร', r.items_total), moneyRow('ค่าจัดส่ง', r.delivery_fee), moneyRow('ยอดชำระ', r.grand_total, true), txt('ส่งที่: ' + r.point.label, { size: 'xs', color: '#666666' }));\n  messages = [flex('ออเดอร์ #' + r.order_id + ' · ' + baht(r.grand_total), bubble('ออเดอร์ #' + r.order_id, rows))];\n  const payment = r.payment || {};\n  if (payment.text) messages.push({ type: 'text', text: String(payment.text).replace(/\\\\n/g, '\\n') });\n  if (payment.qr_url) messages.push({ type: 'image', originalContentUrl: payment.qr_url, previewImageUrl: payment.qr_url });\n  if (!payment.text && !payment.qr_url) messages.push({ type: 'text', text: 'ออเดอร์นี้อยู่ในขั้นตอนตรวจสอบหรือชำระเงินแล้วครับ' });\n} else if (view === 'tambons') {\n  messages = picker(r.tambons);\n} else if (['shops', 'set_tambon'].includes(view)) {\n  const shops = r.shops || [];\n  messages = shops.length ? [flex('เลือกร้านอาหาร', { type: 'carousel', contents: shops.slice(0, 10).map(s => {\n    const b = bubble(s.name, [txt(s.count + ' รายการ · ติ๊กเลือกและปรับจำนวนได้ทันที')], [{type:'button',style:'primary',height:'sm',color:G,action:uri('ติ๊กเลือกอาหาร',menuUrl(s.id))}]);\n    if (s.photo) b.hero = { type: 'image', url: s.photo, size: 'full', aspectRatio: '20:13', aspectMode: 'cover' };\n    return b;\n  }) }, quick([postback('เปลี่ยนพื้นที่', 'food=tambons')]))] : [{ type: 'text', text: 'ขณะนี้ยังไม่มีร้านเปิดในพื้นที่นี้ครับ', quickReply: quick([postback('เปลี่ยนพื้นที่', 'food=tambons')]) }];\n} else if (view === 'menu') {\n  const shopId = r.shop?.id || req.arg || cart.merchant_id;\n  if (!shopId || !(r.items || []).length) messages = [{type:'text',text:'ไม่พบรายการพร้อมขายครับ',quickReply:nav(cart)}];\n  else {\n    const actions=[{type:'button',style:'primary',height:'sm',color:G,action:uri('เปิดเมนูติ๊กเลือก',menuUrl(shopId))}];\n    if(cart.count) actions.push(button('ดูตะกร้าเดิมในแชต','food=cart',O));\n    messages=[flex(r.shop?.name||'เลือกอาหาร',bubble(r.shop?.name||'เลือกอาหาร',[txt('รูปเล็ก พร้อมชื่อและราคา ติ๊กเลือกแล้วเห็นจำนวนทันที'),txt('เลือกครบแล้วกดสรุปยอดในหน้าเมนู เพื่อดูค่าอาหารและค่าขนส่ง')],actions),nav(cart))];\n  }\n} else if (view === 'search') {\n  const items = r.items || [];\n  if (!items.length) messages = [{ type: 'text', text: 'ไม่พบรายการพร้อมขายครับ', quickReply: nav(cart) }];\n  else {\n    const cards = items.slice(0, 11).map(i => {\n      const b = bubble(i.name, [txt(baht(i.price), { color: O, weight: 'bold', size: 'lg' }), ...(i.shop_name ? [txt(i.shop_name, { size: 'xs' })] : [])], [button('+1 ใส่ตะกร้า', 'food=add&id=' + i.id), button('ดูตะกร้า', 'food=cart', O), button('สรุปยอด', 'food=review')]);\n      if (i.photo) b.hero = { type: 'image', url: i.photo, size: 'full', aspectRatio: '20:13', aspectMode: 'cover' };\n      return b;\n    });\n    cards.push(bubble('เลือกได้ต่อเนื่อง', [txt('กด +1 ที่อาหาร เพิ่มหรือลดได้ในตะกร้า เลือกครบแล้วกด “สรุปยอด”'), txt('ดูรายการล่าสุดได้ในตะกร้า')], [button('เพิ่ม / ลดสินค้า', 'food=cart', O), button('สรุปยอด', 'food=review')]));\n    messages = [flex(r.shop?.name || 'เมนูอาหาร', { type: 'carousel', contents: cards }, quick([...nav(cart).items.map(i => i.action), postback('เปลี่ยนพื้นที่', 'food=tambons')]))];\n  }\n} else if (['add', 'remove'].includes(view)) {\n  // Successful edits are stored by the RPC; keep the menu on screen.\n  // A shop switch must still explain why the previous cart was cleared.\n  if (r.reset) messages = [{ type: 'text', text: 'เปลี่ยนร้านและล้างตะกร้าเดิมแล้ว', quickReply: nav(cart) }];\n} else if (['cart', 'clear'].includes(view)) {\n  if (!cart.count) messages = [{ type: 'text', text: view === 'clear' ? 'ล้างตะกร้าแล้วครับ' : 'ตะกร้ายังว่าง เลือกอาหารก่อนครับ', quickReply: nav(cart) }];\n  else {\n    const rows = cart.items.map(i => ({ type: 'box', layout: 'vertical', spacing: 'xs', contents: [txt(i.name + ' ×' + i.qty, { weight: 'bold' }), { type: 'box', layout: 'horizontal', spacing: 'sm', contents: [button('−1', 'food=rm&id=' + i.id, O), button('+1', 'food=add&id=' + i.id)] }] }));\n    // At most 10 editable rows per bubble; leave room for a footer and LINE payload limits.\n    for (let start = 0; start < rows.length && messages.length < 4; start += 10) {\n      messages.push(flex('ตะกร้า ' + cart.count + ' ชิ้น · เพิ่ม / ลดได้', bubble('ปรับตะกร้า', rows.slice(start, start + 10), [button('สรุปยอด', 'food=review'), button('เลือกเพิ่ม', 'food=menu&id=' + cart.merchant_id, O), button('ล้างตะกร้า', 'food=clear', '#777777')]), nav(cart)));\n    }\n  }\n}\nreturn { json: { replyToken: req.replyToken, messages: messages.slice(0, 5), push: null, action: req.action, handled: r.handled !== false, result: r } };\n"
+      },
+      "id": "c6f2a9fb-5229-474a-9158-88e753ff0812",
+      "name": "สร้างข้อความ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$json.push }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1ed62f2-d5bc-4f63-b17b-8a60d0150a77",
+      "name": "แจ้งร้าน?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.push) }}",
+        "options": {}
+      },
+      "id": "76e1785e-77fb-4e96-a08e-4c9a30a843a8",
+      "name": "แจ้งร้านค้า (push)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "iHzBgLbvsEddIxq2",
+          "name": "LINE OA บวรไทย"
+        }
+      },
+      "disabled": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ !!$('สร้างข้อความ').item.json.replyToken && $('สร้างข้อความ').item.json.messages.length > 0 && !$('แยกคำสั่ง').item.json.test }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0d468bcf-1193-4f96-bd2c-7cb173d9944d",
+      "name": "ตอบ LINE จริง?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ replyToken: $('สร้างข้อความ').item.json.replyToken, messages: $('สร้างข้อความ').item.json.messages }) }}",
+        "options": {}
+      },
+      "id": "06d8ad7a-09a5-413b-b239-581590941942",
+      "name": "ตอบลูกค้า",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1568,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "iHzBgLbvsEddIxq2",
+          "name": "LINE OA บวรไทย"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: $('สร้างข้อความ').item.json };"
+      },
+      "id": "2f1f6ea6-4879-484e-87a8-260c9069620f",
+      "name": "ผลลัพธ์",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.action }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "pwa"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d6ccc7c6-b1ba-4198-a73d-28d92e05e93a",
+      "name": "เปิดเว็บ PWA?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        336,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kaeoxqiqonwjoqjoiiho.supabase.co/rest/v1/rpc/line_pwa_links",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_line_user_id: $json.userId }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "80353771-bc3a-4aef-b07f-134d83ea9101",
+      "name": "ฐานข้อมูล: ลิงก์เว็บตำบล",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        368
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "GT3fcKSNKz8drqMe",
+          "name": "Supabase บวรไทย"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// การ์ดลิงก์เว็บ PWA บวรไทย: ตำบลของผู้ใช้ขึ้นก่อน + ตำบล/แขวงอื่นทั้งหมด\nconst req = $('แยกคำสั่ง').item.json;\nconst r = $json || {};\nconst G = '#2e6b4a', O = '#c9731a';\nconst cut = function (s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };\nconst home = r.home || 'https://delivery-tambon-app-v3.vercel.app/delivery';\nconst list = Array.isArray(r.tambons) ? r.tambons : [];\nconst my = r.my || null;\nconst ordered = my ? [my].concat(list.filter(function (t) { return t.slug !== my.slug; })) : list;\nlet messages;\nif (!ordered.length) {\n  messages = [{ type: 'text', text: 'สั่งอาหาร/ของแห้งผ่านเว็บบวรไทยได้ที่\\n' + home }];\n} else {\n  const head = my\n    ? 'สั่งอาหาร/ของแห้งผ่านเว็บบวรไทย 📱\\nพื้นที่ของท่าน: ' + my.label + (my.active ? '' : ' (กำลังเตรียมเปิด)') + '\\nกด สั่งเลย แล้วเข้าสู่ระบบ เลือกร้านและสินค้าได้เลยครับ อยู่พื้นที่อื่น เลื่อนดูการ์ดถัดไป'\n    : 'สั่งอาหาร/ของแห้งผ่านเว็บบวรไทย 📱\\nเลือกตำบล/แขวงของท่านด้านล่าง (เลื่อนซ้าย-ขวา) แล้วเข้าสู่ระบบเพื่อเลือกร้านครับ';\n  const bubbles = ordered.slice(0, 10).map(function (t) {\n    return { type: 'bubble', size: 'kilo',\n      body: { type: 'box', layout: 'vertical', spacing: 'sm', contents: [\n        { type: 'text', text: cut(t.label, 40), weight: 'bold', size: 'lg', wrap: true },\n        { type: 'text', text: cut(t.area || '-', 60), size: 'sm', color: '#666666', wrap: true },\n        { type: 'text', text: t.active ? '🟢 เปิดให้บริการ' : '🟡 กำลังเตรียมเปิด', size: 'xs', color: t.active ? G : O } ] },\n      footer: { type: 'box', layout: 'vertical', contents: [ { type: 'button', style: 'primary', height: 'sm', color: t.active ? G : O,\n        action: { type: 'uri', label: t.active ? 'สั่งเลย' : 'ดูหน้าตำบล', uri: t.url } } ] } };\n  });\n  messages = [{ type: 'text', text: head }, { type: 'flex', altText: 'สั่งอาหาร/ของแห้งผ่านเว็บบวรไทย', contents: { type: 'carousel', contents: bubbles } }];\n}\nreturn { json: { replyToken: req.replyToken, messages: messages } };\n"
+      },
+      "id": "437b09e4-05fe-4c43-9033-72cf74a82b7b",
+      "name": "ข้อความเว็บ PWA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/reply",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ replyToken: $json.replyToken, messages: $json.messages }) }}",
+        "options": {}
+      },
+      "id": "645943e5-4eee-44b4-8c78-7d640f1133e3",
+      "name": "ตอบลูกค้า (เว็บ)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1008,
+        368
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "iHzBgLbvsEddIxq2",
+          "name": "LINE OA บวรไทย"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "จากระบบ LINE หลัก": {
+      "main": [
+        [
+          {
+            "node": "แยกคำสั่ง",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ฐานข้อมูล: food_flow": {
+      "main": [
+        [
+          {
+            "node": "สร้างข้อความ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "สร้างข้อความ": {
+      "main": [
+        [
+          {
+            "node": "แจ้งร้าน?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "แจ้งร้าน?": {
+      "main": [
+        [
+          {
+            "node": "แจ้งร้านค้า (push)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ตอบ LINE จริง?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "แจ้งร้านค้า (push)": {
+      "main": [
+        [
+          {
+            "node": "ตอบ LINE จริง?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ตอบ LINE จริง?": {
+      "main": [
+        [
+          {
+            "node": "ตอบลูกค้า",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ผลลัพธ์",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "แยกคำสั่ง": {
+      "main": [
+        [
+          {
+            "node": "เปิดเว็บ PWA?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "เปิดเว็บ PWA?": {
+      "main": [
+        [
+          {
+            "node": "ฐานข้อมูล: ลิงก์เว็บตำบล",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ฐานข้อมูล: food_flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ฐานข้อมูล: ลิงก์เว็บตำบล": {
+      "main": [
+        [
+          {
+            "node": "ข้อความเว็บ PWA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ข้อความเว็บ PWA": {
+      "main": [
+        [
+          {
+            "node": "ตอบลูกค้า (เว็บ)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ตอบลูกค้า": {
+      "main": [
+        [
+          {
+            "node": "ผลลัพธ์",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "errorWorkflow": "e7sR6ahxEITuc5Am"
+  },
+  "pinData": {},
+  "active": false,
+  "id": "Csc8nDWFBvLegG1d",
+  "staticData": null
+}

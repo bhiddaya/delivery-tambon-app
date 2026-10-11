@@ -205,7 +205,8 @@ Deno.serve(async (req: Request) => {
       .eq("id", callerId);
     if (updErr) return json({ error: "link_failed", detail: updErr.message }, 500);
 
-    await admin.auth.admin.updateUserById(callerId, {
+    const { error: identityErr } = await admin.auth.admin.updateUserById(callerId, {
+      app_metadata: { line_user_id: lineUserId },
       user_metadata: {
         provider: "line",
         line_user_id: lineUserId,
@@ -213,6 +214,7 @@ Deno.serve(async (req: Request) => {
         line_picture: payload.picture ?? null,
       },
     });
+    if (identityErr) return json({ error: "identity_write_failed" }, 500);
 
     return json({
       ok: true,
@@ -241,12 +243,16 @@ Deno.serve(async (req: Request) => {
 
   if (userId) {
     // อัปเดตชื่อ/รูปให้ตรงกับ LINE ปัจจุบัน — ไม่ critical ถ้าพลาดก็ปล่อยผ่าน
-    await admin.auth.admin.updateUserById(userId, { user_metadata: lineMeta });
+    const { error: identityErr } = await admin.auth.admin.updateUserById(userId, {
+      user_metadata: lineMeta, app_metadata: { line_user_id: lineUserId },
+    });
+    if (identityErr) return json({ error: "identity_write_failed" }, 500);
   } else {
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email: aliasEmail,
       email_confirm: true, // อีเมลแฝงส่งจริงไม่ได้ ต้อง confirm ให้เองตั้งแต่แรก
       user_metadata: lineMeta,
+      app_metadata: { line_user_id: lineUserId },
     });
     if (createErr || !created?.user) {
       return json({ error: "create_user_failed", detail: createErr?.message }, 500);

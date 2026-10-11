@@ -1,3 +1,7 @@
+## 2026-10-11 · LINE operations and finance upgrade
+
+Implemented silent local food selection, explicit shipping/confirmation, verified LINE customer signup, canonical partner actions/hours, configurable foreground job sounds, private bank QR and scoped finance PWA. Evidence, validation commands, deployment gates and recovery are in `47-LINE-OPERATIONS-FINANCE.md`. Notification Executions and real mobile/LINE acceptance remain required; prepared n8n exports are not a LIVE claim. No real payment was verified and all SQL test data/notification enqueues rolled back. Original dirty checkout was preserved in a separate worktree.
+
 # ๔๒ — บันทึกรอบทำงาน
 
 > รอบล่าสุดอยู่บนสุด · เก็บ 10 รอบล่าสุด รอบเก่ากว่านั้นดูที่ `git log`

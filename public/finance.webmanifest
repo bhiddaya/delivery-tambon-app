@@ -1,0 +1,17 @@
+{
+  "id": "/finance",
+  "name": "บวรไทย การเงินตัวแทนตำบล",
+  "short_name": "การเงินตำบล",
+  "description": "ตรวจสลิป ยืนยันรับเงิน และตรวจยอดโอนร้านค้าและไรเดอร์เฉพาะตำบลที่ดูแล",
+  "lang": "th",
+  "start_url": "/finance",
+  "scope": "/finance",
+  "display": "standalone",
+  "background_color": "#fbfaf6",
+  "theme_color": "#2e3e68",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

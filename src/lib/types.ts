@@ -159,18 +159,33 @@ export type Database = {
       }
       carts: {
         Row: {
+          customer_note: string | null
+          delivery_point: Json | null
+          awaiting_location: boolean
+          checkout_quote: Json | null
+          last_checkout: Json | null
           items: Json
           line_user_id: string
           merchant_id: string | null
           updated_at: string
         }
         Insert: {
+          customer_note?: string | null
+          delivery_point?: Json | null
+          awaiting_location?: boolean
+          checkout_quote?: Json | null
+          last_checkout?: Json | null
           items?: Json
           line_user_id: string
           merchant_id?: string | null
           updated_at?: string
         }
         Update: {
+          customer_note?: string | null
+          delivery_point?: Json | null
+          awaiting_location?: boolean
+          checkout_quote?: Json | null
+          last_checkout?: Json | null
           items?: Json
           line_user_id?: string
           merchant_id?: string | null
@@ -562,6 +577,8 @@ export type Database = {
       }
       merchants: {
         Row: {
+          hours_enabled: boolean
+          opening_hours: Json | null
           address: string | null
           category: string | null
           created_at: string
@@ -576,6 +593,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          hours_enabled?: boolean
+          opening_hours?: Json | null
           address?: string | null
           category?: string | null
           created_at?: string
@@ -590,6 +609,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          hours_enabled?: boolean
+          opening_hours?: Json | null
           address?: string | null
           category?: string | null
           created_at?: string
@@ -703,6 +724,8 @@ export type Database = {
       }
       orders: {
         Row: {
+          merchant_accepted_at: string | null
+          food_ready_at: string | null
           created_at: string
           customer_id: string
           customer_paid_at: string | null
@@ -741,6 +764,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          merchant_accepted_at?: string | null
+          food_ready_at?: string | null
           created_at?: string
           customer_id: string
           customer_paid_at?: string | null
@@ -779,6 +804,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          merchant_accepted_at?: string | null
+          food_ready_at?: string | null
           created_at?: string
           customer_id?: string
           customer_paid_at?: string | null
@@ -1056,6 +1083,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          payment_qr_path: string | null
+          payment_account_name: string | null
+          payment_bank_name: string | null
           approved: boolean
           created_at: string
           full_name: string
@@ -1073,6 +1103,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          payment_qr_path?: string | null
+          payment_account_name?: string | null
+          payment_bank_name?: string | null
           approved?: boolean
           created_at?: string
           full_name: string
@@ -1090,6 +1123,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          payment_qr_path?: string | null
+          payment_account_name?: string | null
+          payment_bank_name?: string | null
           approved?: boolean
           created_at?: string
           full_name?: string
@@ -1998,6 +2034,11 @@ export type Database = {
       }
     }
     Functions: {
+      register_line_customer: { Args: { p_name: string; p_phone: string; p_tambon_id: string }; Returns: Json }
+      customer_food_review: { Args: { p_merchant_id: string; p_items: Json; p_point?: Json | null; p_note?: string | null }; Returns: Json }
+      customer_food_confirm: { Args: { p_token: string }; Returns: Json }
+      partner_order_action: { Args: { p_order_id: number; p_action: string; p_action_id?: string }; Returns: Json }
+      shop_is_open: { Args: { p_merchant_id: string }; Returns: boolean }
       _cart_json: { Args: { p_user: string }; Returns: Json }
       admin_assign_order: {
         Args: { p_driver_id: string; p_order_id: number }

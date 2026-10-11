@@ -1,0 +1,1 @@
+={{ $json.handled !== true && !/^food=(?:add|rm|cart|clear|review|checkout|confirm|menu|shops|tambon|tambons|location|partner)(?:&|$)/.test(String($('ข้อมูลข้อความสื่อสาร').item.json.pb || '')) && !/^(?:สมัครลูกค้า(?:ใหม่)?|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(String($('ข้อมูลข้อความสื่อสาร').item.json.text || '').trim()) }}

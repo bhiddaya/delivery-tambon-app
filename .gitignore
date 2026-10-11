@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local CLI and isolated QA workspace
+/supabase/.temp/
+/work/

@@ -1,0 +1,1 @@
+={{ /^food=(?:add|rm|cart|clear|review|checkout|confirm|menu|shops|tambon|tambons|location|partner)(?:&|$)/.test(String($json.pb || '')) || /^(?:สมัครลูกค้า(?:ใหม่)?|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(String($json.text || '').trim()) ? 'Csc8nDWFBvLegG1d' : '1v3lerEKWR5DUUc1' }}

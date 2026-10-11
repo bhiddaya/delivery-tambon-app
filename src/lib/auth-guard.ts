@@ -18,7 +18,7 @@ const BACK_OFFICE_ROLES: UserRole[] = ["driver", "merchant", "admin", "superadmi
  * ตรวจสอบว่าผู้ใช้ล็อกอินแล้ว มีโปรไฟล์ และบทบาทตรงกับที่หน้านี้ต้องการ
  * ถ้าไม่ผ่านเงื่อนไข จะ redirect ไปหน้าที่เหมาะสมให้อัตโนมัติ
  */
-export async function requireRole(role: UserRole): Promise<{
+export async function requireRole(role: UserRole, nextPath?: string): Promise<{
   userId: string;
   email: string | null;
   profile: Tables<"profiles">;
@@ -31,7 +31,7 @@ export async function requireRole(role: UserRole): Promise<{
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) redirect(nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : "/login");
 
   const { data: profile } = await supabase
     .from("profiles")

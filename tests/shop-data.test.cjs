@@ -18,6 +18,7 @@ function load() {
 function fakeDb({ merchant = null, merchantError = null, menu = [], area = null }) {
   const calls = [];
   const db = {
+    rpc: async () => ({ data: merchant?.is_open ?? false, error: null }),
     from(table) {
       const c = { table, cols: null, eqs: [] };
       c.select = cols => { c.cols = cols; return c; };
