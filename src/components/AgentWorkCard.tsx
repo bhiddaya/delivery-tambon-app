@@ -14,9 +14,9 @@ export default function AgentWorkCard({ task, events, onSaved }: { task: WorkIte
     try {
       const result = await createClient().rpc("agent_work_update", pending.current);
       if (result.error) {
-        if (["40001", "42501", "22023"].includes(result.error.code)) { pending.current = null; setRetry(false); onSaved(); }
+        if (["PT409", "40001", "42501", "22023"].includes(result.error.code)) { pending.current = null; setRetry(false); onSaved(); }
         else setRetry(true);
-        throw new Error(result.error.code === "40001" ? "มีผู้แก้ไขแล้ว ข้อมูลกำลังอัปเดต ตรวจอีกครั้งก่อนกด" : "ยังบันทึกไม่ได้ ตรวจการเชื่อมต่อและสิทธิ์แล้วลองอีกครั้ง");
+        throw new Error(["PT409", "40001"].includes(result.error.code) ? "มีผู้แก้ไขแล้ว ข้อมูลกำลังอัปเดต ตรวจอีกครั้งก่อนกด" : "ยังบันทึกไม่ได้ ตรวจการเชื่อมต่อและสิทธิ์แล้วลองอีกครั้ง");
       }
       pending.current = null; setRetry(false); setNote(""); onSaved();
     } catch (e) { if (pending.current) setRetry(true); setError(e instanceof Error ? e.message : "ยังบันทึกไม่ได้"); }
