@@ -41,7 +41,12 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
       ]);
       if (areaResult.error || shopResult.error || itemResult.error) throw new Error("load failed");
       areas = areaResult.data ?? [];
-      shops = shopResult.data ?? [];
+      // "เปิดอยู่" ต้องเป็นตามเวลาเปิด-ปิดที่ร้านตั้งด้วย (shop_is_open = กติกาเดียวกับบอทและการสั่ง)
+      // ไม่งั้นร้านที่กดเปิดไว้แต่เลยเวลาแล้วจะขึ้น "เปิดอยู่" ทั้งที่สั่งไม่ได้
+      // ponytail: เรียกทีละร้าน พอสำหรับร้านหลักสิบ ถ้าร้านเป็นร้อยค่อยทำ RPC คืนทั้งรายการ
+      const openNow = await Promise.all((shopResult.data ?? []).map(s => db.rpc("shop_is_open", { p_merchant_id: s.id })));
+      if (openNow.some(r => r.error)) throw new Error("load failed");
+      shops = (shopResult.data ?? []).map((s, i) => ({ ...s, is_open: Boolean(openNow[i].data) }));
       items = itemResult.data ?? [];
     } catch {
       failed = true;
