@@ -57,8 +57,8 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
   return (
     <div>
       <LiffRememberedArea areas={areas} shops={shops} slug={slug} />
-      <h1 className="font-head text-2xl font-semibold">สั่งอาหาร</h1><Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-indigo" href="/liff/register">สมัครลูกค้าใหม่</Link>
-      <p className="mt-1 text-sm text-[#5b6478]">ค้นหาร้านหรืออาหาร กดที่อาหารเพื่อเปิดเมนูร้านแล้วติ๊กเลือก</p>
+      <h1 className="font-head text-2xl font-semibold">สั่งอาหาร · ของแห้ง</h1><Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-indigo" href="/liff/register">สมัครลูกค้าใหม่</Link>
+      <p className="mt-1 text-sm text-[#5b6478]">เลือกร้านหรือค้นหาสินค้า กด + ใส่ตะกร้า แล้วดูตะกร้าเพื่อสรุปยอดและค่าส่ง</p>
       {failed ? (
         <p role="status" className="mt-6 rounded-2xl bg-[#fbebd6] p-5 text-sm leading-7 text-[#75450f]">ยังโหลดรายชื่อร้านไม่ได้ กรุณาลองใหม่อีกครั้ง</p>
       ) : groups.length === 0 ? (
