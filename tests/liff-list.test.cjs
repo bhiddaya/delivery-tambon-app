@@ -22,6 +22,7 @@ const publicShops = [shop('s1', 'ร้านจริง', 'k')];
 const adminShops = [...publicShops, shop('s2', 'ร้านทดสอบ', 'b')];
 
 const fakeDb = shops => ({
+  rpc: async () => ({ data: true, error: null }),
   from: table => {
     const result = { data: table === 'tambons' ? areas : shops, error: null };
     const c = { then: (resolve, reject) => Promise.resolve(result).then(resolve, reject) };
