@@ -46,14 +46,15 @@ if (r.handled === false) {
     const qr='https://promptpay.io/'+pp+'/'+Number(p.amount)+'.png';
     const info={type:'box',layout:'vertical',flex:3,spacing:'xs',contents:[txt(baht(p.amount),{weight:'bold',size:'lg',color:O}),txt('ออเดอร์ '+(p.orders||'-'),{size:'xs'}),txt(pp?'พร้อมเพย์ '+pp:'ยังไม่มีพร้อมเพย์',{size:'xs',color:pp?'#666666':O}),...(pp?[txt('แตะ QR เพื่อขยาย',{size:'xxs',color:'#999999'})]:[])]};
     const row={type:'box',layout:'horizontal',spacing:'md',contents:pp?[{type:'image',url:qr,size:'sm',aspectRatio:'1:1',flex:2,action:{type:'uri',label:'QR',uri:qr}},info]:[info]};
-    return small(bubble((roleTh[p.role]||'')+' '+cut(p.name,30),[row],[{type:'button',style:'primary',height:'sm',color:O,action:partner('💸 โอนแล้ว','payout_prompt',{payee_id:p.payee_id,upto:p.upto})}]));
+    return small(bubble((roleTh[p.role]||'')+' '+cut(p.name,30),[row],[{type:'button',style:'primary',height:'sm',color:O,action:partner('💸 โอนแล้ว','payout_prompt',{payee_id:p.payee_id,upto:p.upto,tambon_id:r.tambon_id})}]));
   });
   const cards=[...slips,...payees].slice(0,10);
-  const q=quick([partner('อัปเดตการเงิน','finance')]);
-  messages=cards.length?[flex('การเงินตำบล · สลิป '+slips.length+' · โอน '+payees.length+' ราย',cards.length===1?cards[0]:{type:'carousel',contents:cards},q)]:[{type:'text',text:'ไม่มีสลิปรอตรวจ และไม่มียอดค้างโอนครับ',quickReply:q}];
-  if(req.digest)messages.unshift({type:'text',text:'💸 สรุปยอดโอนวันนี้ (ตัดรอบ 21.00 น.)\nสแกน QR ด้วยแอปบัญชีตำบล โอนแล้วกด 💸 โอนแล้ว และยืนยันอีกครั้ง'});
+  // แยกบัญชีทีละตำบล (อาจารย์ 12 ต.ค. 2569) · ตัวแทนหลายตำบลกดสลับได้จากปุ่มด่วน
+  const q=quick([partner('อัปเดต '+String(r.title).replace('การเงิน',''),'finance',{tambon_id:r.tambon_id}),...(r.others||[]).map(t=>partner('การเงิน'+String(t.name).replace(/^ตำบล/,''),'finance',{tambon_id:t.id}))]);
+  messages=cards.length?[flex(r.title+' · สลิป '+slips.length+' · โอน '+payees.length+' ราย',cards.length===1?cards[0]:{type:'carousel',contents:cards},q)]:[{type:'text',text:r.title+': ไม่มีสลิปรอตรวจ และไม่มียอดค้างโอนครับ',quickReply:q}];
+  if(req.digest)messages.unshift({type:'text',text:'💸 สรุปยอดโอนวันนี้ · '+r.title+' (ตัดรอบ 21.00 น.)\nสแกน QR ด้วยแอปบัญชีตำบล โอนแล้วกด 💸 โอนแล้ว และยืนยันอีกครั้ง'});
 } else if (r.ok && view==='finance_payout_confirm') {
-  messages=[flex('ยืนยันโอน '+baht(r.amount),bubble('ยืนยันว่าโอนแล้ว',[txt(cut(r.name,60)+' · '+r.count+' รายการ'),moneyRow('ยอดโอน',r.amount,true),txt('กดยืนยันเมื่อโอนจากบัญชีตำบลสำเร็จแล้วเท่านั้น',{color:O})],[{type:'button',style:'primary',color:G,action:partner('ยืนยัน โอนแล้ว','payout_sent',{payee_id:r.payee_id,upto:r.upto})},{type:'button',style:'link',action:partner('ยังไม่โอน','finance')}]))];
+  messages=[flex('ยืนยันโอน '+baht(r.amount),bubble('ยืนยันว่าโอนแล้ว',[txt(cut(r.name,60)+' · '+r.count+' รายการ · '+r.tambon),moneyRow('ยอดโอน',r.amount,true),txt('กดยืนยันเมื่อโอนจากบัญชีตำบลสำเร็จแล้วเท่านั้น',{color:O})],[{type:'button',style:'primary',color:G,action:partner('ยืนยัน โอนแล้ว','payout_sent',{payee_id:r.payee_id,upto:r.upto,tambon_id:r.tambon_id})},{type:'button',style:'link',action:partner('ยังไม่โอน','finance',{tambon_id:r.tambon_id})}]))];
   messages[0].contents.size='kilo';
 } else if (r.ok && view==='stock') {
   // ร้านกดสลับ ของหมด / มีของ ทีละรายการ · 10 รายการต่อการ์ด
@@ -62,7 +63,7 @@ if (r.handled === false) {
   const q=quick([partner('ดูงานร้าน','home')]);
   messages=pages.length?[flex('ของหมด / มีของ',pages.length===1?pages[0]:{type:'carousel',contents:pages},q)]:[{type:'text',text:'ยังไม่มีสินค้าในร้าน เพิ่มเมนูที่หน้าเว็บร้านค้าก่อนครับ',quickReply:q}];
 } else if (r.ok && view==='partner_result') {
-  messages=[{type:'text',text:r.text||(r.duplicate?'สถานะนี้บันทึกแล้ว':'บันทึกสถานะงานแล้ว'),quickReply:quick([/payout_/.test(req.arg||'')?partner('กลับการเงินตำบล','finance'):partner('ดูงานล่าสุด','home')])}];
+  messages=[{type:'text',text:r.text||(r.duplicate?'สถานะนี้บันทึกแล้ว':'บันทึกสถานะงานแล้ว'),quickReply:quick([/payout_/.test(req.arg||'')?partner('กลับการเงินตำบล','finance',{tambon_id:r.tambon_id}):partner('ดูงานล่าสุด','home')])}];
 } else if (r.ok && view==='partner') {
   const cards=[bubble(r.title||'งานของคุณ',[txt(r.text||'ดูรายการและเลือกงานของคุณ')],Object.entries(r.links||{}).map(([label,url])=>({type:'button',style:'link',height:'sm',action:uri(label,url)})))];
   if(['merchant','driver'].includes(r.role)) cards[0].footer ||= box([]);
