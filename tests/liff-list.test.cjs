@@ -63,6 +63,6 @@ test('the list never uses the visitor login session, so an admin does not see te
 
 test('a tambon with no public shop shows the empty message', async () => {
   const r = await render({ t: 'bungmai' });
-  assert(r.text.includes('ยังไม่มีร้านเปิดรับออเดอร์'));
+  assert(r.text.includes('ยังไม่มีร้านในพื้นที่นี้'));
   assert(!r.text.includes('ร้านทดสอบ'));
 });
