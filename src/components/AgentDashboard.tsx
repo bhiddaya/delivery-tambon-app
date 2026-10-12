@@ -13,7 +13,8 @@ import AgentWorkCard from "./AgentWorkCard";
 export default function AgentDashboard({ initialArea = "" }: { initialArea?: string }) {
   const [selected, setSelected] = useState(initialArea); const [filter, setFilter] = useState<WorkStatus | "all">("all"); const [page, setPage] = useState(0);
   const loader = useCallback(() => loadAgentDashboard(selected, filter === "all" ? "open" : filter, page * 100), [selected, filter, page]);
-  const live = useLiveData(loader, "agent_work_items,agent_work_events,orders,settlements,merchants,drivers,profiles,admin_scopes,tambons,messages");
+  // messages is not in the Realtime publication; the 30s refresh still updates its count.
+  const live = useLiveData(loader, "agent_work_items,agent_work_events,orders,settlements,merchants,drivers,profiles,admin_scopes,tambons");
   const { refresh } = live;
   const data = live.data?.dashboard; const areaId = data?.area.id;
   const [memory, setMemory] = useState<{ area: string; state: "saving" | "saved" | "waiting"; at?: string }>({ area: "", state: "waiting" });
