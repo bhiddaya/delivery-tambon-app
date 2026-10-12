@@ -57,9 +57,11 @@ Worker ใช้ AI_MEMORY_MCP_URL และ AI_MEMORY_TOKEN เดิม ไม
 - Node regression 60 tests + PWA 9 tests ผ่าน (มี workflow check ภายในเพิ่มเติม 12 ข้อ)
 - Dashboard Worker build ผ่านและ Vitest 66 tests ผ่าน รวม bridge ใหม่ 7 ข้อ
 - Production build Delivery compile และ TypeScript ผ่าน แต่ prerender `/admin` ติด
-  EPERM mkdir ในเครื่อง Windows นี้ ต้องใช้ CI เป็นหลักฐาน build เต็ม
+  EPERM mkdir ในเครื่อง Windows นี้; Vercel build ของ PR58 commit e825392 ผ่านแล้ว
 - ชุด `rebuilt-ui.test.mjs` เดิมไม่ผ่านเพราะ mock next/navigation ไม่มี useSearchParams
   ตาม QuickFoodOrder ปัจจุบัน ไม่แก้ flow สั่งอาหารนอกขอบเขต D55
+
+PR: Delivery https://github.com/bhiddaya/delivery-tambon-app/pull/58 และ Worker https://github.com/bhiddaya/bavorn-ai-dashboard/pull/31
 
 ยังต้องอนุมัติ merge PR, ตรวจ deployment จริง, บัญชีตัวแทนจริง, การซิงก์จริงจากหน้าเว็บ
 และ layout/PWA บนมือถือก่อนถือว่าเปิดใช้ครบ ไม่ได้สร้างออเดอร์ จ่ายเงิน หรือส่ง LINE ในการตรวจ
