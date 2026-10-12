@@ -12,7 +12,8 @@ import type { Tables, TablesUpdate } from "@/lib/types";
 import { useLiveData } from "./use-live-data";
 import { DataState, EmptyPanel, PageIntro, Panel, ProductPhoto, inputClass, primaryButton, secondaryButton } from "./primitives";
 
-type Draft = { id?: string; name: string; price: string; description: string };
+type Draft = { id?: string; name: string; price: string; description: string; photo?: File };
+const photoOk = (file: File) => ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 10 * 1024 * 1024;
 export default function MerchantWorkspace() {
   const { profile } = useSession();
   const [busy, setBusy] = useState(false);
@@ -48,10 +49,13 @@ export default function MerchantWorkspace() {
     if (!data?.shop || !draft) return;
     const name = draft.name.trim(); const price = Number(draft.price); const description = draft.description.trim() || null;
     if (!name || !draft.price.trim() || !Number.isFinite(price) || price < 0 || price > 999999 || Math.abs(price * 100 - Math.round(price * 100)) > 0.00001) { setErrorText("ใส่ชื่อเมนูและราคา 0–999,999 บาท โดยมีทศนิยมไม่เกิน 2 ตำแหน่ง"); return; }
+    if (draft.photo && !photoOk(draft.photo)) { setErrorText("ใช้รูป JPG, PNG หรือ WEBP ขนาดไม่เกิน 10 MB"); return; }
     await run(async () => {
       const db = createClient();
       const result = draft.id ? await db.from("menu_items").update({ name, price, description }).eq("id", draft.id).eq("merchant_id", data.shop!.id).select("id") : await db.from("menu_items").insert({ merchant_id: data.shop!.id, name, price, description }).select("id");
       if (result.error || result.data?.length !== 1) throw new Error("not saved");
+      // ใส่รูปพร้อมเพิ่ม/แก้เมนูได้เลย (อาจารย์ 12 ต.ค. 2569: หาปุ่มอัปโหลดรูปไม่เจอ)
+      if (draft.photo) await savePhoto(result.data[0].id, draft.photo);
       setDraft(null);
     });
   }
@@ -64,19 +68,20 @@ export default function MerchantWorkspace() {
       setShopDraft(null);
     });
   }
+  async function savePhoto(itemId: string, file: File) {
+    const db = createClient();
+    const image = await resizeImage(file);
+    const path = `${data!.shop!.id}/${crypto.randomUUID()}.${image.ext}`;
+    const upload = await db.storage.from("menu-photos").upload(path, image.blob, { contentType: "image/jpeg", upsert: false });
+    if (upload.error) throw new Error("upload failed");
+    const { data: publicFile } = db.storage.from("menu-photos").getPublicUrl(path);
+    const saved = await db.from("menu_items").update({ photo_url: publicFile.publicUrl }).eq("id", itemId).eq("merchant_id", data!.shop!.id).select("id");
+    if (saved.error || saved.data?.length !== 1) { await db.storage.from("menu-photos").remove([path]); throw new Error("photo not saved"); }
+  }
   async function upload(item: Tables<"menu_items">, file: File) {
     if (!data?.shop) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) { setErrorText("ใช้รูป JPG, PNG หรือ WEBP ขนาดไม่เกิน 10 MB"); return; }
-    await run(async () => {
-      const db = createClient();
-      const image = await resizeImage(file);
-      const path = `${data.shop!.id}/${crypto.randomUUID()}.${image.ext}`;
-      const upload = await db.storage.from("menu-photos").upload(path, image.blob, { contentType: "image/jpeg", upsert: false });
-      if (upload.error) throw new Error("upload failed");
-      const { data: publicFile } = db.storage.from("menu-photos").getPublicUrl(path);
-      const saved = await db.from("menu_items").update({ photo_url: publicFile.publicUrl }).eq("id", item.id).eq("merchant_id", data.shop!.id).select("id");
-      if (saved.error || saved.data?.length !== 1) { await db.storage.from("menu-photos").remove([path]); throw new Error("photo not saved"); }
-    }, "อัปเดตรูปเมนูแล้ว");
+    if (!photoOk(file)) { setErrorText("ใช้รูป JPG, PNG หรือ WEBP ขนาดไม่เกิน 10 MB"); return; }
+    await run(() => savePhoto(item.id, file), "อัปเดตรูปเมนูแล้ว");
   }
   const visible = data?.menu.filter(m => m.is_hidden === archive) ?? [];
   return <div>
@@ -91,7 +96,7 @@ export default function MerchantWorkspace() {
       {shopDraft && <form onSubmit={saveShop} className="mt-5 grid gap-4 border-t border-border pt-5 sm:grid-cols-2"><label><span className="mb-2 block text-sm">ชื่อร้าน</span><input className={inputClass} required maxLength={150} value={shopDraft.name} onChange={e => setShopDraft({ ...shopDraft, name: e.target.value })} /></label><label><span className="mb-2 block text-sm">ประเภทสินค้า</span><input className={inputClass} maxLength={200} value={shopDraft.category} onChange={e => setShopDraft({ ...shopDraft, category: e.target.value })} /></label><label className="sm:col-span-2"><span className="mb-2 block text-sm">ที่อยู่และจุดสังเกต</span><input className={inputClass} maxLength={500} value={shopDraft.address} onChange={e => setShopDraft({ ...shopDraft, address: e.target.value })} /></label><div className="flex gap-3"><button className={primaryButton} disabled={busy} type="submit">{busy ? "กำลังบันทึก…" : "บันทึกข้อมูลร้าน"}</button><button className={secondaryButton} disabled={busy} type="button" onClick={() => setShopDraft(null)}>ยกเลิก</button></div></form>}
       </Panel>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div className="flex gap-2" role="group" aria-label="ชุดเมนู"><button className={archive ? secondaryButton : primaryButton} aria-pressed={!archive} onClick={() => setArchive(false)}>เมนูในร้าน ({data.menu.filter(m => !m.is_hidden).length})</button><button className={archive ? primaryButton : secondaryButton} aria-pressed={archive} onClick={() => setArchive(true)}>พักขาย ({data.menu.filter(m => m.is_hidden).length})</button></div><button className={primaryButton} disabled={busy} onClick={() => setDraft({ name: "", price: "", description: "" })}><Plus size={18} aria-hidden="true" />เพิ่มเมนู</button></div>
-      {draft && <Panel className="mb-5"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">{draft.id ? "แก้ไขเมนู" : "เพิ่มเมนูใหม่"}</h2><button aria-label="ปิดฟอร์มเมนู" className="flex h-11 w-11 items-center justify-center" disabled={busy} onClick={() => setDraft(null)}><X size={20} /></button></div><form className="grid gap-4 sm:grid-cols-[1fr_180px_auto]" onSubmit={saveMenu}><label><span className="mb-2 block text-sm">ชื่อเมนู</span><input className={inputClass} autoFocus required maxLength={150} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></label><label><span className="mb-2 block text-sm">ราคา (บาท)</span><input className={inputClass} type="number" inputMode="decimal" required min="0" max="999999" step="0.01" value={draft.price} onChange={e => setDraft({ ...draft, price: e.target.value })} /></label><label className="sm:col-span-2"><span className="mb-2 block text-sm">คำบรรยายสั้น ๆ (ถ้ามี)</span><input className={inputClass} maxLength={200} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} placeholder="เช่น เส้นเล็กน้ำใส ใส่ลูกชิ้นและเป็ดตุ๋น" /></label><button type="submit" className={`${primaryButton} self-end`} disabled={busy}>{busy ? "กำลังบันทึก…" : "บันทึกเมนู"}</button></form></Panel>}
+      {draft && <Panel className="mb-5"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">{draft.id ? "แก้ไขเมนู" : "เพิ่มเมนูใหม่"}</h2><button aria-label="ปิดฟอร์มเมนู" className="flex h-11 w-11 items-center justify-center" disabled={busy} onClick={() => setDraft(null)}><X size={20} /></button></div><form className="grid gap-4 sm:grid-cols-[1fr_180px_auto]" onSubmit={saveMenu}><label><span className="mb-2 block text-sm">ชื่อเมนู</span><input className={inputClass} autoFocus required maxLength={150} value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} /></label><label><span className="mb-2 block text-sm">ราคา (บาท)</span><input className={inputClass} type="number" inputMode="decimal" required min="0" max="999999" step="0.01" value={draft.price} onChange={e => setDraft({ ...draft, price: e.target.value })} /></label><label className="sm:col-span-2"><span className="mb-2 block text-sm">คำบรรยายสั้น ๆ (ถ้ามี)</span><input className={inputClass} maxLength={200} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} placeholder="เช่น เส้นเล็กน้ำใส ใส่ลูกชิ้นและเป็ดตุ๋น" /></label><label className="sm:col-span-2"><span className="mb-2 block text-sm">รูปเมนู (ถ้ามี)</span><span className={`${secondaryButton} ${busy ? "opacity-45" : "cursor-pointer"}`}><ImagePlus size={16} aria-hidden="true" />{draft.photo ? draft.photo.name : "เลือกรูปจากมือถือ"}</span><input className="sr-only" type="file" disabled={busy} accept="image/jpeg,image/png,image/webp" onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) setDraft({ ...draft, photo: file }); }} /></label><button type="submit" className={`${primaryButton} self-end`} disabled={busy}>{busy ? "กำลังบันทึก…" : "บันทึกเมนู"}</button></form></Panel>}
       {visible.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{visible.map(item => <article key={item.id} className="overflow-hidden rounded-2xl border border-border bg-surface"><ProductPhoto src={item.photo_url} name={item.name} className="aspect-[16/10]" /><div className="p-5"><h3 className="text-lg font-semibold">{item.name}</h3>{item.description && <p className="mt-1 text-sm leading-6 text-ink-soft">{item.description}</p>}<p className="mt-2 text-xl font-semibold text-indigo">{money(Number(item.price))}</p><div className="mt-4 flex flex-wrap gap-2"><button className={secondaryButton} disabled={busy} onClick={() => setDraft({ id: item.id, name: item.name, price: String(item.price), description: item.description ?? "" })}><Pencil size={15} aria-hidden="true" />แก้ไข</button><label className={`${secondaryButton} ${busy ? "opacity-45" : "cursor-pointer"}`}><ImagePlus size={16} aria-hidden="true" />เปลี่ยนรูป<input className="sr-only" type="file" disabled={busy} accept="image/jpeg,image/png,image/webp" onChange={e => { const file = e.target.files?.[0]; e.target.value = ""; if (file) void upload(item, file); }} /></label></div><div className="mt-3 flex flex-wrap gap-2">{!archive && <button className={`${secondaryButton} flex-1 ${item.is_available ? "text-jade" : "text-clay"}`} disabled={busy} aria-pressed={item.is_available} onClick={() => updateItem(item, { is_available: !item.is_available })}>{item.is_available ? "พร้อมขาย · กดแจ้งหมด" : "หมด · กดเปิดขาย"}</button>}<button className={secondaryButton} disabled={busy} onClick={() => updateItem(item, { is_hidden: !item.is_hidden })}>{archive ? "นำกลับมาขาย" : "พักขาย"}</button></div></div></article>)}</div> : <EmptyPanel title={archive ? "ยังไม่มีเมนูที่พักขาย" : "ร้านยังไม่มีเมนู"} text={archive ? "เมนูที่พักขายยังเก็บประวัติออเดอร์ไว้ และนำกลับมาขายได้" : "เพิ่มชื่อ ราคา และรูปจริงของสินค้า เพื่อให้ลูกค้าเลือกได้ง่าย"} />}
     </> : <EmptyPanel title="ยังไม่พบข้อมูลร้านของบัญชีนี้" text="ตรวจบทบาทและข้อมูลสมัครร้านที่หน้าบัญชี หรือติดต่อตัวแทนตำบล" action={<Link href="/account" className={secondaryButton}>ตรวจบัญชีร้าน</Link>} />)}
   </div>;
