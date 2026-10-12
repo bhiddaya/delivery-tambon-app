@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 type Area = { id: string; name: string; slug: string };
-type Shop = { id: string; name: string; category: string | null; tambon_id: string };
+type Shop = { id: string; name: string; category: string | null; tambon_id: string; is_open: boolean };
 type Item = { id: string; name: string; price: number; photo_url: string | null; description: string | null; merchant_id: string };
 
 /**
@@ -34,7 +34,8 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
       const db = createPublicClient();
       const [areaResult, shopResult, itemResult] = await Promise.all([
         db.from("tambons").select("id,name,slug").eq("is_active", true).not("slug", "is", null).order("name"),
-        db.from("merchants").select("id,name,category,tambon_id").eq("is_open", true).order("name"),
+        // ร้านที่ปิดก็แสดง (จาง ๆ ดูเมนูและลองใส่ตะกร้าได้ แต่สั่งไม่ได้) ร้านเปิดขึ้นก่อน
+        db.from("merchants").select("id,name,category,tambon_id,is_open").order("is_open", { ascending: false }).order("name"),
         // anon เห็นเฉพาะเมนูพร้อมขาย ไม่พักขาย ของร้านที่เปิด (policy menu_items_select_public_open)
         db.from("menu_items").select("id,name,price,photo_url,description,merchant_id").eq("is_available", true).eq("is_hidden", false).order("name"),
       ]);
@@ -61,13 +62,13 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
       {failed ? (
         <p role="status" className="mt-6 rounded-2xl bg-[#fbebd6] p-5 text-sm leading-7 text-[#75450f]">ยังโหลดรายชื่อร้านไม่ได้ กรุณาลองใหม่อีกครั้ง</p>
       ) : groups.length === 0 ? (
-        <p role="status" className="mt-6 rounded-2xl bg-[#eff1ec] p-5 text-sm leading-7 text-[#5b6478]">ตอนนี้ยังไม่มีร้านเปิดรับออเดอร์ในพื้นที่นี้ กลับมาดูใหม่ภายหลังได้</p>
+        <p role="status" className="mt-6 rounded-2xl bg-[#eff1ec] p-5 text-sm leading-7 text-[#5b6478]">ตอนนี้ยังไม่มีร้านในพื้นที่นี้ กลับมาดูใหม่ภายหลังได้</p>
       ) : (
         <LiffFoodBrowser
-          groups={groups.map(({ area, shops: list }) => ({ id: area.id, label: tambonDisplayName(area.name), shops: list.map(({ id, name, category }) => ({ id, name, category })) }))}
+          groups={groups.map(({ area, shops: list }) => ({ id: area.id, label: tambonDisplayName(area.name), shops: list.map(({ id, name, category, is_open }) => ({ id, name, category, isOpen: is_open })) }))}
           items={items.flatMap(item => {
             const shop = visibleShops.get(item.merchant_id);
-            return shop ? [{ id: item.id, name: item.name, price: Number(item.price), photo: item.photo_url, description: item.description, shopId: shop.id, shopName: shop.name }] : [];
+            return shop ? [{ id: item.id, name: item.name, price: Number(item.price), photo: item.photo_url, description: item.description, shopId: shop.id, shopName: shop.name, shopOpen: shop.is_open }] : [];
           })}
         />
       )}
