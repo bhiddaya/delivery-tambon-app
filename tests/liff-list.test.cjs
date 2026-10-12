@@ -39,7 +39,7 @@ async function render(searchParams = {}) {
     require: name => ({
       'next/link': { default: 'Link' },
       '@/components/LiffRememberedArea': { default: 'LiffRememberedArea' },
-      'lucide-react': { ChevronRight: 'ChevronRight', Store: 'Store' },
+      '@/components/LiffFoodBrowser': { default: 'LiffFoodBrowser' },
       '@/lib/supabase/server': {
         isSupabaseConfigured: () => true,
         createClient: async () => { used.push('session'); return fakeDb(adminShops); },
@@ -49,7 +49,8 @@ async function render(searchParams = {}) {
     })[name],
   }).default;
   const el = await page({ searchParams: Promise.resolve(searchParams) });
-  return { text: texts(el).join(' '), used };
+  // รายชื่อร้านส่งเป็น props ให้ LiffFoodBrowser (client) จึงตรวจทั้งข้อความและ props
+  return { text: texts(el).join(' ') + JSON.stringify(el.children), used };
 }
 
 test('the list never uses the visitor login session, so an admin does not see test shops', async () => {
