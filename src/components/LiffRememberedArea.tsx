@@ -10,9 +10,8 @@ export default function LiffRememberedArea({ areas, shops, slug }: { areas: { id
     if (!session.ready || !session.profile?.tambon_id || session.profile.role !== "customer") return;
     const area = slug ? areas.find(t => t.slug === slug) : areas.find(t => t.id === session.profile?.tambon_id);
     if (!area) return;
-    const list = shops.filter(s => s.tambon_id === area.id);
-    if (list.length === 1) router.replace(`/liff/shop/${encodeURIComponent(list[0].id)}`);
-    else if (!slug) router.replace(`/liff?t=${encodeURIComponent(area.slug)}`);
+    // ไม่พาเข้าหน้าร้านอัตโนมัติแม้ตำบลมีร้านเดียว ลูกค้าเห็นช่องค้นหาและการ์ดอาหารเสมอ (อาจารย์สั่ง 12 ต.ค. 2569)
+    if (!slug) router.replace(`/liff?t=${encodeURIComponent(area.slug)}`);
   }, [session.ready, session.profile, areas, shops, slug, router]);
   return null;
 }
