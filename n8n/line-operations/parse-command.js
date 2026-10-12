@@ -18,4 +18,5 @@ if (j.action === 'location') {
 else if (/^(สมัครลูกค้า(?:ใหม่)?|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(text)) { action='partner'; arg=JSON.stringify({action:/^สมัครลูกค้า/.test(text)?'register':text==='การเงินตำบล'?'finance':'home'}); }
 else if (/^สั่งอาหาร/.test(text)) { action = 'shops'; }
 if (!action || !j.userId) return [];
-return [{ json: { action, arg, userId: j.userId, replyToken: j.replyToken || '', test: String(j.userId).indexOf('TEST') === 0 } }];
+// digest = สรุปการเงินประจำวันจาก workflow ตั้งเวลา (ไม่มี replyToken ต้อง push)
+return [{ json: { action, arg, userId: j.userId, replyToken: j.replyToken || '', test: String(j.userId).indexOf('TEST') === 0, digest: j.digest === true } }];
