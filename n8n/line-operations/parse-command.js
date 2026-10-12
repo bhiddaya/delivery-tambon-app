@@ -15,7 +15,7 @@ if (j.action === 'location') {
   action = map[p.food] || '';
   arg = p.id || null;
 } else if (j.term) { action = 'search'; arg = String(j.term); }
-else if (/^(สมัครลูกค้า(?:ใหม่)?|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(text)) { action='partner'; arg=JSON.stringify({action:/^สมัครลูกค้า/.test(text)?'register':text==='การเงินตำบล'?'finance':'home'}); }
+else if (/^(สมัครลูกค้า(?:ใหม่)?|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(text)) { action='partner'; arg=JSON.stringify({action:/^สมัครลูกค้า/.test(text)?'register':text==='การเงินตำบล'?'finance':'home',...(j.digest&&j.tambonId?{tambon_id:String(j.tambonId)}:{})}); }
 // ไรเดอร์/ร้านพิมพ์เอง (12 ต.ค. 2569 ไรเดอร์พิมพ์ รับของแล้ว แต่บอทไม่รู้จัก) → เปิดการ์ดงานพร้อมปุ่ม ไม่ทำรายการจากข้อความตรง ๆ
 else if (/^(?:รับงาน|รับของ|รับอาหาร|ส่งถึง|ส่งของ|ส่งสำเร็จ)(?:แล้ว)?$/.test(text)) { action='partner'; arg=JSON.stringify({action:'home'}); }
 else if (/^(?:ออนไลน์|ออฟไลน์|ของหมด|มีของ)$/.test(text)) { action='partner'; arg=JSON.stringify({action:{'ออนไลน์':'go_online','ออฟไลน์':'go_offline'}[text]||'stock'}); }
