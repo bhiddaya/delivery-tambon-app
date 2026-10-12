@@ -38,12 +38,15 @@ if (r.handled === false) {
 } else if (r.ok && view==='finance') {
   // การเงินตำบลใน LINE: สลิปรอตรวจ (ปุ่มเดียวกับแจ้งเตือนทันที pay=ok/no) + ยอดโอนให้ร้านค้า/ไรเดอร์พร้อม QR ใส่ยอด
   const roleTh={merchant:'ร้านค้า',driver:'ไรเดอร์'};
-  const slips=(r.slips||[]).map(s=>bubble('สลิปรอตรวจ #'+s.order_id,[moneyRow('ยอดที่ลูกค้าโอน',s.total,true),txt('เปิดแอปธนาคารดูยอดเข้าบัญชีตำบล'+(s.tambon?' · '+s.tambon:''))],[button('✅ เงินเข้าแล้ว','pay=ok&o='+s.order_id),button('❌ ไม่พบยอด','pay=no&o='+s.order_id,'#777777')]));
+  // การ์ดขนาดเล็ก (kilo) · QR เล็กข้างยอดเงิน แตะ QR เพื่อเปิดภาพเต็มไว้สแกน/บันทึก
+  const small=b=>{b.size='kilo';b.body.contents[0].size='md';return b;};
+  const slips=(r.slips||[]).map(s=>small(bubble('สลิปรอตรวจ #'+s.order_id,[moneyRow('ยอดโอนเข้า',s.total,true),txt('ดูยอดในแอปบัญชีตำบล'+(s.tambon?' · '+s.tambon:''),{size:'xs',color:'#666666'})],[button('✅ เงินเข้าแล้ว','pay=ok&o='+s.order_id),button('❌ ไม่พบยอด','pay=no&o='+s.order_id,'#777777')])));
   const payees=(r.payees||[]).map(p=>{
     const pp=String(p.promptpay_id||'').replace(/\D/g,'');
-    const b=bubble('โอนให้'+(roleTh[p.role]||'')+' '+cut(p.name,40),[moneyRow('ยอดโอน',p.amount,true),txt('ออเดอร์ '+(p.orders||'-')),txt(pp?'พร้อมเพย์ '+pp+' · สแกน QR ด้วยแอปบัญชีตำบล':'ยังไม่มีพร้อมเพย์ ให้ผู้รับเพิ่มในหน้า บัญชีของฉัน',{color:pp?'#666666':O})],[{type:'button',style:'primary',color:O,action:partner('💸 โอนแล้ว','payout_prompt',{payee_id:p.payee_id,upto:p.upto})}]);
-    if(pp)b.hero={type:'image',url:'https://promptpay.io/'+pp+'/'+Number(p.amount)+'.png',size:'full',aspectRatio:'1:1',aspectMode:'fit'};
-    return b;
+    const qr='https://promptpay.io/'+pp+'/'+Number(p.amount)+'.png';
+    const info={type:'box',layout:'vertical',flex:3,spacing:'xs',contents:[txt(baht(p.amount),{weight:'bold',size:'lg',color:O}),txt('ออเดอร์ '+(p.orders||'-'),{size:'xs'}),txt(pp?'พร้อมเพย์ '+pp:'ยังไม่มีพร้อมเพย์',{size:'xs',color:pp?'#666666':O}),...(pp?[txt('แตะ QR เพื่อขยาย',{size:'xxs',color:'#999999'})]:[])]};
+    const row={type:'box',layout:'horizontal',spacing:'md',contents:pp?[{type:'image',url:qr,size:'sm',aspectRatio:'1:1',flex:2,action:{type:'uri',label:'QR',uri:qr}},info]:[info]};
+    return small(bubble((roleTh[p.role]||'')+' '+cut(p.name,30),[row],[{type:'button',style:'primary',height:'sm',color:O,action:partner('💸 โอนแล้ว','payout_prompt',{payee_id:p.payee_id,upto:p.upto})}]));
   });
   const cards=[...slips,...payees].slice(0,10);
   const q=quick([partner('อัปเดตการเงิน','finance')]);
@@ -51,11 +54,20 @@ if (r.handled === false) {
   if(req.digest)messages.unshift({type:'text',text:'💸 สรุปยอดโอนวันนี้ (ตัดรอบ 21.00 น.)\nสแกน QR ด้วยแอปบัญชีตำบล โอนแล้วกด 💸 โอนแล้ว และยืนยันอีกครั้ง'});
 } else if (r.ok && view==='finance_payout_confirm') {
   messages=[flex('ยืนยันโอน '+baht(r.amount),bubble('ยืนยันว่าโอนแล้ว',[txt(cut(r.name,60)+' · '+r.count+' รายการ'),moneyRow('ยอดโอน',r.amount,true),txt('กดยืนยันเมื่อโอนจากบัญชีตำบลสำเร็จแล้วเท่านั้น',{color:O})],[{type:'button',style:'primary',color:G,action:partner('ยืนยัน โอนแล้ว','payout_sent',{payee_id:r.payee_id,upto:r.upto})},{type:'button',style:'link',action:partner('ยังไม่โอน','finance')}]))];
+  messages[0].contents.size='kilo';
+} else if (r.ok && view==='stock') {
+  // ร้านกดสลับ ของหมด / มีของ ทีละรายการ · 10 รายการต่อการ์ด
+  const rows=(r.items||[]).map(i=>({type:'box',layout:'horizontal',spacing:'sm',alignItems:'center',contents:[txt((i.available?'':'✕ ')+cut(i.name,40),{flex:3,color:i.available?'#111111':'#999999'}),{type:'button',style:'primary',height:'sm',flex:2,color:i.available?'#777777':G,action:partner(i.available?'หมดแล้ว':'มีของ',i.available?'item_off':'item_on',{item_id:i.id})}]}));
+  const pages=[];for(let k=0;k<rows.length;k+=10)pages.push({type:'bubble',size:'kilo',body:box([txt(r.title+(rows.length>10?' ('+(k/10+1)+')':''),{weight:'bold',size:'md'}),...rows.slice(k,k+10)])});
+  const q=quick([partner('ดูงานร้าน','home')]);
+  messages=pages.length?[flex('ของหมด / มีของ',pages.length===1?pages[0]:{type:'carousel',contents:pages},q)]:[{type:'text',text:'ยังไม่มีสินค้าในร้าน เพิ่มเมนูที่หน้าเว็บร้านค้าก่อนครับ',quickReply:q}];
 } else if (r.ok && view==='partner_result') {
   messages=[{type:'text',text:r.text||(r.duplicate?'สถานะนี้บันทึกแล้ว':'บันทึกสถานะงานแล้ว'),quickReply:quick([/payout_/.test(req.arg||'')?partner('กลับการเงินตำบล','finance'):partner('ดูงานล่าสุด','home')])}];
 } else if (r.ok && view==='partner') {
   const cards=[bubble(r.title||'งานของคุณ',[txt(r.text||'ดูรายการและเลือกงานของคุณ')],Object.entries(r.links||{}).map(([label,url])=>({type:'button',style:'link',height:'sm',action:uri(label,url)})))];
-  if(r.role==='merchant') { cards[0].footer ||= box([]); cards[0].footer.contents.push({type:'button',style:'primary',color:G,action:partner(r.shop_open?'พักรับงาน':'เปิดร้าน',r.shop_open?'close_shop':'open_shop')}); }
+  if(['merchant','driver'].includes(r.role)) cards[0].footer ||= box([]);
+  if(r.role==='merchant') cards[0].footer.contents.push({type:'button',style:'primary',height:'sm',color:G,action:partner(r.shop_open?'พักรับงาน':'เปิดร้าน',r.shop_open?'close_shop':'open_shop')},{type:'button',style:'primary',height:'sm',color:O,action:partner('ของหมด / มีของ','stock')});
+  if(r.role==='driver') { cards[0].body.contents.push(txt(r.online?'🟢 ออนไลน์ · รับงานใหม่ได้':'⚪ ออฟไลน์ · ไม่เห็นงานใหม่',{weight:'bold',color:r.online?G:'#777777'})); cards[0].footer.contents.push({type:'button',style:'primary',height:'sm',color:r.online?'#777777':G,action:partner(r.online?'ออฟไลน์':'ออนไลน์รับงาน',r.online?'go_offline':'go_online')}); }
   for(const j of (r.jobs||[]).slice(0,7)) {
     const rows=[txt('ออเดอร์ #'+j.id,{weight:'bold'}),txt((j.items||[]).map(i=>i.name+' × '+i.qty).join('\n')||('จุดรับ: '+(j.pickup||'-'))),txt('จุดส่ง: '+(j.dropoff||'-'))];
     if(j.note)rows.push(txt(j.note));
@@ -69,6 +81,7 @@ if (r.handled === false) {
     cards.push(bubble('งาน #'+j.id,rows,actions.map(action=>({type:'button',style:'primary',color:G,action}))));
   }
   for(const p of (r.payouts||[]).slice(0,Math.max(0,10-cards.length)))cards.push(bubble('เงินโอนเข้า '+baht(p.amount),[txt('เปิดแอปธนาคารตรวจเงินจริงก่อนกดยืนยัน')],[{type:'button',style:'primary',color:G,action:partner('ตรวจพบเงินเข้าแล้ว','confirm_payout',{settlement_id:p.id})}]));
+  for(const c of cards){c.size='kilo';c.body.contents[0].size='md';}
   messages=[flex(r.title||'งานของคุณ',cards.length===1?cards[0]:{type:'carousel',contents:cards.slice(0,10)},quick([partner('อัปเดตงาน','home'),uri('เลือกอาหาร',base+'/liff')]))];
 } else if (!r.ok && ['need_tambon', 'tambon_unavailable'].includes(r.error)) {
   messages = picker(r.tambons);

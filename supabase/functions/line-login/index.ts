@@ -241,7 +241,25 @@ Deno.serve(async (req: Request) => {
   let userId: string | null = (foundId as string | null) ?? null;
   let isNew = false;
 
-  if (userId) {
+  // โปรไฟล์ที่สมัครผ่านแชต LINE (ฟอร์มในบอท) มี line_user_id แต่ไม่มีบัญชีใน auth.users
+  // RPC ข้างบนจึงหาไม่เจอ หรือไปเจอบัญชีเปล่าจากอีเมลแฝง แล้วผู้ใช้ตกไปหน้าสมัครใหม่ (เช่น ไรเดอร์ 12 ต.ค. 2569)
+  // → สร้างบัญชี auth ด้วย id เดียวกับโปรไฟล์ ใช้อีเมลแฝงจาก id โปรไฟล์ เพราะอีเมลแฝงจาก LINE อาจถูกบัญชีเปล่าจองไว้แล้ว
+  const { data: lineProfile, error: lineProfileErr } = await admin
+    .from("profiles").select("id").eq("line_user_id", lineUserId).maybeSingle();
+  if (lineProfileErr) return json({ error: "lookup_failed", detail: lineProfileErr.message }, 500);
+  if (lineProfile && lineProfile.id !== userId) {
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      id: lineProfile.id,
+      email: `${lineProfile.id}@${ALIAS_DOMAIN}`,
+      email_confirm: true,
+      user_metadata: lineMeta,
+      app_metadata: { line_user_id: lineUserId },
+    });
+    if (createErr || !created?.user) {
+      return json({ error: "create_user_failed", detail: createErr?.message }, 500);
+    }
+    userId = created.user.id;
+  } else if (userId) {
     // อัปเดตชื่อ/รูปให้ตรงกับ LINE ปัจจุบัน — ไม่ critical ถ้าพลาดก็ปล่อยผ่าน
     const { error: identityErr } = await admin.auth.admin.updateUserById(userId, {
       user_metadata: lineMeta, app_metadata: { line_user_id: lineUserId },
@@ -264,9 +282,18 @@ Deno.serve(async (req: Request) => {
   // --- 3. ออก session ------------------------------------------------------
   // generateLink สร้างลิงก์อย่างเดียว ไม่ส่งอีเมล เราเอาแค่ token_hash
   // ให้เบราว์เซอร์ไป verifyOtp() แลกเป็น session จริง
+  //
+  // ต้องใช้อีเมลของบัญชีที่หาเจอจริง ไม่ใช่อีเมลแฝงเสมอ — บัญชีที่สมัครด้วยเบอร์/อีเมลแล้วผูก LINE
+  // มีอีเมลอื่น ถ้าใช้อีเมลแฝง generateLink จะสร้างบัญชีเปล่าใหม่ แล้วผู้ใช้ตกไปหน้าสมัคร
+  // (บัญชีตัวแทนตำบล 12 ต.ค. 2569)
+  const { data: account, error: accountErr } = await admin.auth.admin.getUserById(userId);
+  const loginEmail = account?.user?.email;
+  if (accountErr || !loginEmail) {
+    return json({ error: "account_email_missing", detail: accountErr?.message }, 500);
+  }
   const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
     type: "magiclink",
-    email: aliasEmail,
+    email: loginEmail,
   });
   if (linkErr || !link?.properties?.hashed_token) {
     return json({ error: "generate_link_failed", detail: linkErr?.message }, 500);
@@ -318,7 +345,7 @@ Deno.serve(async (req: Request) => {
   return json({
     ok: true,
     token_hash: link.properties.hashed_token,
-    email: aliasEmail,
+    email: loginEmail,
     is_new_user: isNew,
     has_profile: Boolean(profile),
     link_state: linkState,
