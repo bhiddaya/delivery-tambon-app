@@ -23,8 +23,8 @@ begin
  r:=public.agent_work_update(task,request_id,1,'start','QA progress');
  perform public.agent_work_update(task,request_id,1,'start','QA progress');
  if (select version from public.agent_work_items where id=task)<>2 or (select count(*) from public.agent_work_events where task_id=task)<>2 then raise exception 'update duplicate'; end if; checks:=checks+1;
- begin perform public.agent_work_update(task,gen_random_uuid(),1,'done',''); raise exception 'stale overwrite'; exception when serialization_failure then null; end; checks:=checks+1;
- begin perform public.agent_work_update(task,gen_random_uuid(),null,'done',''); raise exception 'null version bypass'; exception when serialization_failure then null; end; checks:=checks+1;
+ begin perform public.agent_work_update(task,gen_random_uuid(),1,'done',''); raise exception 'stale overwrite'; exception when sqlstate 'PT409' then null; end; checks:=checks+1;
+ begin perform public.agent_work_update(task,gen_random_uuid(),null,'done',''); raise exception 'null version bypass'; exception when sqlstate 'PT409' then null; end; checks:=checks+1;
  begin perform public.agent_work_update(task,gen_random_uuid(),2,'wait',''); raise exception 'waiting without reason'; exception when invalid_parameter_value then null; end; checks:=checks+1;
  r:=public.agent_memory_snapshot(t);
  if r::text like '%local-only%' or r::text like '%QA task%' or r->'summary'->'counts' ? 'payout_amount' then raise exception 'private memory fields'; end if; checks:=checks+1;

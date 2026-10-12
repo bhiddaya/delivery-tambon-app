@@ -25,6 +25,7 @@ function setup(){state={tasks:[],events:[],calls:[],requests:new Set(),failSave:
    if(state.failSave){state.failSave=false;return{data:null,error:{code:'NETWORK',message:'lost'}}}return{data:{ok:true},error:null};
   }
   if(name==='agent_work_update'){
+   if(state.failConflict){state.failConflict=false;return{data:null,error:{code:'PT409',message:'stale version'}};}
    if(!state.requests.has(args.p_request_id)){state.requests.add(args.p_request_id);const t=state.tasks.find(t=>t.id===args.p_task_id);t.status=args.p_action==='done'?'done':args.p_action==='wait'?'waiting':args.p_action==='start'?'doing':'todo';t.version++;state.events.push({id:args.p_request_id,task_id:t.id,status:t.status,action:args.p_action,note:args.p_note,created_at:new Date().toISOString()});}
    if(state.failUpdate){state.failUpdate=false;return{data:null,error:{code:'NETWORK',message:'lost'}}}return{data:{ok:true},error:null};
   }throw Error(name);
@@ -48,3 +49,6 @@ setup();state.failSave=true;await mount();await click(button('บันทึก
 setup();state.tasks=[{id:'task-a',tambon_id:'area-a',title:'งานเฉพาะพื้นที่ ก',detail:'local note',category:'orders',status:'todo',version:1,due_on:null,order_id:null,updated_at:new Date().toISOString()}];state.failUpdate=true;await mount();await click(button('เริ่มทำ'));assert.equal(state.events.length,1);await click(button('ลองบันทึกเดิมอีกครั้ง'));const updates=state.calls.filter(c=>c.name==='agent_work_update');assert.equal(updates[0].args.p_request_id,updates[1].args.p_request_id);assert.equal(state.events.length,1);await value(host.querySelector('select'),'area-b');await tick();assert(!host.textContent.includes('งานเฉพาะพื้นที่ ก'));assert(host.querySelector('a[href="/finance?t=b"]'));assert(state.calls.some(c=>c.name==='agent_dashboard'&&c.args.p_tambon_id==='area-b'));await unmount();console.log('PASS lost update response and area switch without retained task data');
 
 setup();global.fetch=async()=>Response.json({verified:false},{status:503});await mount();assert(host.textContent.includes('รอเชื่อมสรุปส่วนกลาง'));assert(!host.textContent.includes('✓ เชื่อมสรุปความคืบหน้ากับส่วนกลางแล้ว'));await unmount();console.log('PASS memory outage is shown honestly while local dashboard remains available');
+
+setup();state.tasks=[{id:'conflict-task',tambon_id:'area-a',title:'งานที่มีผู้แก้ไขพร้อมกัน',detail:'',category:'coordination',status:'todo',version:2,due_on:null,order_id:null,updated_at:new Date().toISOString()}];await mount();state.failConflict=true;state.tasks[0].version=3;await click(button('เริ่มทำ'));assert(host.textContent.includes('มีผู้แก้ไขแล้ว'));assert(!button('ลองบันทึกเดิมอีกครั้ง'));assert(!host.querySelector('textarea').disabled);assert.equal(state.events.length,0);assert.equal(state.calls.filter(c=>c.name==='agent_work_update').length,1);await unmount();console.log('PASS stale version conflict refreshes data without frozen retry or duplicate update');
+
