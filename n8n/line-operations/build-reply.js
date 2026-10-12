@@ -35,8 +35,24 @@ if (r.handled === false) {
   // The main workflow will continue its original location handling without a reply here.
 } else if (r.ok && view==='partner_reject_confirm') {
   messages=[flex('ยืนยันรับออเดอร์ไม่ได้',bubble('ออเดอร์ #'+r.order_id,[txt('ยืนยันว่าร้านรับออเดอร์นี้ไม่ได้ ระบบจะยกเลิกออเดอร์ที่ยังไม่มีสลิปหรือรับเงิน')],[{type:'button',style:'primary',color:G,action:partner('ยืนยันรับไม่ได้','reject_shop',{order_id:r.order_id})},{type:'button',style:'link',action:partner('กลับไปดูงาน','home')}]))];
+} else if (r.ok && view==='finance') {
+  // การเงินตำบลใน LINE: สลิปรอตรวจ (ปุ่มเดียวกับแจ้งเตือนทันที pay=ok/no) + ยอดโอนให้ร้านค้า/ไรเดอร์พร้อม QR ใส่ยอด
+  const roleTh={merchant:'ร้านค้า',driver:'ไรเดอร์'};
+  const slips=(r.slips||[]).map(s=>bubble('สลิปรอตรวจ #'+s.order_id,[moneyRow('ยอดที่ลูกค้าโอน',s.total,true),txt('เปิดแอปธนาคารดูยอดเข้าบัญชีตำบล'+(s.tambon?' · '+s.tambon:''))],[button('✅ เงินเข้าแล้ว','pay=ok&o='+s.order_id),button('❌ ไม่พบยอด','pay=no&o='+s.order_id,'#777777')]));
+  const payees=(r.payees||[]).map(p=>{
+    const pp=String(p.promptpay_id||'').replace(/\D/g,'');
+    const b=bubble('โอนให้'+(roleTh[p.role]||'')+' '+cut(p.name,40),[moneyRow('ยอดโอน',p.amount,true),txt('ออเดอร์ '+(p.orders||'-')),txt(pp?'พร้อมเพย์ '+pp+' · สแกน QR ด้วยแอปบัญชีตำบล':'ยังไม่มีพร้อมเพย์ ให้ผู้รับเพิ่มในหน้า บัญชีของฉัน',{color:pp?'#666666':O})],[{type:'button',style:'primary',color:O,action:partner('💸 โอนแล้ว','payout_prompt',{payee_id:p.payee_id,upto:p.upto})}]);
+    if(pp)b.hero={type:'image',url:'https://promptpay.io/'+pp+'/'+Number(p.amount)+'.png',size:'full',aspectRatio:'1:1',aspectMode:'fit'};
+    return b;
+  });
+  const cards=[...slips,...payees].slice(0,10);
+  const q=quick([partner('อัปเดตการเงิน','finance')]);
+  messages=cards.length?[flex('การเงินตำบล · สลิป '+slips.length+' · โอน '+payees.length+' ราย',cards.length===1?cards[0]:{type:'carousel',contents:cards},q)]:[{type:'text',text:'ไม่มีสลิปรอตรวจ และไม่มียอดค้างโอนครับ',quickReply:q}];
+  if(req.digest)messages.unshift({type:'text',text:'💸 สรุปยอดโอนวันนี้ (ตัดรอบ 21.00 น.)\nสแกน QR ด้วยแอปบัญชีตำบล โอนแล้วกด 💸 โอนแล้ว และยืนยันอีกครั้ง'});
+} else if (r.ok && view==='finance_payout_confirm') {
+  messages=[flex('ยืนยันโอน '+baht(r.amount),bubble('ยืนยันว่าโอนแล้ว',[txt(cut(r.name,60)+' · '+r.count+' รายการ'),moneyRow('ยอดโอน',r.amount,true),txt('กดยืนยันเมื่อโอนจากบัญชีตำบลสำเร็จแล้วเท่านั้น',{color:O})],[{type:'button',style:'primary',color:G,action:partner('ยืนยัน โอนแล้ว','payout_sent',{payee_id:r.payee_id,upto:r.upto})},{type:'button',style:'link',action:partner('ยังไม่โอน','finance')}]))];
 } else if (r.ok && view==='partner_result') {
-  messages=[{type:'text',text:r.text||(r.duplicate?'สถานะนี้บันทึกแล้ว':'บันทึกสถานะงานแล้ว'),quickReply:quick([partner('ดูงานล่าสุด','home')])}];
+  messages=[{type:'text',text:r.text||(r.duplicate?'สถานะนี้บันทึกแล้ว':'บันทึกสถานะงานแล้ว'),quickReply:quick([/payout_/.test(req.arg||'')?partner('กลับการเงินตำบล','finance'):partner('ดูงานล่าสุด','home')])}];
 } else if (r.ok && view==='partner') {
   const cards=[bubble(r.title||'งานของคุณ',[txt(r.text||'ดูรายการและเลือกงานของคุณ')],Object.entries(r.links||{}).map(([label,url])=>({type:'button',style:'link',height:'sm',action:uri(label,url)})))];
   if(r.role==='merchant') { cards[0].footer ||= box([]); cards[0].footer.contents.push({type:'button',style:'primary',color:G,action:partner(r.shop_open?'พักรับงาน':'เปิดร้าน',r.shop_open?'close_shop':'open_shop')}); }
@@ -142,4 +158,6 @@ if (r.handled === false) {
     }
   }
 }
-return { json: { replyToken: req.replyToken, messages: messages.slice(0, 5), push: null, action: req.action, handled: r.handled !== false, result: r } };
+// สรุปประจำวัน push เฉพาะเมื่อมียอดค้างโอน (โควตา push จำกัด)
+const push = req.digest && view === 'finance' && (r.payees || []).length ? { to: req.userId, messages: messages.slice(0, 5) } : null;
+return { json: { replyToken: req.digest ? '' : req.replyToken, messages: messages.slice(0, 5), push, action: req.action, handled: r.handled !== false, result: r } };
