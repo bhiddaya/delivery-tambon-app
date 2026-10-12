@@ -17,17 +17,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [currentAccount, setCurrentAccount] = useState<string | null>(null);
 
   useEffect(() => {
-    const next = nextParam();
-
-    // เคยเข้าสู่ระบบไว้แล้ว ก็ไปต่อทันที ไม่ต้องกรอกอีก
+    let ignore = false;
+    // Keep the login form available so an old customer session cannot prevent account switching.
     createClient()
       .auth.getUser()
       .then(({ data }) => {
-        if (data.user) router.replace(next ?? "/");
-      });
-  }, [router]);
+        if (!ignore && data.user) setCurrentAccount(data.user.email ?? "บัญชีปัจจุบัน");
+      })
+      .catch(() => {});
+    return () => { ignore = true; };
+  }, []);
+
+  async function switchAccount() {
+    setLoading(true);
+    setError(null);
+    try {
+      const { error } = await createClient().auth.signOut({ scope: "local" });
+      if (error) { setError("เปลี่ยนบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง"); return; }
+      setCurrentAccount(null);
+      setIdentifier("");
+      setPassword("");
+      document.getElementById("login-identifier")?.focus();
+    } catch {
+      setError("เปลี่ยนบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,8 +79,8 @@ export default function LoginPage() {
       return;
     }
 
-    router.push(nextParam() ?? "/");
-    router.refresh();
+    // Read the new session on the server instead of reusing the previous account's router cache.
+    window.location.assign(nextParam() ?? "/");
   }
 
   return (
@@ -70,6 +89,16 @@ export default function LoginPage() {
         <TambonHeading />
         <p className="text-ink-soft text-sm mt-1">เข้าสู่ระบบเพื่อสั่ง/รับงานในตำบลของคุณ</p>
       </div>
+
+      {currentAccount && <Card className="mb-4">
+        <p className="font-head font-semibold text-sm">บัญชีที่เข้าสู่ระบบอยู่</p>
+        <p className="my-2 break-all text-sm text-ink-soft">{currentAccount}</p>
+        <p className="mb-3 text-xs text-ink-soft">เลือกใช้บัญชีนี้ต่อ หรือเปลี่ยนบัญชีเพื่อเข้าพื้นที่ที่ต้องการ</p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" disabled={loading} onClick={() => { router.push(nextParam() ?? "/"); router.refresh(); }}>ใช้บัญชีปัจจุบันต่อ</Button>
+          <Button type="button" variant="secondary" disabled={loading} onClick={switchAccount}>เปลี่ยนบัญชี</Button>
+        </div>
+      </Card>}
 
       {/* ลูกค้า: กดปุ่ม LINE ครั้งเดียวก็เข้าได้เลย ไม่ต้องมีรหัสผ่าน */}
       <Card>
@@ -89,6 +118,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit}>
           <Field label="เบอร์โทร หรือ อีเมล">
             <Input
+              id="login-identifier"
               type="text"
               required
               autoComplete="username"
@@ -131,3 +161,4 @@ export default function LoginPage() {
     </AuthFrame>
   );
 }
+
