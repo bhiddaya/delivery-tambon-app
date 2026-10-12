@@ -17,3 +17,8 @@ test('sound plan has exactly the configured rounds and silence between rounds',(
     assert(!p.pulses.some(n=>n.at>=round*8+3&&n.at<(round+1)*8));
   }
 });
+test('100% volume plays near full output and new devices start at 100%; the agent gets its own tone',()=>{
+  assert(api.PEAK_GAIN>=0.8&&api.PEAK_GAIN<=1);
+  for(const k of ['merchant','driver','agent'])assert.equal(api.defaultSound(k).volume,100);
+  assert.equal(api.defaultSound('agent').tone,'bell');
+});

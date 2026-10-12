@@ -5,6 +5,7 @@ import { Button, Card, EmptyState, PageHeading } from "@/components/ui";
 import { PromptPayQR } from "@/components/PromptPayQR";
 import { SavedPaymentQr } from "@/components/PaymentQrCard";
 import { PendingSlips } from "@/components/PendingSlips";
+import JobSound from "@/components/JobSound";
 import { AdminTambonPicker, tambonName, useAdminTambon } from "@/components/AdminTambonPicker";
 import { ROLE_LABEL, dateStr, money, timeStr } from "@/lib/domain";
 import type { Tables } from "@/lib/types";
@@ -31,6 +32,15 @@ export default function FinanceWorkspace() {
     return { rows: r.data ?? [], profiles: Object.fromEntries((p.data ?? []).map(x => [x.id, x])), now: Date.now() };
   }, [areaId]);
   const { data, loading, error, refresh } = useLiveData(loader, "settlements,profiles");
+  // สลิปรอตรวจของตำบลนี้ (เงื่อนไขเดียวกับ PendingSlips) — สลิปใหม่เข้ามาให้มีเสียงเตือนตัวแทน
+  const slipLoader = useCallback(async () => {
+    if (!areaId) return [] as number[];
+    const r = await createClient().from("orders").select("id").eq("tambon_id", areaId).not("slip_submitted_at", "is", null)
+      .neq("status", "cancelled").is("customer_paid_at", null).is("payment_rejected_at", null);
+    if (r.error) throw new Error("โหลดสลิปไม่ได้");
+    return (r.data ?? []).map(o => o.id);
+  }, [areaId]);
+  const slips = useLiveData(slipLoader, "orders");
   const rows = error ? [] : data?.rows ?? [];
   const toPay = rows.filter(s => !s.paid_out_at);
   const waiting = rows.filter(s => s.paid_out_at && !s.confirmed_at);
@@ -48,7 +58,8 @@ export default function FinanceWorkspace() {
     {!selected ? <p className="my-5 text-sm text-ink-soft">เลือกตำบลที่คุณดูแลเพื่อเปิดบัญชีการเงิน</p> : <>
       <Card className="my-4"><h2 className="font-semibold">{tambonName(selected)}</h2><p className="mt-2 text-xs leading-6 text-ink-soft">บัญชีรับเงิน: {selected.settlement_account_name || "ยังไม่ตั้งชื่อบัญชี"} · {selected.settlement_promptpay_id ? "พร้อมเพย์พร้อมใช้งาน" : "ยังไม่ตั้งพร้อมเพย์รับเงิน"}<br />รอบตัดยอด {String(selected.payout_cutoff_time ?? "21:00").slice(0, 5)} น.</p>{selected.intake_blocked && <p className="mt-2 text-sm text-clay">พักรับออเดอร์: {selected.intake_blocked_reason}</p>}<Button variant="ghost" className="mt-3" onClick={reload}>อัปเดตยอดและสลิป</Button></Card>
       {message && <p role="status" className="mb-4 text-sm">{message}</p>}
-      <PendingSlips key={`${areaId}:${revision}`} tambonId={areaId} onVerified={refresh} />
+      {areaId && <JobSound key={areaId} kind="agent" scope={areaId} ids={slips.data && !slips.error ? slips.data : null} />}
+      <PendingSlips key={`${areaId}:${revision}`} tambonId={areaId} onVerified={() => { refresh(); slips.refresh(); }} />
       <DataState loading={loading} error={error} retry={reload} />
       {data && !error && <>
       <div className="mb-4 grid grid-cols-2 gap-3"><Card><p className="text-xs text-ink-soft">ต้องโอนออก {toPay.length} รายการ</p><strong className="text-xl">{money(toPay.reduce((sum, s) => sum + Number(s.amount), 0))}</strong></Card><Card><p className="text-xs text-ink-soft">เลยกำหนดโอน</p><strong className="text-xl">{toPay.filter(s => new Date(s.due_at).getTime() < data.now).length} รายการ</strong></Card></div>

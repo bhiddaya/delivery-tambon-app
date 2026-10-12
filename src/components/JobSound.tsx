@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
-import { defaultSound, soundPlan, soundSettings, type SoundKind, type SoundSettings } from "@/lib/job-sound";
+import { PEAK_GAIN, defaultSound, soundPlan, soundSettings, type SoundKind, type SoundSettings } from "@/lib/job-sound";
+
+const KIND_LABEL: Record<SoundKind, string> = { merchant: "เสียงงานใหม่ · ร้านค้า", driver: "เสียงงานใหม่ · ไรเดอร์", agent: "เสียงสลิปใหม่รอตรวจ · ตัวแทนตำบล" };
 
 /** Foreground audio needs a user gesture; background LINE sound is controlled by the device. */
 export default function JobSound({ ids, scope, kind, streamScope = scope }: { ids: number[] | null; scope: string; kind: SoundKind; streamScope?: string }) {
@@ -38,7 +40,7 @@ export default function JobSound({ ids, scope, kind, streamScope = scope }: { id
       tone.type = settings.tone === "pulse" ? "triangle" : "sine";
       tone.frequency.value = pulse.frequency;
       gain.gain.setValueAtTime(0.001, start);
-      gain.gain.exponentialRampToValueAtTime(settings.volume / 100 * 0.2, start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(settings.volume / 100 * PEAK_GAIN, start + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, start + pulse.duration);
       tone.connect(gain); gain.connect(ctx.destination);
       tone.onended = () => { tone.disconnect(); gain.disconnect(); };
@@ -73,14 +75,14 @@ export default function JobSound({ ids, scope, kind, streamScope = scope }: { id
     return () => { document.removeEventListener("visibilitychange", hidden); stop(); void audio.current?.close(); audio.current = null; };
   }, [stop]);
   return <div className="mb-4 rounded-xl border border-border bg-surface p-3">
-    <p className="mb-2 text-sm font-semibold">เสียงงานใหม่ · {kind === "merchant" ? "ร้านค้า" : "ไรเดอร์"}</p>
+    <p className="mb-2 text-sm font-semibold">{KIND_LABEL[kind]}</p>
     <div className="flex flex-wrap gap-2"><Button variant="ghost" onClick={() => { if (enabled) { stop(); setEnabled(false); } else void activate(); }}>{enabled ? "ปิดเสียงงานใหม่" : "เปิดเสียงงานใหม่"}</Button><Button variant="ghost" onClick={activate}>ทดลองเสียง</Button><Button variant="ghost" disabled={!ringing} onClick={stop}>หยุดเสียงรอบนี้</Button></div>
     <details className="mt-2"><summary className="min-h-11 cursor-pointer text-sm text-indigo">ตั้งเสียง จำนวนครั้ง และระยะเวลา</summary>
       <div className="mt-2 grid grid-cols-2 gap-3 text-sm"><label>โทนเสียง<select className="mt-1 min-h-11 w-full rounded-lg border border-border bg-surface px-2" value={settings.tone} onChange={e => change({ tone: e.target.value as SoundSettings["tone"] })}><option value="chime">เสียงร้าน · ไล่โน้ต</option><option value="pulse">เสียงไรเดอร์ · สองจังหวะ</option><option value="bell">เสียงระฆัง</option></select></label>
       {([{ field: "repeats", label: "เตือนกี่ครั้ง", min: 1, max: 10 }, { field: "seconds", label: "ครั้งละ (วินาที)", min: 1, max: 10 }, { field: "gap", label: "เว้นช่วง (วินาที)", min: 1, max: 30 }] as const).map(f => <label key={f.field}>{f.label}<input className="mt-1 min-h-11 w-full rounded-lg border border-border px-2" type="number" min={f.min} max={f.max} value={settings[f.field]} onChange={e => change({ [f.field]: Number(e.target.value) })} /></label>)}</div>
       <label className="mt-3 block text-sm">ความดัง {settings.volume}%<input className="mt-2 min-h-11 w-full" type="range" min={10} max={100} step={10} value={settings.volume} onChange={e => change({ volume: Number(e.target.value) })} /></label>
     </details>
-    <p className="mt-2 text-xs leading-6 text-ink-soft">เตือน {settings.repeats} ครั้ง · ครั้งละ {settings.seconds} วินาที · เว้น {settings.gap} วินาที จำค่าบนเครื่องนี้ แตะเปิดเสียงทุกครั้งที่เข้าหน้างาน เสียงดังเมื่อเปิดหน้านี้อยู่ ส่วนแจ้งเตือนเมื่อปิดหน้าใช้ LINE และเสียงที่ตั้งในมือถือ</p>
+    <p className="mt-2 text-xs leading-6 text-ink-soft">เตือน {settings.repeats} ครั้ง · ครั้งละ {settings.seconds} วินาที · เว้น {settings.gap} วินาที จำค่าบนเครื่องนี้ แตะเปิดเสียงทุกครั้งที่เข้าหน้างาน เสียงดังเมื่อเปิดหน้านี้อยู่ ส่วนแจ้งเตือนเมื่อปิดหน้าใช้ LINE และเสียงที่ตั้งในมือถือ · ยังเบา: เพิ่มเสียงสื่อ (Media) ของมือถือและปิดโหมดเงียบ</p>
     {failed && <p role="status" className="text-xs text-clay">ยังเล่นเสียงไม่ได้ ลองแตะเปิดเสียงอีกครั้งและตรวจระดับเสียงมือถือ</p>}
   </div>;
 }
