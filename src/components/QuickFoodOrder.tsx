@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useLineSession } from "@/lib/use-line-session";
@@ -12,6 +12,7 @@ import { basketLines, type Basket } from "@/rebuilt/order-logic";
 import { DataState, Panel, inputClass, primaryButton, secondaryButton } from "@/rebuilt/primitives";
 import { CustomerSlipCard } from "@/components/CustomerSlipCard";
 import FoodMenuRow from "@/components/FoodMenuRow";
+import { quickFoodKey } from "@/lib/quick-food-store";
 
 type Quote = { token: string; expires_at: string; items: { id: string; name: string; qty: number; price: number }[]; items_total: number; delivery_fee: number; grand_total: number; point: { lat: number; lng: number; label: string } };
 type Result = { ok: boolean; error?: string; notice?: string; view?: string; quote?: Quote; order_id?: number };
@@ -28,12 +29,14 @@ export default function QuickFoodOrder() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const session = useLineSession();
-  const key = `quick-food:${id}`;
+  const key = quickFoodKey(id);
+  // ?cart=1 มาจากแถบ "ดูตะกร้า" หน้าแรก — เปิดหน้าตะกร้าทันที
+  const openCart = useSearchParams().get("cart") === "1";
   const [basket, setBasket] = useState<Basket>(() => stored(key).basket ?? {});
   const [note, setNote] = useState(() => stored(key).note ?? "");
   const [orderId, setOrderId] = useState<number | null>(() => stored(key).orderId ?? null);
   const [query, setQuery] = useState("");
-  const [cartOpen, setCartOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(openCart);
   const [quote, setQuote] = useState<Quote | null>(() => stored(key).quote ?? null);
   const [point, setPoint] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [address, setAddress] = useState("");
