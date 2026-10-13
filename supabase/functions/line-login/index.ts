@@ -148,11 +148,12 @@ Deno.serve(async (req: Request) => {
 
   // --- 1. ให้ LINE เป็นคนตรวจ token ---------------------------------------
   let payload: LineVerifyPayload;
+  const audience = verifyChannelId(idToken, channelId);
   try {
     const res = await fetch("https://api.line.me/oauth2/v2.1/verify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ id_token: idToken, client_id: verifyChannelId(idToken, channelId) }),
+      body: new URLSearchParams({ id_token: idToken, client_id: audience }),
     });
     payload = await res.json();
     if (!res.ok) {
@@ -169,7 +170,7 @@ Deno.serve(async (req: Request) => {
   if (payload.iss !== "https://access.line.me") {
     return json({ error: "bad_issuer" }, 401);
   }
-  if (payload.aud !== channelId) {
+  if (payload.aud !== audience) {
     return json({ error: "bad_audience" }, 401);
   }
   const lineUserId = payload.sub;
