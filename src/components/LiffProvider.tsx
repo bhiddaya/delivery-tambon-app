@@ -98,6 +98,9 @@ async function queryChat(liff: Sdk | null): Promise<"granted" | "prompt" | "unav
   }
 }
 
+/** ช่อง "บวรไทย Mini App" (2011991485, provider Bhiddaya) — LIFF ID ไม่ใช่ความลับ อยู่ใน bundle ฝั่ง client อยู่แล้ว */
+const LLP_LIFF_ID = "2011991485-jMpDR4VV";
+
 export default function LiffProvider({
   children,
 }: {
@@ -114,7 +117,7 @@ export default function LiffProvider({
 
   useEffect(() => {
     // LLP (/llp) เป็นช่อง LINE Mini App แยกจาก LIFF เดิม — คนละ liffId (docs/60)
-    const liffId = window.location.pathname.startsWith("/llp") ? process.env.NEXT_PUBLIC_LLP_LIFF_ID : process.env.NEXT_PUBLIC_LIFF_ID;
+    const liffId = window.location.pathname.startsWith("/llp") ? (process.env.NEXT_PUBLIC_LLP_LIFF_ID || LLP_LIFF_ID) : process.env.NEXT_PUBLIC_LIFF_ID;
 
     if (!liffId) {
       // อ่าน env ตอน render ไม่ได้อย่างปลอดภัยเพราะหน้าเหล่านี้ prerender

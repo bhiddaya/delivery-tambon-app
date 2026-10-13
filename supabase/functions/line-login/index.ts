@@ -73,11 +73,10 @@ type LineVerifyPayload = {
 // เลือก client_id จาก aud เฉพาะที่อยู่ในรายการที่อนุญาต — LINE ตรวจซ้ำว่า aud ตรงกับ client_id เสมอ
 // ช่อง Mini App ต้องอยู่ provider เดียวกับ LINE Login เดิม ไม่งั้น userId คนละค่า หาโปรไฟล์เดิมไม่เจอ
 function verifyChannelId(idToken: string, defaultId: string): string {
-  const llp = Deno.env.get("LLP_LOGIN_CHANNEL_ID");
-  if (!llp) return defaultId;
+  const llp = Deno.env.get("LLP_LOGIN_CHANNEL_ID") ?? "2011991485"; // ช่อง บวรไทย Mini App
   try {
     const part = idToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(part)).aud === llp ? llp : defaultId;
+    return JSON.parse(atob(part + "=".repeat((4 - part.length % 4) % 4))).aud === llp ? llp : defaultId;
   } catch { return defaultId; }
 }
 
