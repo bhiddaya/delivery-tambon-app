@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import Link from "next/link";
 import { useSession } from "@/lib/session-context";
 import { Card, PageHeading } from "@/components/ui";
 import LinkLineCard from "@/components/LinkLineCard";
@@ -29,10 +30,10 @@ function AccountView() {
   const { profile, email } = useSession();
   const searchParams = useSearchParams();
 
-  // มาจาก guard ของหน้าหลังบ้าน แปลว่าเข้ามาด้วยปุ่ม LINE แล้วเปิดหน้านั้นไม่ได้
+  // รองรับลิงก์คำแนะนำเก่า ก่อนเปิดให้ LINE เข้าหน้าทำงานตามสิทธิ์
   const needsPassword = searchParams.get("need") === "password";
 
-  // บัญชีที่เกิดจากปุ่ม LINE ยังไม่มีชื่อบัญชีที่เจ้าตัวพิมพ์ได้ จึงเข้าหลังบ้านไม่ได้
+  // บัญชี LINE ตั้งเบอร์/รหัสผ่านเพิ่มเป็นทางเข้าสำรองได้
   const lineOnlyAccount = Boolean(email?.endsWith(LINE_ALIAS_DOMAIN));
   const needsBackOffice = profile.role !== "customer";
 
@@ -83,11 +84,11 @@ function AccountView() {
 
       {needsPassword && (
         <Card className="mb-4 border-marigold">
-          <p className="font-head font-semibold mb-1">หน้านั้นต้องเข้าด้วยรหัสผ่าน</p>
+          <p className="font-head font-semibold mb-1">เข้าหน้าทำงานผ่าน LINE ได้แล้ว</p>
           <p className="text-ink-soft text-sm">
-            หน้ารับงาน หน้าร้าน และหน้าตัวแทนตำบล มีทั้งเงินและราคาสินค้าอยู่ จึงเปิดให้เฉพาะ
-            คนที่เข้าสู่ระบบด้วยเบอร์โทรหรืออีเมลพร้อมรหัสผ่าน — ปุ่ม LINE ใช้ดูหน้าบ้านได้ตามปกติ
+            ใช้บัญชี LINE ที่ผูกไว้เพื่อเปิดหน้าตามสิทธิ์ของคุณ หรือใช้เบอร์โทรและรหัสผ่านเป็นทางเข้าสำรอง
           </p>
+          <Link href="/liff/entry" className="mt-3 inline-block text-indigo underline">เปิดหน้าของฉันผ่าน LINE</Link>
         </Card>
       )}
 
@@ -96,7 +97,7 @@ function AccountView() {
       {lineOnlyAccount && needsBackOffice ? (
         <SetPhonePasswordCard
           lineUserId={profile.line_user_id}
-          highlight={needsPassword}
+          highlight={false}
         />
       ) : (
         <ChangePasswordCard />
