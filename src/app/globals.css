@@ -143,3 +143,6 @@ h1, h2, h3, h4 {
 ::selection {
   background: var(--indigo-tint);
 }
+
+/* โหมดดูแทนของส่วนกลาง: ปุ่มยังเห็นครบ แต่กดไม่ได้ */
+fieldset:disabled :is(button, input, select, textarea) { cursor: not-allowed; }

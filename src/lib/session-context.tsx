@@ -7,6 +7,8 @@ export type SessionValue = {
   userId: string;
   email: string | null;
   profile: Tables<"profiles">;
+  /** ส่วนกลางกำลังดูแทนคนนี้ (อ่านอย่างเดียว) */
+  viewAs?: boolean;
 };
 
 const SessionContext = createContext<SessionValue | null>(null);
