@@ -100,20 +100,20 @@ export default function LoginPage() {
         </div>
       </Card>}
 
-      {/* ลูกค้า: กดปุ่ม LINE ครั้งเดียวก็เข้าได้เลย ไม่ต้องมีรหัสผ่าน */}
+      {/* LINE ยืนยันบัญชีเดิมได้ทุกบทบาท สิทธิ์ยังตรวจจากฐานข้อมูล */}
       <Card>
-        <p className="font-head font-semibold text-sm">ลูกค้า</p>
-        <p className="text-ink-soft text-xs mt-0.5">กดปุ่มด้านล่างครั้งเดียว เข้าได้เลย</p>
+        <p className="font-head font-semibold text-sm">เข้าสู่ระบบด้วย LINE</p>
+        <p className="text-ink-soft text-xs mt-0.5">เข้าได้ทุกบทบาทตามสิทธิ์ของบัญชีที่ผูกไว้</p>
         <LineLoginButton />
       </Card>
 
       <div className="my-5 flex items-center gap-3">
         <span className="h-px flex-1 bg-border" />
-        <span className="font-head text-xs text-ink-soft">ตัวแทน ร้านค้า ไรเดอร์ หรือผู้ดูแล</span>
+        <span className="font-head text-xs text-ink-soft">หรือใช้อีเมล / เบอร์โทรและรหัสผ่าน</span>
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      {/* หน้าหลังบ้าน (ตัวแทน ร้านค้า ไรเดอร์ ผู้ดูแล): เข้าด้วยเบอร์หรืออีเมลกับรหัสผ่านเท่านั้น */}
+      {/* ทางเข้าด้วยรหัสผ่านยังใช้ได้ตามเดิม */}
       <Card>
         <form onSubmit={handleSubmit}>
           <Field label="เบอร์โทร หรือ อีเมล">

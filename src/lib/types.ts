@@ -2262,6 +2262,7 @@ export type Database = {
           price: number
         }[]
       }
+      backoffice_session_valid: { Args: never; Returns: boolean }
       session_used_password: { Args: never; Returns: boolean }
       shares_order_with: { Args: { p: string }; Returns: boolean }
       slip_order_id: { Args: { p_name: string }; Returns: number }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useLiff } from "@/components/LiffProvider";
 import { signInWithLineIdToken, LineSignInError } from "@/lib/line-login";
 import { nextParam } from "@/lib/next-path";
@@ -17,7 +16,6 @@ import { nextParam } from "@/lib/next-path";
  * ล็อกอินแล้ว ผู้ใช้กดปุ่มอีกครั้งก็เข้าได้เลย
  */
 export default function LineLoginButton() {
-  const router = useRouter();
   const { status, isInClient, isLoggedIn, login, relogin, getIdToken } = useLiff();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,8 +49,7 @@ export default function LineLoginButton() {
     try {
       const result = await signInWithLineIdToken(idToken);
       // ยังไม่มีโปรไฟล์ = เข้าครั้งแรก ต้องบอกก่อนว่าจะใช้งานแบบไหน
-      router.push(result.hasProfile ? (nextParam() ?? "/") : "/onboarding");
-      router.refresh();
+      window.location.assign(result.hasProfile ? (nextParam() ?? "/") : "/onboarding");
     } catch (err) {
       setError(
         err instanceof LineSignInError ? err.message : "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ"
