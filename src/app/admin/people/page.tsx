@@ -8,6 +8,12 @@ import { useTambonAdminData } from "@/components/useTambonAdminData";
 import { PersonActions } from "@/components/AgentActions";
 import { VEHICLE_LABEL, money } from "@/lib/domain";
 import { countWaitingApproval, driverGaps, merchantGaps, telHref } from "@/lib/tambon-admin";
+import { useSession } from "@/lib/session-context";
+
+/** ส่วนกลางเปิดหน้าของคนนี้แบบอ่านอย่างเดียว — route handler จึงใช้ <a> ไม่ใช่ Link */
+function ViewAsLink({ id }: { id: string }) {
+  return <a href={`/view-as?id=${id}`} className="mt-1 inline-block text-xs font-semibold text-indigo">👁 ดูหน้าจริงแทน (อ่านอย่างเดียว) ›</a>;
+}
 
 /**
  * ร้านและไรเดอร์ของตำบล — ใครพร้อม ใครยังขาดอะไร พร้อมปุ่มโทรตาม · อนุมัติทำที่หน้า อนุมัติ
@@ -19,6 +25,7 @@ export default function AdminPeoplePage() {
   const [tab, setTab] = useState<"shops" | "riders">("shops");
   const q = selected?.slug ? `?t=${selected.slug}` : "";
   const waiting = countWaitingApproval(data.merchants, data.drivers);
+  const isSuper = useSession().profile.role === "superadmin";
 
   return (
     <div>
@@ -84,6 +91,7 @@ export default function AdminPeoplePage() {
                   ) : (
                     <p className="text-jade text-xs mt-1">✓ พร้อมรับออเดอร์</p>
                   )}
+                  {isSuper && m.profile && <ViewAsLink id={m.profile.id} />}
                   {m.profile && (m.profile.approved || m.profile.suspended_at) && (
                     <PersonActions
                       profileId={m.profile.id}
@@ -128,6 +136,7 @@ export default function AdminPeoplePage() {
                 ) : (
                   <p className="text-jade text-xs mt-1">✓ พร้อมรับงาน</p>
                 )}
+                {isSuper && <ViewAsLink id={d.profile.id} />}
                 {(d.profile.approved || d.profile.suspended_at) && (
                   <PersonActions profileId={d.profile.id} suspended={!!d.profile.suspended_at} onDone={data.reload} />
                 )}
