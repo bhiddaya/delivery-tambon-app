@@ -12,22 +12,24 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
+// โปรเจกต์ปิด legacy JWT keys แล้ว → ใช้ sb_secret_… ก่อน (เหมือน line-login) และตรวจ token ผู้ใช้เองในฟังก์ชัน (verify_jwt = false)
+const secretKey = Deno.env.get("SUPABASE_SECRET_KEY") ?? Deno.env.get("SB_SECRET_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   const opnKey = Deno.env.get("OPN_SECRET_KEY");
-  const url = Deno.env.get("SUPABASE_URL")!;
-  if (!opnKey) return json({ error: "not_configured" }, 503);
+  // GET = health check บอกแค่ว่าตั้งค่าครบไหม ไม่เปิดเผยค่า
+  if (req.method === "GET") return json({ opn_key: Boolean(opnKey), opn_test_mode: Boolean(opnKey?.startsWith("skey_test_")), admin_key: Boolean(secretKey) });
+  if (!opnKey || !secretKey) return json({ error: "not_configured" }, 503);
 
-  const asUser = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
-  });
-  const { data: { user } } = await asUser.auth.getUser();
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, secretKey, { auth: { persistSession: false } });
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { data: { user } } = token ? await admin.auth.getUser(token) : { data: { user: null } };
   if (!user) return json({ error: "unauthenticated" }, 401);
 
   const orderId = Number((await req.json().catch(() => ({})))?.order_id);
   if (!Number.isInteger(orderId) || orderId <= 0) return json({ error: "bad_request" }, 400);
 
-  const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data: order } = await admin.from("orders")
     .select("id, customer_id, status, items_subtotal, delivery_fee, customer_paid_at, is_test")
     .eq("id", orderId).maybeSingle();
