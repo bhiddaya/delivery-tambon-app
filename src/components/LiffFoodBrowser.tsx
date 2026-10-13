@@ -7,6 +7,7 @@ import { ProductPhoto } from "@/rebuilt/primitives";
 import { shopKind, type ShopKind } from "@/lib/shop-kind";
 import { readBasket, writeBasket } from "@/lib/quick-food-store";
 import type { Basket } from "@/rebuilt/order-logic";
+import { useLiffBase } from "@/lib/liff-base";
 
 export type BrowserShop = { id: string; name: string; category: string | null; isOpen: boolean };
 export type BrowserGroup = { id: string; label: string; shops: BrowserShop[] };
@@ -21,12 +22,15 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 const norm = (s: string | null | undefined) => (s ?? "").toLocaleLowerCase("th-TH");
-const shopHref = (id: string) => `/liff/shop/${encodeURIComponent(id)}`;
+
+/** /liff/shop/<id> หรือ /llp/shop/<id> ตามระบบที่เปิดอยู่ */
+function useShopHref() { const base = useLiffBase(); return (id: string) => `${base}/shop/${encodeURIComponent(id)}`; }
 
 const round = "flex h-9 w-9 items-center justify-center rounded-full";
 
 /** การ์ดสินค้า: กดรูป/ชื่อ = เข้าหน้าร้าน · ปุ่ม + มุมรูป = ใส่ตะกร้าของร้านนั้นเลย (ปุ่มอยู่นอกลิงก์ ไม่ซ้อน a กับ button) */
 function ItemCard({ item, wide, qty, onAdjust }: { item: BrowserItem; wide?: boolean; qty: number; onAdjust: (delta: number) => void }) {
+  const shopHref = useShopHref();
   return <div className={`relative min-w-0 ${wide ? "w-36 flex-none snap-start" : ""}`}>
     <Link href={shopHref(item.shopId)} className={`block active:opacity-80 ${item.shopOpen ? "" : "opacity-60"}`}>
       <ProductPhoto src={item.photo} name={item.name} className={`aspect-square rounded-2xl border border-[#e7e9e1] ${item.shopOpen ? "" : "grayscale"}`} />
@@ -52,6 +56,7 @@ function ItemCard({ item, wide, qty, onAdjust }: { item: BrowserItem; wide?: boo
  * กดสินค้าหรือร้านแล้วไปหน้าร้าน (ตะกร้าอยู่ที่หน้าร้าน หนึ่งออเดอร์ต่อหนึ่งร้าน)
  */
 export default function LiffFoodBrowser({ groups, items }: { groups: BrowserGroup[]; items: BrowserItem[] }) {
+  const shopHref = useShopHref();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [baskets, setBaskets] = useState<Record<string, Basket>>({});

@@ -2,6 +2,26 @@
 
 ร่าง 13 ต.ค. 2569 · สถานะ: **ออกแบบ ยังไม่ติดตั้งอะไร** · ระบบเดิม **LP** (LINE OA + PWA + ตรวจสลิปมือ) ต้องทำงานต่อได้ตลอด
 
+## เจ้าของตัดสินใจแล้ว (13 ต.ค. 2569)
+
+- Payment Gateway: **Opn Payments (Omise)** — PromptPay charge + webhook `charge.complete` · โอนออกใช้ Recipients + Transfers API
+- บัญชีรับเงินส่วนกลาง **บัญชีเดียว**: บัญชีล่าสุดของคุณใจสุข → จะเปิดเป็นนิติบุคคล **วิสาหกิจชุมชนบวรไทย** (ช่วงทดสอบใช้ test key ได้ก่อน live ต้องผ่าน KYC ของ Opn ในนามผู้รับเงินจริง)
+- LINE Mini App: เริ่ม **unverified** เพื่อทดสอบ แล้วค่อยยื่นเอกสาร verified → ช่วงนี้ไม่มี Service Message ใช้ push ผ่าน OA แทน
+
+## ขั้นที่ 1 ในโค้ด (branch claude/llp-design — ยังไม่ deploy/apply)
+
+| ไฟล์ | ทำอะไร |
+|---|---|
+| `src/lib/liff-base.tsx` | context `/liff` หรือ `/llp` (ไม่มี provider = `/liff` → LP เหมือนเดิม) |
+| `src/app/llp/*` | ใช้หน้า LIFF ชุดเดิม (re-export) ใต้ `/llp` |
+| `src/components/LlpPayCard.tsx` | แสดง QR จาก Opn แทนการส่งสลิป เมื่ออยู่ใต้ `/llp` |
+| `LiffProvider` | ใต้ `/llp` init ด้วย `NEXT_PUBLIC_LLP_LIFF_ID` |
+| `supabase/functions/llp-create-payment` | สร้าง charge (secret `OPN_SECRET_KEY`) ยอดจากฐาน คืน QR เดิมถ้ามี pending |
+| `supabase/functions/line-login` | รับ token ของช่อง Mini App ได้ (secret `LLP_LOGIN_CHANNEL_ID`) |
+| `supabase/migrations/20261013c_llp_payments.sql` | `llp_payments`, `llp_payment_events`, RPC `llp_payment_succeeded` (เรียก `payment_verify_core` เดิม) |
+
+ทดสอบ RPC แบบ rollback บนฐานจริงแล้ว: unknown_charge · event ซ้ำ · ยอดไม่ตรง · ออเดอร์ถูกยกเลิก (needs_refund) · จ่ายซ้ำ — ยังไม่ได้ทดสอบเส้นจ่ายสำเร็จจริง (รอ test key)
+
 ## 0. กติกาแยกระบบ (ห้ามเขียนทับ LP)
 
 | สิ่งที่มี | LP (เดิม — ไม่แตะ) | LLP (ใหม่ — เพิ่มข้าง ๆ) |

@@ -113,7 +113,8 @@ export default function LiffProvider({
   );
 
   useEffect(() => {
-    const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+    // LLP (/llp) เป็นช่อง LINE Mini App แยกจาก LIFF เดิม — คนละ liffId (docs/60)
+    const liffId = window.location.pathname.startsWith("/llp") ? process.env.NEXT_PUBLIC_LLP_LIFF_ID : process.env.NEXT_PUBLIC_LIFF_ID;
 
     if (!liffId) {
       // อ่าน env ตอน render ไม่ได้อย่างปลอดภัยเพราะหน้าเหล่านี้ prerender

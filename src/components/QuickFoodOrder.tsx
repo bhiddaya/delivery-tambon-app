@@ -13,6 +13,8 @@ import { DataState, Panel, inputClass, primaryButton, secondaryButton } from "@/
 import { CustomerSlipCard } from "@/components/CustomerSlipCard";
 import FoodMenuRow from "@/components/FoodMenuRow";
 import { quickFoodKey } from "@/lib/quick-food-store";
+import { useLiffBase } from "@/lib/liff-base";
+import LlpPayCard from "@/components/LlpPayCard";
 
 type Quote = { token: string; expires_at: string; items: { id: string; name: string; qty: number; price: number }[]; items_total: number; delivery_fee: number; grand_total: number; point: { lat: number; lng: number; label: string } };
 type Result = { ok: boolean; error?: string; notice?: string; view?: string; quote?: Quote; order_id?: number };
@@ -29,6 +31,7 @@ export default function QuickFoodOrder() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const session = useLineSession();
+  const base = useLiffBase();
   const key = quickFoodKey(id);
   // ?cart=1 มาจากแถบ "ดูตะกร้า" หน้าแรก — เปิดหน้าตะกร้าทันที
   const openCart = useSearchParams().get("cart") === "1";
@@ -66,7 +69,7 @@ export default function QuickFoodOrder() {
   async function review() {
     setMessage("");
     if (!session.ready) { if (session.liff.status === "ready" && !session.liff.isLoggedIn) session.liff.login(); else setMessage(session.error || "รอการตรวจบัญชี LINE สักครู่"); return; }
-    if (!session.profile?.phone || !session.profile.full_name || !session.profile.tambon_id) { router.push(`/liff/register?next=${encodeURIComponent(`/liff/shop/${id}`)}${data?.area?.slug ? `&t=${encodeURIComponent(data.area.slug)}` : ""}`); return; }
+    if (!session.profile?.phone || !session.profile.full_name || !session.profile.tambon_id) { router.push(`${base}/register?next=${encodeURIComponent(`${base}/shop/${id}`)}${data?.area?.slug ? `&t=${encodeURIComponent(data.area.slug)}` : ""}`); return; }
     setBusy(true); setQuote(null);
     try {
       const r = await createClient().rpc("customer_food_review", { p_merchant_id: id, p_items: lines.map(x => ({ id: x.item.id, qty: x.quantity })), p_point: point ? { ...point, label: address.trim() || point.label } : null, p_note: note });
@@ -101,7 +104,7 @@ export default function QuickFoodOrder() {
   </div>;
   const closed = Boolean(data?.shop && !data.shop.is_open);
   return <div className="pb-28"><DataState loading={loading} error={error} retry={refresh} />{data?.shop && <>
-    {orderId ? <><Link href="/liff" className="mb-4 inline-flex min-h-11 items-center text-sm text-indigo">← ร้านทั้งหมด</Link><Panel><h2 className="text-lg font-semibold">ออเดอร์ #{orderId}</h2><DataState loading={receipt.loading} error={receipt.error} retry={receipt.refresh} />{receipt.data && <><p className="my-3 text-sm">{receipt.data.order.status === "cancelled" ? "ออเดอร์ถูกยกเลิก (ถ้าไม่ได้ส่งสลิปภายใน 15 นาที ระบบยกเลิกอัตโนมัติ สั่งใหม่ได้เลย)" : "ยืนยันรายการแล้ว · โอนและส่งสลิปภายใน 15 นาที ไม่งั้นออเดอร์จะถูกยกเลิกอัตโนมัติ"}</p>{receipt.data.order.status !== "cancelled" && <CustomerSlipCard order={receipt.data.order} tambon={receipt.data.area} onChanged={receipt.refresh} />}</>}<button className={`${secondaryButton} mt-4`} onClick={() => { setOrderId(null); setNote(""); setCartOpen(false); }}>สั่งรายการใหม่</button></Panel></>
+    {orderId ? <><Link href={base} className="mb-4 inline-flex min-h-11 items-center text-sm text-indigo">← ร้านทั้งหมด</Link><Panel><h2 className="text-lg font-semibold">ออเดอร์ #{orderId}</h2><DataState loading={receipt.loading} error={receipt.error} retry={receipt.refresh} />{receipt.data && <><p className="my-3 text-sm">{receipt.data.order.status === "cancelled" ? "ออเดอร์ถูกยกเลิก (ถ้าไม่ได้ส่งสลิปภายใน 15 นาที ระบบยกเลิกอัตโนมัติ สั่งใหม่ได้เลย)" : "ยืนยันรายการแล้ว · โอนและส่งสลิปภายใน 15 นาที ไม่งั้นออเดอร์จะถูกยกเลิกอัตโนมัติ"}</p>{receipt.data.order.status !== "cancelled" && (base === "/llp" ? <LlpPayCard orderId={receipt.data.order.id} paid={Boolean(receipt.data.order.customer_paid_at)} onPaid={receipt.refresh} /> : <CustomerSlipCard order={receipt.data.order} tambon={receipt.data.area} onChanged={receipt.refresh} />)}</>}<button className={`${secondaryButton} mt-4`} onClick={() => { setOrderId(null); setNote(""); setCartOpen(false); }}>สั่งรายการใหม่</button></Panel></>
     : cartOpen ? <>
       <button type="button" className="mb-2 inline-flex min-h-11 items-center text-sm text-indigo" onClick={() => setCartOpen(false)}>← เลือกสินค้าเพิ่ม</button>
       <h1 className="text-2xl font-semibold">ตะกร้า</h1><p className="mt-1 text-sm text-ink-soft">{data.shop.name}</p>
@@ -116,7 +119,7 @@ export default function QuickFoodOrder() {
         {count > 0 && <button type="button" className="mt-1 min-h-11 w-full text-sm text-clay" disabled={busy} onClick={() => { setBasket({}); setQuote(null); setMessage(""); }}>ล้างตะกร้า</button>}
       </Panel>
     </> : <>
-      <Link href="/liff" className="mb-2 inline-flex min-h-11 items-center text-sm text-indigo">← ร้านทั้งหมด</Link>
+      <Link href={base} className="mb-2 inline-flex min-h-11 items-center text-sm text-indigo">← ร้านทั้งหมด</Link>
       <h1 className="text-2xl font-semibold">{data.shop.name}</h1>
       <p className="mt-1 text-sm">{closed ? <span className="text-ink-soft">ปิดอยู่ · ดูสินค้าและลองใส่ตะกร้าได้ ยังสั่งไม่ได้</span> : <span className="font-semibold text-[#06a14a]">เปิดอยู่</span>}{data.shop.category ? <span className="text-ink-soft"> · {data.shop.category}</span> : null}</p>
       <input type="search" aria-label="ค้นหาในร้าน" className={`${inputClass} mt-4`} placeholder="ค้นหาในร้าน" value={query} onChange={e => setQuery(e.target.value)} />

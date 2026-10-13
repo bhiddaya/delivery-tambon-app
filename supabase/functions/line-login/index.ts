@@ -69,6 +69,18 @@ type LineVerifyPayload = {
   error_description?: string;
 };
 
+// LLP (docs/60): LINE Mini App เป็นช่องแยก token มี aud = channel ของ Mini App
+// เลือก client_id จาก aud เฉพาะที่อยู่ในรายการที่อนุญาต — LINE ตรวจซ้ำว่า aud ตรงกับ client_id เสมอ
+// ช่อง Mini App ต้องอยู่ provider เดียวกับ LINE Login เดิม ไม่งั้น userId คนละค่า หาโปรไฟล์เดิมไม่เจอ
+function verifyChannelId(idToken: string, defaultId: string): string {
+  const llp = Deno.env.get("LLP_LOGIN_CHANNEL_ID");
+  if (!llp) return defaultId;
+  try {
+    const part = idToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(part)).aud === llp ? llp : defaultId;
+  } catch { return defaultId; }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -141,7 +153,7 @@ Deno.serve(async (req: Request) => {
     const res = await fetch("https://api.line.me/oauth2/v2.1/verify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ id_token: idToken, client_id: channelId }),
+      body: new URLSearchParams({ id_token: idToken, client_id: verifyChannelId(idToken, channelId) }),
     });
     payload = await res.json();
     if (!res.ok) {

@@ -1,4 +1,5 @@
 "use client";
+import { useLiffBase } from "@/lib/liff-base";
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import { Button, Card, Field, Input } from "@/components/ui";
 type Area = { id: string; name: string; slug: string };
 export default function RegisterCustomer() {
   const router = useRouter();
+  const base = useLiffBase();
   const session = useLineSession();
   const [areas, setAreas] = useState<Area[]>([]);
   const [name, setName] = useState("");
@@ -42,9 +44,9 @@ export default function RegisterCustomer() {
   useEffect(() => {
     const p = session.profile;
     if (session.ready && p?.role === "customer" && p.full_name && p.phone && p.tambon_id) {
-      router.replace(safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? "/liff");
+      router.replace(safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? base);
     }
-  }, [session.ready, session.profile, router]);
+  }, [session.ready, session.profile, router, base]);
   async function submit(e: FormEvent) {
     e.preventDefault(); setError("");
     if (!normalizePhone(phone)) { setError("กรอกเบอร์โทร 10 หลัก เช่น 0812345678"); return; }
@@ -55,7 +57,7 @@ export default function RegisterCustomer() {
     if (r.error || !value?.ok) {
       setError(value?.error === "use_existing_account" ? "บัญชีนี้เป็นร้านค้า/ไรเดอร์หรือถูกพักใช้งาน กรุณาใช้บัญชีเดิมหรือติดต่อตัวแทน" : "สมัครไม่สำเร็จ ตรวจชื่อ เบอร์ และตำบล แล้วลองใหม่"); return;
     }
-    router.replace(safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? "/liff");
+    router.replace(safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? base);
     router.refresh();
   }
   return <div className="mx-auto max-w-md"><h1 className="mb-2 text-2xl font-semibold">สมัครลูกค้า บวรไทย</h1><p className="mb-5 text-sm leading-7 text-ink-soft">สมัครครั้งเดียว ใช้บัญชี LINE เดิมสั่งครั้งต่อไปได้ ชื่อและเบอร์ใช้ติดต่อจัดส่งในตำบลที่คุณเลือก</p>
