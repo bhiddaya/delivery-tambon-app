@@ -100,7 +100,7 @@ async function value(element, text) {
       build.onLoad({ filter: /.*/, namespace: 'mock' }, args => {
         let contents;
         if (args.path.endsWith('supabase/client')) contents = 'export const createClient=()=>globalThis.__deliveryTest.db;';
-        else if (args.path.endsWith('session-context')) contents = 'export const useSession=()=>({profile:globalThis.__deliveryTest.profile}); export const useOptionalSession=useSession;';
+        else if (args.path.endsWith('session-context')) contents = 'export const useSession=()=>({profile:globalThis.__deliveryTest.profile,viewAs:globalThis.__deliveryTest.viewAs}); export const useOptionalSession=useSession;';
         else if (args.path.endsWith('use-line-session')) contents = 'export const useLineSession=()=>({ready:true,profile:globalThis.__deliveryTest.profile,liff:{status:"ready",isLoggedIn:true,profile:{displayName:"QA"}}});';
         else if (args.path === 'next/navigation') contents = 'export const useParams=()=>({id:globalThis.__deliveryTest.shopId}); export const usePathname=()=>globalThis.__deliveryTest.pathname; export const useSearchParams=()=>new URLSearchParams(); export const useRouter=()=>({push:(v)=>{globalThis.__deliveryTest.next=v},replace:(v)=>{globalThis.__deliveryTest.next=v},refresh:()=>{}});';
         else if (args.path === 'next/link') contents = 'import React from "react"; export default function Link({children,...props}){return React.createElement("a",props,children)}';
@@ -256,6 +256,14 @@ async function value(element, text) {
   assert(host.textContent.includes('เปิดอยู่'),'one tap anywhere re-enables sound');assert.equal(played.length,before,'re-enabling is silent');
   await click(button('ปิดเสียงงานใหม่'));assert.equal(localStorage.getItem('job-sound:on:merchant:shop-user'),null,'turning off forgets');
   assert(wakeLocks.every(l=>l.released),'screen lock released when sound is off');await unmount();
+  // owner's read-only "view as": every control in the page is disabled except the sound card, which moves into the fieldset's legend
+  global.__deliveryTest.viewAs=true;
+  await React.act(async()=>{root=createRoot(host);root.render(React.createElement('fieldset',{disabled:true},React.createElement('legend',null,React.createElement('div',{id:'sound-slot'})),React.createElement('button',{id:'other'},'อื่น'),React.createElement(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1]})));});
+  await React.act(async()=>{});
+  assert(host.querySelector('#other').matches(':disabled'),'view-as keeps the page read-only');
+  const slotButton=button('เริ่มฟังเสียงงานใหม่')||button('แตะเพื่อเปิดเสียง');
+  assert(slotButton&&host.querySelector('#sound-slot').contains(slotButton)&&!slotButton.matches(':disabled'),'sound card is usable while viewing as someone else');
+  await unmount();global.__deliveryTest.viewAs=false;
   console.log('PASS custom job sound: rounds/duration/gaps, device preferences, role tones, new jobs only, stop and hidden-page cleanup');
 
 

@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui";
+import { useOptionalSession } from "@/lib/session-context";
 import { PEAK_GAIN, VOICE_TEXT, defaultSound, soundPlan, soundSettings, type SoundKind, type SoundSettings } from "@/lib/job-sound";
 
 /** เสียงพูดภาษาไทยของเครื่อง · เบราว์เซอร์ LINE บางรุ่นไม่มี — แตรยังดังตามปกติ */
@@ -24,6 +26,13 @@ export default function JobSound({ ids, scope, kind, streamScope = scope }: { id
   const [failed, setFailed] = useState(false);
   const [armed, setArmed] = useState(false); // เคยเปิดเสียงไว้บนเครื่องนี้ รอแตะหน้าจอ 1 ครั้ง (เบราว์เซอร์ไม่ให้เล่นเสียงก่อนผู้ใช้แตะ)
   const card = useRef<HTMLDivElement>(null);
+  // โหมดดูแทนปิดทุกปุ่มในหน้า (fieldset disabled) ยกเว้นในช่อง legend: ย้ายการ์ดเสียงไปไว้ช่องนั้น เจ้าของจะได้ลองฟังเสียงได้
+  const viewAs = useOptionalSession()?.viewAs ?? false;
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the slot only exists after the shell has mounted
+    setSlot(viewAs ? document.getElementById("sound-slot") : null);
+  }, [viewAs]);
   const wake = useRef<WakeLockSentinel | null>(null);
   const audio = useRef<AudioContext | null>(null);
   const nodes = useRef<OscillatorNode[]>([]);
@@ -126,7 +135,7 @@ export default function JobSound({ ids, scope, kind, streamScope = scope }: { id
     document.addEventListener("visibilitychange", hidden);
     return () => { document.removeEventListener("visibilitychange", hidden); stop(); void audio.current?.close(); audio.current = null; };
   }, [stop]);
-  return <div ref={card} className={`mb-4 rounded-xl border p-3 ${enabled ? "border-border bg-surface" : "border-marigold bg-marigold-tint"}`}>
+  const body = <div ref={card} className={`mb-4 rounded-xl border p-3 ${enabled ? "border-border bg-surface" : "border-marigold bg-marigold-tint"}`}>
     {enabled
       ? <p className="text-sm font-semibold">{KIND_LABEL[kind]} · เปิดอยู่<span className="block text-xs font-normal text-ink-soft">เปิดหน้านี้ค้างไว้ หน้าจอจะไม่ดับ</span></p>
       : <><p className="mb-2 text-sm font-semibold">{KIND_LABEL[kind]}</p><Button className="w-full" onClick={() => void activate(!armed)}>{armed ? "แตะ 1 ครั้งเพื่อเริ่มฟังเสียงงานใหม่" : "แตะเพื่อเปิดเสียงแจ้งเตือนงานใหม่"}</Button></>}
@@ -140,4 +149,5 @@ export default function JobSound({ ids, scope, kind, streamScope = scope }: { id
     {noVoice && <p role="status" className="text-xs text-ink-soft">เบราว์เซอร์นี้พูดภาษาไทยไม่ได้ จึงได้ยินแต่เสียงแตร ถ้าอยากได้เสียงพูด เปิดหน้านี้ใน Chrome</p>}
     {failed && <p role="status" className="text-xs text-clay">ยังเล่นเสียงไม่ได้ ลองแตะเปิดเสียงอีกครั้งและตรวจระดับเสียงมือถือ</p>}
   </div>;
+  return slot ? createPortal(body, slot) : body;
 }
