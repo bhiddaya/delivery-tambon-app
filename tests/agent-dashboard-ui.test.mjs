@@ -16,9 +16,11 @@ const realTimeout=window.setTimeout.bind(window);window.setTimeout=(fn,ms,...arg
 const areas=[{id:'area-a',name:'พื้นที่ ก',slug:'a'},{id:'area-b',name:'พื้นที่ ข',slug:'b'}];
 const countKeys=['today_orders','active_orders','delivered_today','awaiting_payment','pending_payouts','payout_amount','shops','open_shops','online_drivers','pending_members','open_messages'];
 let state;
-function setup(){state={tasks:[],events:[],calls:[],requests:new Set(),failSave:false,failUpdate:false};
+function setup(){state={tasks:[],events:[],calls:[],requests:new Set(),refunds:[],failSave:false,failUpdate:false};
  global.__agentDb={auth:{getSession:async()=>({data:{session:{access_token:'mock-jwt'}},error:null})},channel(){const c={on(){return c},subscribe(){}};return c},removeChannel:async()=>{},async rpc(name,args){state.calls.push({name,args:structuredClone(args)});
   if(name==='agent_dashboard_areas')return{data:areas,error:null};
+  if(name==='agent_refunds')return{data:state.refunds.filter(r=>r.tambon_id===args.p_tambon_id),error:null};
+  if(name==='agent_refund_done'){const r=state.refunds.find(x=>x.order_id===args.p_order_id);if(r){r.status='done';r.refunded_at=new Date().toISOString();}return{data:{ok:true},error:null};}
   if(name==='agent_dashboard'){const all=state.tasks.filter(t=>t.tambon_id===args.p_tambon_id);return{data:{area:areas.find(a=>a.id===args.p_tambon_id),counts:Object.fromEntries(countKeys.map(k=>[k,0])),task_counts:Object.fromEntries(['todo','doing','waiting','done'].map(s=>[s,all.filter(t=>t.status===s).length])),tasks:all.filter(t=>args.p_status==='open'?t.status!=='done':t.status===args.p_status),events:state.events,orders:[]},error:null};}
   if(name==='agent_work_save'){
    if(!state.requests.has(args.p_request_id)){state.requests.add(args.p_request_id);state.tasks.push({id:args.p_request_id,tambon_id:args.p_tambon_id,title:args.p_title,detail:args.p_detail,category:args.p_category,status:'todo',version:1,due_on:null,order_id:args.p_order_id,updated_at:new Date().toISOString()});}
@@ -52,3 +54,9 @@ setup();global.fetch=async()=>Response.json({verified:false},{status:503});await
 
 setup();state.tasks=[{id:'conflict-task',tambon_id:'area-a',title:'งานที่มีผู้แก้ไขพร้อมกัน',detail:'',category:'coordination',status:'todo',version:2,due_on:null,order_id:null,updated_at:new Date().toISOString()}];await mount();state.failConflict=true;state.tasks[0].version=3;await click(button('เริ่มทำ'));assert(host.textContent.includes('มีผู้แก้ไขแล้ว'));assert(!button('ลองบันทึกเดิมอีกครั้ง'));assert(!host.querySelector('textarea').disabled);assert.equal(state.events.length,0);assert.equal(state.calls.filter(c=>c.name==='agent_work_update').length,1);await unmount();console.log('PASS stale version conflict refreshes data without frozen retry or duplicate update');
 
+// paid food auto-cancelled for no rider: the agent sees what to refund and marks it done once the money is returned
+setup();state.refunds=[{tambon_id:'area-a',order_id:901,amount:150,payment_method:'พร้อมเพย์',reason:'ไม่มีไรเดอร์รับงานภายใน 15 นาที',status:'pending',created_at:new Date().toISOString(),refunded_at:null,customer:'ลูกค้าจำลอง',phone:'0812345678'}];await mount();
+assert(host.textContent.includes('ต้องคืนเงินลูกค้า · ค้าง 1 ราย'));assert(host.textContent.includes('ออเดอร์ #901'));assert(host.querySelector('a[href="tel:0812345678"]'));
+await click(button('โอนคืนแล้ว'));assert(state.calls.some(c=>c.name==='agent_refund_done'&&c.args.p_order_id===901));assert(host.textContent.includes('คืนเงินลูกค้าครบแล้ว'));assert(!button('โอนคืนแล้ว'));await unmount();
+setup();await mount();assert(!host.textContent.includes('คืนเงินลูกค้า'),'no box when nothing to refund');await unmount();
+console.log('PASS refund box: pending refund shown, marked returned, hidden when empty');

@@ -10,6 +10,7 @@ import { useLiveData } from "@/rebuilt/use-live-data";
 import { DataState, PageIntro, Panel, StatCard, inputClass, primaryButton, secondaryButton } from "@/rebuilt/primitives";
 import AgentWorkCard from "./AgentWorkCard";
 import JobSound from "./JobSound";
+import AgentRefunds from "./AgentRefunds";
 
 export default function AgentDashboard({ initialArea = "" }: { initialArea?: string }) {
   const [selected, setSelected] = useState(initialArea); const [filter, setFilter] = useState<WorkStatus | "all">("all"); const [page, setPage] = useState(0);
@@ -68,6 +69,7 @@ export default function AgentDashboard({ initialArea = "" }: { initialArea?: str
     <Panel className="mb-5"><div className="flex flex-wrap items-end justify-between gap-4"><label className="min-w-48"><span className="mb-2 block text-sm">พื้นที่ที่ดูแล</span><select className={inputClass} value={areaId || ""} disabled={busy || retrySave} onChange={e => { setSelected(e.target.value); setPage(0); setFormOpen(false); resetForm(); }}><option value="" disabled>เลือกตำบล</option>{live.data?.areas.map(a => <option value={a.id} key={a.id}>{tambonDisplayName(a.name)}</option>)}</select></label><div className="text-xs leading-6 text-ink-soft" role="status"><p>ข้อมูลเปลี่ยนแล้วอัปเดตอัตโนมัติ · {live.updated ? `ล่าสุด ${live.updated.toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok" })}` : "กำลังโหลด"}</p><p>{memory.area === areaId && memory.state === "saved" ? "✓ เชื่อมสรุปความคืบหน้ากับส่วนกลางแล้ว" : memory.area === areaId && memory.state === "saving" ? "กำลังเชื่อมสรุปความคืบหน้ากับส่วนกลาง…" : "รอเชื่อมสรุปส่วนกลาง · บันทึกงานในตำบลยังอยู่"}</p></div></div></Panel>
     <DataState loading={live.loading} error={live.error} retry={live.refresh} />
     <JobSound key={areaId ?? "agent"} kind="agent" scope={areaId ?? "agent"} ids={data && !live.error ? data.orders.map(o => o.id) : null} />
+    {areaId && <AgentRefunds key={areaId} tambonId={areaId} />}
     {live.data && !data && <Panel><p>ยังไม่มีพื้นที่ที่ได้รับสิทธิ์ กรุณาเข้าสู่ระบบด้วยรหัสผ่าน หรือติดต่อส่วนกลางเพื่อตรวจการแต่งตั้งตัวแทน</p></Panel>}
     {data && !live.error && <>
       {data.area.intake_blocked && <p role="status" className="mb-5 rounded-xl bg-marigold-tint p-4 text-sm">พื้นที่นี้พักรับออเดอร์อยู่ ติดต่อส่วนกลางเมื่อต้องการเปิดรับ</p>}
