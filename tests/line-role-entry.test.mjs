@@ -44,10 +44,14 @@ for(const [role,target] of [['superadmin','/admin/workspace'],['admin','/admin/w
 setup('superadmin');await mount('merchant');assert.deepEqual(navigations,['/view-as?demo=merchant']);await unmount();
 setup('superadmin');await mount('driver');assert.deepEqual(navigations,['/view-as?demo=driver']);await unmount();
 setup('superadmin');await mount('admin');assert.deepEqual(navigations,['/admin/workspace']);await unmount();
-setup('admin');await mount('merchant');assert.deepEqual(navigations,['/admin/workspace']);await unmount();
-setup('merchant');await mount('driver');assert.deepEqual(navigations,['/merchant/orders']);await unmount();
+// a button for a role the account does not hold explains why (and how to apply) instead of silently opening another page
+for(const [role,requested,text] of [['customer','merchant','ยังไม่ได้เป็นร้านค้า'],['customer','driver','ยังไม่ได้เป็นไรเดอร์'],['customer','admin','ยังไม่ได้เป็นตัวแทนตำบล'],['driver','merchant','ยังไม่ได้เป็นร้านค้า'],['merchant','driver','ยังไม่ได้เป็นไรเดอร์'],['admin','merchant','ยังไม่ได้เป็นร้านค้า']]){
+ setup(role);await mount(requested);assert.equal(navigations.length,0,role+' pressing '+requested);assert(host.textContent.includes(text));await unmount();
+}
+setup('customer');await mount('merchant');assert(host.querySelector('a[href*="oaMessage"]'),'apply link opens the OA chat');assert(host.querySelector('a[href="/customer"]'),'link back to own home');await unmount();
+setup('customer');await mount('customer');assert.deepEqual(navigations,['/customer']);await unmount();
+setup('driver');await mount('driver');assert.deepEqual(navigations,['/driver']);await unmount();
 console.log('PASS five stored roles enter their own home without a password form');
-setup('customer');await mount('admin');assert.deepEqual(navigations,['/customer']);await unmount();
 setup('merchant');scopeCount=1;await mount('admin');assert.deepEqual(navigations,['/admin/workspace']);await unmount();
 setup('merchant');scopeError={message:'offline'};await mount('admin');assert.equal(navigations.length,0);assert(host.querySelector('[role="alert"]'));await unmount();
 console.log('PASS requested menu never grants role; appointed merchant may enter admin and lookup failure fails closed');
