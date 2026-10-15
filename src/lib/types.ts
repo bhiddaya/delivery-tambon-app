@@ -2042,6 +2042,8 @@ export type Database = {
       agent_memory_snapshot: { Args: { p_tambon_id: string }; Returns: Json }
       agent_work_save: { Args: { p_tambon_id: string; p_request_id: string; p_title: string; p_detail: string; p_category: string; p_due_on?: string | null; p_order_id?: number | null }; Returns: Json }
       agent_work_update: { Args: { p_task_id: string; p_request_id: string; p_version: number; p_action: string; p_note?: string }; Returns: Json }
+      agent_refunds: { Args: { p_tambon_id: string }; Returns: Json }
+      agent_refund_done: { Args: { p_order_id: number; p_note?: string | null }; Returns: Json }
       register_line_customer: { Args: { p_name: string; p_phone: string; p_tambon_id: string }; Returns: Json }
       customer_food_review: { Args: { p_merchant_id: string; p_items: Json; p_point?: Json | null; p_note?: string | null }; Returns: Json }
       customer_food_confirm: { Args: { p_token: string }; Returns: Json }
