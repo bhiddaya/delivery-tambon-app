@@ -3,7 +3,6 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import JobSound from "@/components/JobSound";
-import QuickActions from "@/components/QuickActions";
 import { MapPin, Navigation, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
@@ -72,7 +71,6 @@ export default function DriverWorkspace() {
   return <div>
     <JobSound key={profile.id} kind="driver" scope={profile.id} ids={data && !error ? [...data.pending, ...active].map(o => o.id) : null} />
     <PageIntro eyebrow="งานใกล้บ้าน รายได้ในชุมชน" title="งานจัดส่งของคุณ" description="เปิดสถานะพร้อมรับ ตรวจจุดรับจุดส่ง แล้วอัปเดตงานตามการจัดส่งจริง" action={<button className={secondaryButton} onClick={refresh}><RefreshCw size={16} aria-hidden="true" />อัปเดต</button>} />
-    <QuickActions role="driver" />
     <DataState loading={loading} error={error} retry={refresh} />
     {message && <p role="alert" className="mb-5 rounded-xl bg-marigold-tint p-4 text-sm leading-7">{message}</p>}
     {data && !error && <>

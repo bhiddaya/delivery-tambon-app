@@ -102,7 +102,7 @@ async function value(element, text) {
         if (args.path.endsWith('supabase/client')) contents = 'export const createClient=()=>globalThis.__deliveryTest.db;';
         else if (args.path.endsWith('session-context')) contents = 'export const useSession=()=>({profile:globalThis.__deliveryTest.profile}); export const useOptionalSession=useSession;';
         else if (args.path.endsWith('use-line-session')) contents = 'export const useLineSession=()=>({ready:true,profile:globalThis.__deliveryTest.profile,liff:{status:"ready",isLoggedIn:true,profile:{displayName:"QA"}}});';
-        else if (args.path === 'next/navigation') contents = 'export const useParams=()=>({id:globalThis.__deliveryTest.shopId}); export const usePathname=()=>globalThis.__deliveryTest.pathname; export const useRouter=()=>({push:(v)=>{globalThis.__deliveryTest.next=v},replace:(v)=>{globalThis.__deliveryTest.next=v},refresh:()=>{}});';
+        else if (args.path === 'next/navigation') contents = 'export const useParams=()=>({id:globalThis.__deliveryTest.shopId}); export const usePathname=()=>globalThis.__deliveryTest.pathname; export const useSearchParams=()=>new URLSearchParams(); export const useRouter=()=>({push:(v)=>{globalThis.__deliveryTest.next=v},replace:(v)=>{globalThis.__deliveryTest.next=v},refresh:()=>{}});';
         else if (args.path === 'next/link') contents = 'import React from "react"; export default function Link({children,...props}){return React.createElement("a",props,children)}';
         else contents = 'import React from "react"; export default function Image({fill,unoptimized,sizes,...props}){return React.createElement("img",props)}';
         return { contents, loader: 'js', resolveDir: base };
@@ -127,8 +127,9 @@ async function value(element, text) {
   setup({ orders: [order], order_items: [{ id: 1, order_id: 123, name: 'ข้าวผัด', qty: 1, price: 45 }] });
   global.__deliveryTest.profile = { ...profile, role: 'merchant' }; await mount(ui.MerchantOrders);
   assert(host.textContent.includes('ออเดอร์ #123'));
-  assert(host.querySelector('a[href="/merchant"]'));
-  assert(host.querySelector('a[href="/merchant/earnings"]'));
+  assert(!host.querySelector('a[href="/merchant/earnings"]'), 'orders page no longer repeats the menu links');
+  assert(button('แตะเพื่อเปิดเสียงแจ้งเตือนงานใหม่'), 'sound card is the first thing a shop sees');
+  assert([...host.querySelectorAll('summary')].some(x => x.textContent.includes('ตัวกรอง')), 'filters are folded');
   const merchantRead = state.calls.find(c => c.table === 'orders');
   assert(merchantRead.conditions.some(c => c[0] === 'eq' && c[1] === 'merchant_id' && c[2] === 'shop'));
   assert(!state.calls.some(c => c.operation !== 'read')); await unmount();
@@ -222,11 +223,17 @@ async function value(element, text) {
     state='running'; currentTime=0; destination={};
     async resume() { this.state='running'; } async close() { this.state='closed'; }
     createGain() { return {gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){},disconnect(){}}; }
+    createDynamicsCompressor() { return {threshold:{},knee:{},ratio:{},attack:{},release:{},connect(){},disconnect(){}}; }
     createOscillator() { const tone={frequency:{value:0},connect(){},disconnect(){},start(at){this.at=at;},stop(at){this.stopped=at===undefined;}};played.push(tone);return tone; }
   };
+  const wakeLocks=[],vibrations=[];
+  Object.defineProperty(navigator,'wakeLock',{configurable:true,value:{request:async kind=>{const lock={kind,released:false,release:async()=>{lock.released=true;}};wakeLocks.push(lock);return lock;}}});
+  Object.defineProperty(navigator,'vibrate',{configurable:true,value:pattern=>{vibrations.push(pattern);return true;}});
   let visibility='visible'; Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>visibility});
   localStorage.clear(); setup(); await mount(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1]});
   assert.equal(played.length,0,'opening jobs never autoplays');
+  assert(button('แตะเพื่อเปิดเสียงแจ้งเตือนงานใหม่'),'one big tap-to-enable button');
+  await value(host.querySelector('select'),'chime');
   const settingsInputs=host.querySelectorAll('input[type="number"]');
   await value(settingsInputs[0],'4');await value(settingsInputs[1],'3');await value(settingsInputs[2],'5');
   await click(button('ทดลองเสียง')); assert.equal(played.length,40); assert(played[10].at>8,'five-second gap between three-second rounds');
@@ -238,8 +245,17 @@ async function value(element, text) {
   await React.act(async()=>root.render(React.createElement(ui.JobSound,{scope:'shop-user',streamScope:'other-filter',kind:'merchant',ids:[1,2,3]})));
   assert.equal(played.length,80,'changing filter does not announce older jobs');
   visibility='hidden';await React.act(async()=>document.dispatchEvent(new window.Event('visibilitychange')));assert(played.every(t=>t.stopped));await unmount();
-  await mount(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1,2]});assert.equal(host.querySelector('input[type="number"]').value,'4');assert(button('เปิดเสียงงานใหม่'));await unmount();
-  await mount(ui.JobSound,{scope:'rider-user',kind:'driver',ids:[1]});assert.equal(host.querySelector('select').value,'pulse');assert.equal(host.querySelector('input[type="number"]').value,'3');await unmount();visibility='visible';
+  await mount(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1,2]});assert.equal(host.querySelector('input[type="number"]').value,'4');assert(button('เริ่มฟังเสียงงานใหม่'));await unmount();
+  await mount(ui.JobSound,{scope:'rider-user',kind:'driver',ids:[1]});assert.equal(host.querySelector('select').value,'voice');assert.equal(host.querySelector('input[type="number"]').value,'3');await unmount();visibility='visible';
+  // tap anywhere resumes sound that was enabled before; the screen is held awake while enabled; the phone buzzes with each ring
+  assert(vibrations.length>=2,'ringing vibrates');assert(wakeLocks.some(l=>l.kind==='screen'),'screen is kept on while sound is enabled');
+  assert.equal(localStorage.getItem('job-sound:on:merchant:shop-user'),'1');
+  await mount(ui.JobSound,{scope:'shop-user',kind:'merchant',ids:[1,2]});
+  assert(button('แตะ 1 ครั้งเพื่อเริ่มฟังเสียงงานใหม่'),'remembered: asks for one tap anywhere');const before=played.length;
+  await React.act(async()=>document.body.dispatchEvent(new window.Event('pointerdown',{bubbles:true})));
+  assert(host.textContent.includes('เปิดอยู่'),'one tap anywhere re-enables sound');assert.equal(played.length,before,'re-enabling is silent');
+  await click(button('ปิดเสียงงานใหม่'));assert.equal(localStorage.getItem('job-sound:on:merchant:shop-user'),null,'turning off forgets');
+  assert(wakeLocks.every(l=>l.released),'screen lock released when sound is off');await unmount();
   console.log('PASS custom job sound: rounds/duration/gaps, device preferences, role tones, new jobs only, stop and hidden-page cleanup');
 
 
