@@ -40,6 +40,12 @@ function setup(role='customer'){
 for(const [role,target] of [['superadmin','/admin/workspace'],['admin','/admin/workspace'],['merchant','/merchant/orders'],['driver','/driver'],['customer','/customer']]){
  setup(role);await mount('auto');assert.deepEqual(navigations,[target]);assert.equal(host.querySelectorAll('input[type="password"]').length,0);await unmount();
 }
+// the owner has no shop or rider page of their own: those buttons open the pick-a-person page, never the agent page for all three
+setup('superadmin');await mount('merchant');assert.deepEqual(navigations,['/admin/people']);await unmount();
+setup('superadmin');await mount('driver');assert.deepEqual(navigations,['/admin/people?tab=riders']);await unmount();
+setup('superadmin');await mount('admin');assert.deepEqual(navigations,['/admin/workspace']);await unmount();
+setup('admin');await mount('merchant');assert.deepEqual(navigations,['/admin/workspace']);await unmount();
+setup('merchant');await mount('driver');assert.deepEqual(navigations,['/merchant/orders']);await unmount();
 console.log('PASS five stored roles enter their own home without a password form');
 setup('customer');await mount('admin');assert.deepEqual(navigations,['/customer']);await unmount();
 setup('merchant');scopeCount=1;await mount('admin');assert.deepEqual(navigations,['/admin/workspace']);await unmount();

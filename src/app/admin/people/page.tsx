@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, EmptyState, PageHeading } from "@/components/ui";
 import { AdminTambonPicker, useAdminTambon } from "@/components/AdminTambonPicker";
 import { useTambonAdminData } from "@/components/useTambonAdminData";
@@ -23,6 +23,11 @@ export default function AdminPeoplePage() {
   const { tambons, slug, setSlug, selected } = useAdminTambon();
   const data = useTambonAdminData(selected?.id ?? null);
   const [tab, setTab] = useState<"shops" | "riders">("shops");
+  // เมนู LINE ปุ่มไรเดอร์ของเจ้าของเปิดมาที่แท็บไรเดอร์ (?tab=riders)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read the initial tab from the address after mount
+    if (new URLSearchParams(window.location.search).get("tab") === "riders") setTab("riders");
+  }, []);
   const q = selected?.slug ? `?t=${selected.slug}` : "";
   const waiting = countWaitingApproval(data.merchants, data.drivers);
   const isSuper = useSession().profile.role === "superadmin";
