@@ -40,9 +40,9 @@ function setup(role='customer'){
 for(const [role,target] of [['superadmin','/admin/workspace'],['admin','/admin/workspace'],['merchant','/merchant/orders'],['driver','/driver'],['customer','/customer']]){
  setup(role);await mount('auto');assert.deepEqual(navigations,[target]);assert.equal(host.querySelectorAll('input[type="password"]').length,0);await unmount();
 }
-// the owner has no shop or rider page of their own: those buttons open the pick-a-person page, never the agent page for all three
-setup('superadmin');await mount('merchant');assert.deepEqual(navigations,['/admin/people']);await unmount();
-setup('superadmin');await mount('driver');assert.deepEqual(navigations,['/admin/people?tab=riders']);await unmount();
+// the owner has no shop or rider page of their own: those buttons open a test account's read-only page, never the agent page for all three
+setup('superadmin');await mount('merchant');assert.deepEqual(navigations,['/view-as?demo=merchant']);await unmount();
+setup('superadmin');await mount('driver');assert.deepEqual(navigations,['/view-as?demo=driver']);await unmount();
 setup('superadmin');await mount('admin');assert.deepEqual(navigations,['/admin/workspace']);await unmount();
 setup('admin');await mount('merchant');assert.deepEqual(navigations,['/admin/workspace']);await unmount();
 setup('merchant');await mount('driver');assert.deepEqual(navigations,['/merchant/orders']);await unmount();
