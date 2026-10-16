@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import type { Tables } from "@/lib/types";
 
 /**
  * แลก ID token ของ LINE เป็น session ของ Supabase
@@ -19,6 +20,8 @@ export type LineSignInResult = {
   hasProfile: boolean;
   isNewUser: boolean;
   displayName: string | null;
+  /** โปรไฟล์ของผู้ใช้ที่ฟังก์ชันส่งกลับมาให้ (null = ยังไม่มีโปรไฟล์, undefined = ฟังก์ชันรุ่นเก่า/อ่านพลาด ให้ select เอง) */
+  profile?: Tables<"profiles"> | null;
 };
 
 export class LineSignInError extends Error {}
@@ -63,6 +66,7 @@ export async function signInWithLineIdToken(idToken: string): Promise<LineSignIn
     hasProfile: Boolean(payload.has_profile),
     isNewUser: Boolean(payload.is_new_user),
     displayName: (payload.display_name as string | null) ?? null,
+    profile: payload.profile as Tables<"profiles"> | null | undefined,
   };
 }
 
