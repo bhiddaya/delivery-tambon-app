@@ -27,19 +27,20 @@ require(out);
 const SECRET = 'shared-secret';
 const target = (id, kind) => ({ id, endpoint: `https://push.example/${id}`, p256dh: 'p', auth: 'a', kind });
 const baseOrder = { id: 7, type: 'food', is_test: false, is_drill: false, event: 'new', shop: 'ร้านไบดี', tambon: 'คลองกุ่ม' };
-function setup({ keys = { public: 'PUB', private: 'PRIV', notify_secret: SECRET }, order = baseOrder, targets = [], failWith = {} } = {}) {
+function setup({ keys = { public: 'PUB', private: 'PRIV', notify_secret: SECRET }, order = baseOrder, targets = [], failWith = {}, everyone = null } = {}) {
   const calls = { rpc: [], sent: [], vapid: null, generated: 0 };
   globalThis.fakeAdmin = { rpc: async (name, args) => {
     calls.rpc.push([name, args]);
     if (name === 'push_get_keys') return { data: keys, error: null };
     if (name === 'push_targets') return { data: { ok: true, order, targets }, error: null };
+    if (name === 'push_broadcast_targets') return { data: everyone ?? targets, error: null };
     return { data: 1, error: null };
   } };
   globalThis.fakeWebpush = {
     generateVAPIDKeys: () => { calls.generated++; return { publicKey: 'NEWPUB', privateKey: 'NEWPRIV' }; },
     setVapidDetails: (...a) => { calls.vapid = a; },
     sendNotification: async (sub, payload, opts) => {
-      const t = targets.find(x => x.endpoint === sub.endpoint);
+      const t = (everyone ?? targets).find(x => x.endpoint === sub.endpoint);
       if (failWith[t.id]) throw Object.assign(new Error('push failed'), { statusCode: failWith[t.id] });
       calls.sent.push({ endpoint: sub.endpoint, payload: JSON.parse(payload), opts });
     },
@@ -105,5 +106,22 @@ const call = async (body, secret = SECRET) => {
   assert.equal((await call({ order_id: 7, event: 'weird' })).status, 400);
   setup({ keys: { public: null, private: null, notify_secret: SECRET } });
   assert.equal((await call({ order_id: 7, event: 'new' })).status, 503);
+}
+// 7) sound test to everyone: every registered device gets the same test text with its own page and vibration; dead ones are removed
+{
+  const all = [target('a1', 'agent'), target('d1', 'driver'), target('m1', 'merchant'), target('m2', 'merchant')];
+  const c = setup({ everyone: all, failWith: { m2: 410 } });
+  const dry = await call({ action: 'broadcast', dry_run: true });
+  assert.deepEqual(dry.body, { ok: true, dry_run: true, targets: 4, by_kind: { agent: 1, driver: 1, merchant: 2 } }); assert.equal(c.sent.length, 0);
+  const r = await call({ action: 'broadcast' });
+  assert.equal(r.body.targets, 4); assert.equal(r.body.sent, 3); assert.equal(r.body.removed, 1);
+  const by = Object.fromEntries(c.sent.map(x => [x.endpoint.split('/').pop(), x.payload]));
+  assert.equal(by.a1.title, '[ซ้อม] 🔔 ทดสอบเสียงแจ้งเตือน'); assert.match(by.a1.body, /ไม่ต้องทำอะไร/); assert.equal(by.a1.tag, 'sound-test');
+  assert.deepEqual([by.a1.url, by.d1.url, by.m1.url], ['/admin/workspace', '/driver', '/merchant/orders']);
+  assert.notDeepEqual(by.a1.vibrate, by.d1.vibrate);
+  assert.deepEqual(c.rpc.find(([n]) => n === 'push_delete_subscriptions')[1], { p_ids: ['m2'] });
+  assert.equal((await call({ action: 'broadcast' }, 'nope')).status, 401);
+  setup({ keys: { public: null, private: null, notify_secret: SECRET } });
+  assert.equal((await call({ action: 'broadcast' })).status, 503);
 }
 console.log('PASS push-notify: secret check, keys never leak, role-specific payloads, dead devices removed, dry run');

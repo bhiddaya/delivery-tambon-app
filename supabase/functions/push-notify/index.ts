@@ -1,13 +1,14 @@
 /**
  * push-notify — ส่ง Web Push (แจ้งเตือนของมือถือ) ให้ร้านค้า/ไรเดอร์/ตัวแทนตำบล เมื่อมีออเดอร์ใหม่หรือยืนยันเงิน
  *
- * ใครเรียก: trigger ในฐานข้อมูล (orders_push_new / orders_push_paid ผ่าน pg_net) ด้วยรหัสลับเดียวกับ n8n (vault notify_secret)
+ * ใครเรียก: trigger ในฐานข้อมูล (orders_push_new / orders_push_paid ผ่าน pg_net) และ admin_send_sound_test() ด้วยรหัสลับเดียวกับ n8n (vault notify_secret)
  * ใครได้รับ: เลือกใน SQL ที่ push_targets() (ร้านของออเดอร์ · ไรเดอร์ออนไลน์ในตำบล · ผู้ดูแลตำบล+ผู้ดูแลกลาง)
  * กุญแจ VAPID: สร้างครั้งแรกด้วย { action: "init" } แล้วเก็บใน vault เท่านั้น คำตอบคืนเฉพาะกุญแจสาธารณะ
  *
  * POST body
  *   { action: "init" }                          สร้างกุญแจถ้ายังไม่มี
- *   { order_id, event: "new" | "paid" }         ส่งแจ้งเตือน (ใส่ dry_run: true เพื่อดูว่าจะส่งหาใครโดยไม่ส่งจริง)
+ *   { order_id, event: "new" | "paid" }         ส่งแจ้งเตือนออเดอร์ (ใส่ dry_run: true เพื่อดูว่าจะส่งหาใครโดยไม่ส่งจริง)
+ *   { action: "broadcast" }                     ส่งสัญญาณทดสอบเสียงถึงทุกเครื่องที่เปิดแจ้งเตือน (dry_run ได้)
  * เซิร์ฟเวอร์แจ้งเตือนที่ใช้คือของ Google/Apple/Mozilla ตามเบราว์เซอร์ของผู้รับ เนื้อหาเข้ารหัส ไม่ผ่าน LINE ไม่นับโควต้า LINE
  */
 
@@ -67,7 +68,44 @@ export function buildPayload(order: OrderInfo, kind: PushKind) {
   return { title, body, url: URL_OF[kind], tag: `order-${order.id}-${kind}`, vibrate: VIBRATE[kind] };
 }
 
+/** สัญญาณทดสอบเสียง: ไม่ผูกกับออเดอร์ ผู้รับไม่ต้องทำอะไร */
+export function buildBroadcastPayload(kind: PushKind) {
+  return { title: "[ซ้อม] 🔔 ทดสอบเสียงแจ้งเตือน", body: "ถ้าได้ยินเสียงนี้ แปลว่าแจ้งเตือนใช้ได้ ไม่ต้องทำอะไร", url: URL_OF[kind], tag: "sound-test", vibrate: VIBRATE[kind] };
+}
+
 type Target = { id: string; endpoint: string; p256dh: string; auth: string; kind: PushKind };
+type Admin = ReturnType<typeof createClient>;
+
+/** ส่งถึงทุกเครื่องพร้อมกัน แล้วลบเครื่องที่เลิกรับแล้ว (เซิร์ฟเวอร์แจ้งเตือนตอบ 404/410) */
+async function deliver(admin: Admin, targets: Target[], payloadFor: (kind: PushKind) => unknown) {
+  const results = await Promise.all(targets.map(async (t) => {
+    try {
+      await webpush.sendNotification(
+        { endpoint: t.endpoint, keys: { p256dh: t.p256dh, auth: t.auth } },
+        JSON.stringify(payloadFor(t.kind)),
+        { TTL: 600, urgency: "high" },
+      );
+      return { id: t.id, kind: t.kind, status: 201 };
+    } catch (e) {
+      return { id: t.id, kind: t.kind, status: Number((e as { statusCode?: number }).statusCode) || 0 };
+    }
+  }));
+  const dead = results.filter((r) => r.status === 404 || r.status === 410).map((r) => r.id);
+  if (dead.length) await admin.rpc("push_delete_subscriptions", { p_ids: dead });
+  return {
+    ok: true,
+    targets: targets.length,
+    sent: results.filter((r) => r.status >= 200 && r.status < 300).length,
+    removed: dead.length,
+    results: results.map(({ kind, status }) => ({ kind, status })),
+  };
+}
+
+function countByKind(targets: Target[]) {
+  const byKind: Record<string, number> = {};
+  for (const t of targets) byKind[t.kind] = (byKind[t.kind] ?? 0) + 1;
+  return byKind;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
@@ -94,6 +132,16 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!keys.public || !keys.private) return json({ error: "no_vapid_keys" }, 503);
+
+  if (body.action === "broadcast") {
+    const { data, error } = await admin.rpc("push_broadcast_targets");
+    if (error) return json({ error: "targets_failed" }, 500);
+    const targets = (data ?? []) as Target[];
+    if (body.dry_run === true) return json({ ok: true, dry_run: true, targets: targets.length, by_kind: countByKind(targets) });
+    webpush.setVapidDetails(SITE, keys.public as string, keys.private as string);
+    return json(await deliver(admin, targets, buildBroadcastPayload));
+  }
+
   const orderId = Number(body.order_id);
   const event = body.event;
   if (!Number.isFinite(orderId) || (event !== "new" && event !== "paid")) return json({ error: "bad_request" }, 400);
@@ -103,33 +151,8 @@ Deno.serve(async (req: Request) => {
   const order = found.order as OrderInfo;
   const targets = (found.targets ?? []) as Target[];
 
-  if (body.dry_run === true) {
-    const byKind: Record<string, number> = {};
-    for (const t of targets) byKind[t.kind] = (byKind[t.kind] ?? 0) + 1;
-    return json({ ok: true, dry_run: true, targets: targets.length, by_kind: byKind });
-  }
+  if (body.dry_run === true) return json({ ok: true, dry_run: true, targets: targets.length, by_kind: countByKind(targets) });
 
   webpush.setVapidDetails(SITE, keys.public as string, keys.private as string);
-  const results = await Promise.all(targets.map(async (t) => {
-    try {
-      await webpush.sendNotification(
-        { endpoint: t.endpoint, keys: { p256dh: t.p256dh, auth: t.auth } },
-        JSON.stringify(buildPayload(order, t.kind)),
-        { TTL: 600, urgency: "high" },
-      );
-      return { id: t.id, kind: t.kind, status: 201 };
-    } catch (e) {
-      return { id: t.id, kind: t.kind, status: Number((e as { statusCode?: number }).statusCode) || 0 };
-    }
-  }));
-  // อุปกรณ์ที่เลิกรับแล้ว (หมดอายุ/ถอนการติดตั้ง) เซิร์ฟเวอร์แจ้งเตือนตอบ 404/410 → ลบทิ้ง
-  const dead = results.filter((r) => r.status === 404 || r.status === 410).map((r) => r.id);
-  if (dead.length) await admin.rpc("push_delete_subscriptions", { p_ids: dead });
-  return json({
-    ok: true,
-    targets: targets.length,
-    sent: results.filter((r) => r.status >= 200 && r.status < 300).length,
-    removed: dead.length,
-    results: results.map(({ kind, status }) => ({ kind, status })),
-  });
+  return json(await deliver(admin, targets, (kind) => buildPayload(order, kind)));
 });
