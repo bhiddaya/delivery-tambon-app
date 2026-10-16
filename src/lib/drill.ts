@@ -18,3 +18,8 @@ export async function sendDrill(db: Pick<ReturnType<typeof createClient>, "rpc">
   if (error) return error.message.includes("ร้านปิด") ? "ร้านนี้ปิดอยู่ ส่งไม่ได้ เลือกร้านที่เปิดอยู่" : "ส่งไม่สำเร็จ ลองอีกครั้ง";
   return `ส่งแล้ว ออเดอร์ซ้อม #${(data as { order_id: number }).order_id} · รอฟังเสียงได้เลย`;
 }
+
+/** ออเดอร์ซ้อมที่ยังเปิดอยู่ ใช้เป็นตัวส่งสัญญาณเสียงในหน้าส่งออเดอร์ซ้อม (ใบใหม่โผล่ = ดัง) */
+export function activeDrillIds(orders: { id: number; status: string; is_drill?: boolean }[]): number[] {
+  return orders.filter((o) => o.is_drill && ["pending", "accepted", "in_progress"].includes(o.status)).map((o) => o.id);
+}
