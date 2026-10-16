@@ -17,7 +17,9 @@ export function useLineSession() {
       try {
         await signInWithLineIdToken(token);
         const db = createClient();
-        const { data: { user }, error } = await db.auth.getUser();
+        // เพิ่งแลก session เองเมื่อครู่ อ่านจากเครื่องได้เลย (getUser ต้องถามเซิร์ฟเวอร์อีก 1 รอบ) · หน้าฝั่งเซิร์ฟเวอร์ตรวจสิทธิ์ซ้ำอยู่แล้ว
+        const { data: { session }, error } = await db.auth.getSession();
+        const user = session?.user;
         if (error || !user) throw new Error("เข้าสู่ระบบไม่สำเร็จ");
         const result = await db.from("profiles").select("*").eq("id", user.id).maybeSingle();
         if (result.error) throw new Error("โหลดข้อมูลบัญชีไม่ได้");
