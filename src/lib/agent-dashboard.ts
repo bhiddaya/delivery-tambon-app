@@ -7,7 +7,7 @@ export type WorkCategory = keyof typeof WORK_CATEGORIES;
 export type WorkItem = { id: string; tambon_id: string; title: string; detail: string; status: WorkStatus; category: WorkCategory; due_on: string | null; order_id: number | null; version: number; updated_at: string };
 export type WorkEvent = { id: string; task_id: string; action: string; status: WorkStatus; note: string; created_at: string };
 export type AgentArea = { id: string; name: string; slug: string };
-export type AgentData = { area: AgentArea & { intake_blocked: boolean }; counts: Record<string, number>; task_counts: Record<WorkStatus, number>; tasks: WorkItem[]; events: WorkEvent[]; orders: { id: number; type: string; status: string; paid: boolean; needs_payment: boolean; shop_accepted: boolean; food_ready: boolean; driver_assigned: boolean; created_at: string }[] };
+export type AgentData = { area: AgentArea & { intake_blocked: boolean }; counts: Record<string, number>; task_counts: Record<WorkStatus, number>; tasks: WorkItem[]; events: WorkEvent[]; orders: { id: number; type: string; status: string; paid: boolean; needs_payment: boolean; shop_accepted: boolean; food_ready: boolean; driver_assigned: boolean; is_drill?: boolean; created_at: string }[] };
 export async function loadAgentDashboard(selected: string, status = "open", offset = 0): Promise<{ areas: AgentArea[]; dashboard: AgentData | null }> {
   const db = createClient(); const areas = await db.rpc("agent_dashboard_areas");
   if (areas.error) throw new Error("โหลดพื้นที่ที่ดูแลไม่สำเร็จ");

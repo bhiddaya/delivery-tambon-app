@@ -741,6 +741,7 @@ export type Database = {
           dropoff_lng: number | null
           id: number
           is_test: boolean
+          is_drill: boolean
           items_subtotal: number
           job_area_rai: number | null
           job_duration_hours: number | null
@@ -781,6 +782,7 @@ export type Database = {
           dropoff_lng?: number | null
           id?: never
           is_test?: boolean
+          is_drill?: boolean
           items_subtotal?: number
           job_area_rai?: number | null
           job_duration_hours?: number | null
@@ -821,6 +823,7 @@ export type Database = {
           dropoff_lng?: number | null
           id?: never
           is_test?: boolean
+          is_drill?: boolean
           items_subtotal?: number
           job_area_rai?: number | null
           job_duration_hours?: number | null
@@ -2039,6 +2042,7 @@ export type Database = {
     Functions: {
       agent_dashboard_areas: { Args: Record<PropertyKey, never>; Returns: Json }
       agent_dashboard: { Args: { p_tambon_id: string; p_status?: string; p_offset?: number }; Returns: Json }
+      admin_send_drill_order: { Args: { p_kind?: string; p_merchant_id?: string; p_tambon_id?: string }; Returns: Json }
       agent_memory_snapshot: { Args: { p_tambon_id: string }; Returns: Json }
       agent_work_save: { Args: { p_tambon_id: string; p_request_id: string; p_title: string; p_detail: string; p_category: string; p_due_on?: string | null; p_order_id?: number | null }; Returns: Json }
       agent_work_update: { Args: { p_task_id: string; p_request_id: string; p_version: number; p_action: string; p_note?: string }; Returns: Json }

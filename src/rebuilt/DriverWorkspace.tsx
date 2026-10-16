@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { DRIVER_ACTION_LABEL, TYPE_LABEL, VEHICLE_LABEL, mapsLink, money, type OrderRow } from "@/lib/domain";
 import { bangkokDayStart } from "@/lib/tambon-admin";
+import { riderOrderFilter } from "@/lib/drill";
 import { StatusChip } from "@/components/ui";
 import { nextDriverStatus } from "./order-logic";
 import { useLiveData } from "./use-live-data";
@@ -29,7 +30,7 @@ export default function DriverWorkspace() {
     ]);
     if (driver.error || ownProfile.error || activeOrders.error || doneOrders.error || settlements.error) throw new Error("driver unavailable");
     const eligible = ownProfile.data.approved && !ownProfile.data.suspended_at;
-    const pending = eligible && driver.data?.is_online ? await db.from("orders").select("*").eq("tambon_id", profile.tambon_id ?? "00000000-0000-0000-0000-000000000000").eq("is_test", profile.is_test).eq("status", "pending").is("driver_id", null).or("type.neq.food,customer_paid_at.not.is.null").order("created_at").limit(50) : { data: [], error: null };
+    const pending = eligible && driver.data?.is_online ? await db.from("orders").select("*").eq("tambon_id", profile.tambon_id ?? "00000000-0000-0000-0000-000000000000").eq("status", "pending").is("driver_id", null).or(riderOrderFilter(profile.is_test)).order("created_at").limit(50) : { data: [], error: null };
     if (pending.error) throw new Error("pending unavailable");
     return { driver: driver.data, eligible, mine: [...(activeOrders.data ?? []), ...(doneOrders.data ?? [])], pending: (pending.data ?? []).filter(o => !o.required_vehicle_type || o.required_vehicle_type === driver.data?.vehicle_type), settlements: settlements.data ?? [], loaded: Date.now() };
   }, [profile.id, profile.tambon_id, profile.is_test]);
