@@ -244,20 +244,23 @@ Deno.serve(async (req: Request) => {
     line_picture: payload.picture ?? null,
   };
 
-  const { data: foundId, error: lookupErr } = await admin.rpc("auth_user_id_for_line", {
-    p_line_user_id: lineUserId,
-    p_alias_email: aliasEmail,
-  });
+  // ค้นหา 2 อย่างพร้อมกัน (ไม่พึ่งกัน): บัญชีจากฟังก์ชันค้น + โปรไฟล์ที่ถือ line_user_id นี้ — เดิมรอทีละอัน
+  const [lookup, lineProfileRes] = await Promise.all([
+    admin.rpc("auth_user_id_for_line", { p_line_user_id: lineUserId, p_alias_email: aliasEmail }),
+    admin.from("profiles").select("id").eq("line_user_id", lineUserId).maybeSingle(),
+  ]);
+  const { data: foundId, error: lookupErr } = lookup;
   if (lookupErr) return json({ error: "lookup_failed", detail: lookupErr.message }, 500);
 
   let userId: string | null = (foundId as string | null) ?? null;
   let isNew = false;
+  // บัญชี auth ที่หาเจอ (ใช้อีเมลตอนออก session) — ถ้ายังไม่มีจะดึงทีหลัง
+  let account: { email?: string | null; user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> } | null = null;
 
   // โปรไฟล์ที่สมัครผ่านแชต LINE (ฟอร์มในบอท) มี line_user_id แต่ไม่มีบัญชีใน auth.users
   // RPC ข้างบนจึงหาไม่เจอ หรือไปเจอบัญชีเปล่าจากอีเมลแฝง แล้วผู้ใช้ตกไปหน้าสมัครใหม่ (เช่น ไรเดอร์ 12 ต.ค. 2569)
   // → สร้างบัญชี auth ด้วย id เดียวกับโปรไฟล์ ใช้อีเมลแฝงจาก id โปรไฟล์ เพราะอีเมลแฝงจาก LINE อาจถูกบัญชีเปล่าจองไว้แล้ว
-  const { data: lineProfile, error: lineProfileErr } = await admin
-    .from("profiles").select("id").eq("line_user_id", lineUserId).maybeSingle();
+  const { data: lineProfile, error: lineProfileErr } = lineProfileRes;
   if (lineProfileErr) return json({ error: "lookup_failed", detail: lineProfileErr.message }, 500);
   if (lineProfile && lineProfile.id !== userId) {
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -272,11 +275,24 @@ Deno.serve(async (req: Request) => {
     }
     userId = created.user.id;
   } else if (userId) {
-    // อัปเดตชื่อ/รูปให้ตรงกับ LINE ปัจจุบัน — ไม่ critical ถ้าพลาดก็ปล่อยผ่าน
-    const { error: identityErr } = await admin.auth.admin.updateUserById(userId, {
-      user_metadata: lineMeta, app_metadata: { line_user_id: lineUserId },
-    });
-    if (identityErr) return json({ error: "identity_write_failed" }, 500);
+    // ดึงบัญชีเดิมมาก่อน (ต้องใช้อีเมลอยู่แล้ว) แล้วอัปเดตชื่อ/รูปเฉพาะเมื่อเปลี่ยนจริง
+    // เดิมเขียนทุกครั้งที่ล็อกอิน เป็นการเรียก Admin API ที่ไม่จำเป็น 1 รอบ
+    const { data: existing, error: existingErr } = await admin.auth.admin.getUserById(userId);
+    if (existingErr || !existing?.user) {
+      return json({ error: "account_email_missing", detail: existingErr?.message }, 500);
+    }
+    account = existing.user;
+    const um = account.user_metadata ?? {};
+    const unchanged = um.provider === "line" && um.line_user_id === lineUserId
+      && (um.line_display_name ?? null) === lineMeta.line_display_name
+      && (um.line_picture ?? null) === lineMeta.line_picture
+      && account.app_metadata?.line_user_id === lineUserId;
+    if (!unchanged) {
+      const { error: identityErr } = await admin.auth.admin.updateUserById(userId, {
+        user_metadata: lineMeta, app_metadata: { line_user_id: lineUserId },
+      });
+      if (identityErr) return json({ error: "identity_write_failed" }, 500);
+    }
   } else {
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email: aliasEmail,
@@ -298,15 +314,22 @@ Deno.serve(async (req: Request) => {
   // ต้องใช้อีเมลของบัญชีที่หาเจอจริง ไม่ใช่อีเมลแฝงเสมอ — บัญชีที่สมัครด้วยเบอร์/อีเมลแล้วผูก LINE
   // มีอีเมลอื่น ถ้าใช้อีเมลแฝง generateLink จะสร้างบัญชีเปล่าใหม่ แล้วผู้ใช้ตกไปหน้าสมัคร
   // (บัญชีตัวแทนตำบล 12 ต.ค. 2569)
-  const { data: account, error: accountErr } = await admin.auth.admin.getUserById(userId);
-  const loginEmail = account?.user?.email;
-  if (accountErr || !loginEmail) {
-    return json({ error: "account_email_missing", detail: accountErr?.message }, 500);
+  if (!account) {
+    const { data: fetched, error: accountErr } = await admin.auth.admin.getUserById(userId);
+    if (accountErr || !fetched?.user?.email) {
+      return json({ error: "account_email_missing", detail: accountErr?.message }, 500);
+    }
+    account = fetched.user;
   }
-  const { data: link, error: linkErr } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email: loginEmail,
-  });
+  const loginEmail = account.email;
+  if (!loginEmail) return json({ error: "account_email_missing" }, 500);
+
+  // สร้างลิงก์ + อ่านโปรไฟล์ พร้อมกัน (ไม่พึ่งกัน) — โปรไฟล์ส่งกลับไปให้หน้าเว็บด้วย จะได้ไม่ต้องถามฐานข้อมูลอีกรอบ
+  const [linkRes, profileRes] = await Promise.all([
+    admin.auth.admin.generateLink({ type: "magiclink", email: loginEmail }),
+    admin.from("profiles").select("*").eq("id", userId).maybeSingle(),
+  ]);
+  const { data: link, error: linkErr } = linkRes;
   if (linkErr || !link?.properties?.hashed_token) {
     return json({ error: "generate_link_failed", detail: linkErr?.message }, 500);
   }
@@ -317,11 +340,7 @@ Deno.serve(async (req: Request) => {
   // ที่ล้มเหลวเงียบสนิท — ผู้ใช้ 4 คนล็อกอิน LINE สำเร็จตั้งแต่ 5 ก.ย. แต่โปรไฟล์
   // ไม่เคยได้ line_user_id เลยสักคน และไม่มีอะไรบอกว่าพลาด ผลคือระบบแจ้งเตือน
   // ส่งหา 0 คน ทั้งที่ทุกอย่างดู "สำเร็จ" หมด
-  const { data: profile, error: profileErr } = await admin
-    .from("profiles")
-    .select("id, role, line_user_id")
-    .eq("id", userId)
-    .maybeSingle();
+  const { data: profile, error: profileErr } = profileRes;
 
   // ผูก line_user_id ให้โปรไฟล์ที่ยังไม่มี (เช่นคนที่สมัครด้วยเบอร์มาก่อน)
   //
@@ -361,6 +380,8 @@ Deno.serve(async (req: Request) => {
     is_new_user: isNew,
     has_profile: Boolean(profile),
     link_state: linkState,
+    // โปรไฟล์ของผู้ใช้คนนี้เอง (additive) — หน้าเว็บใช้แทนการ select ซ้ำ · ไม่ส่งถ้าอ่านพลาด หน้าเว็บจะ select เองเหมือนเดิม
+    ...(profileErr ? {} : { profile: profile ? { ...profile, line_user_id: linkState === "linked" ? lineUserId : profile.line_user_id } : null }),
     display_name: payload.name ?? null,
     picture_url: payload.picture ?? null,
   });
