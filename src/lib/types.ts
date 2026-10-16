@@ -2046,6 +2046,8 @@ export type Database = {
       push_public_key: { Args: Record<PropertyKey, never>; Returns: string | null }
       push_save_subscription: { Args: { p_endpoint: string; p_p256dh: string; p_auth: string; p_kind: string; p_user_agent?: string }; Returns: undefined }
       push_remove_subscription: { Args: { p_endpoint: string }; Returns: undefined }
+      admin_send_sound_test: { Args: Record<PropertyKey, never>; Returns: Json }
+      admin_push_status: { Args: Record<PropertyKey, never>; Returns: Json }
       agent_memory_snapshot: { Args: { p_tambon_id: string }; Returns: Json }
       agent_work_save: { Args: { p_tambon_id: string; p_request_id: string; p_title: string; p_detail: string; p_category: string; p_due_on?: string | null; p_order_id?: number | null }; Returns: Json }
       agent_work_update: { Args: { p_task_id: string; p_request_id: string; p_version: number; p_action: string; p_note?: string }; Returns: Json }
