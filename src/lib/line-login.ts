@@ -35,9 +35,11 @@ export async function signInWithLineIdToken(idToken: string): Promise<LineSignIn
   const endpoint = functionsUrl();
   if (!endpoint) throw new LineSignInError("ยังไม่ได้ตั้งค่า Supabase");
 
+  // text/plain = "คำขอธรรมดา" ของเบราว์เซอร์ ไม่ต้องส่งคำขอถามสิทธิ์ (CORS preflight) ก่อน ประหยัดไป 1 รอบ (มือถือสัญญาณช้ารู้สึกชัด)
+  // ฟังก์ชัน line-login อ่านตัว body ด้วย req.json() ไม่ดู Content-Type จึงใช้ได้เหมือนเดิม
   const res = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "text/plain;charset=UTF-8" },
     body: JSON.stringify({ id_token: idToken }),
   });
 
