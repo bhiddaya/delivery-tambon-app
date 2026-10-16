@@ -35,19 +35,20 @@ export default function AdminDrillPage() {
       </Card>
       <AdminTambonPicker tambons={tambons} slug={slug} onChange={setSlug} />
       {message && <p role="status" className="mb-3 text-sm font-semibold">{message}</p>}
+      {!selected && <p className="mb-3 text-sm font-semibold text-clay">เลือกตำบลด้านบนก่อน แล้วปุ่มส่งจะขึ้น</p>}
       {selected && (
         <Card className="mb-3">
-          <p className="mb-2 text-sm font-semibold">ไรเดอร์และตัวแทน ({selected.name})</p>
+          <p className="mb-2 text-sm font-semibold">ส่งให้ไรเดอร์และตัวแทนตำบล ({selected.name})</p>
           <Button disabled={!!busy} onClick={() => send("ride", { p_kind: "ride", p_tambon_id: selected.id })}>{busy === "ride" ? "กำลังส่ง…" : "ส่งงานเรียกรถซ้อม"}</Button>
         </Card>
       )}
-      <h2 className="mb-2 text-sm font-semibold">ร้านค้า (ได้ยินพร้อมตัวแทน · ไรเดอร์ได้ยินด้วย)</h2>
+      <h2 className="mb-2 text-sm font-semibold">ส่งให้ร้านค้า ตัวแทนตำบล และไรเดอร์ (เลือกร้าน)</h2>
       {data.loading ? <p className="text-sm text-ink-soft">กำลังโหลด…</p> : shops.length === 0 ? <EmptyState>ยังไม่มีร้านจริงในตำบลนี้</EmptyState> : (
         <ul className="space-y-2">
           {shops.map(({ merchant }) => (
             <li key={merchant.id}><Card className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-sm">{merchant.name}{merchant.is_open ? "" : " · ปิดอยู่"}</span>
-              <Button variant="accent" disabled={!!busy || !merchant.is_open} onClick={() => send(merchant.id, { p_kind: "food", p_merchant_id: merchant.id })}>{busy === merchant.id ? "กำลังส่ง…" : "ส่งออเดอร์ซ้อมให้ร้านนี้"}</Button>
+              <Button variant="accent" disabled={!!busy || !merchant.is_open} onClick={() => send(merchant.id, { p_kind: "food", p_merchant_id: merchant.id })}>{busy === merchant.id ? "กำลังส่ง…" : "ส่งออเดอร์ซ้อม"}</Button>
             </Card></li>
           ))}
         </ul>
