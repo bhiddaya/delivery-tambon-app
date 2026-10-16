@@ -6,7 +6,8 @@ import { VIEW_AS_COOKIE } from "@/lib/auth-guard";
 /**
  * โหมด "ดูแทน" ของส่วนกลาง (อ่านอย่างเดียว)
  * /view-as?id=<profile> → ตั้ง cookie แล้วเปิดหน้าแรกของบทบาทคนนั้น · /view-as เฉย ๆ → ออกจากโหมด
- * /view-as?demo=merchant|driver → เลือกบัญชีทดสอบ (is_test) ที่อนุมัติแล้วของบทบาทนั้นให้ ใช้กับปุ่มเมนู LINE ของเจ้าของ
+ * /view-as?demo=merchant|driver → ปุ่มเมนู LINE ของเจ้าของ: เปิดร้าน/ไรเดอร์จริงที่ดูล่าสุด (จำไว้ 2 ชม.) ถ้ายังไม่เคยดู → ไปหน้ารายชื่อให้เลือก
+ * ไม่ใช้บัญชีทดสอบ เจ้าของต้องการเห็นข้อมูลจริงเหมือนที่ร้านค้า/ไรเดอร์เห็น
  * cookie ใช้ได้เฉพาะบัญชี superadmin (requireRole ตรวจซ้ำทุกหน้า) ตรงนี้ตรวจไว้กันตั้งค้างเปล่า ๆ
  */
 export async function GET(req: NextRequest) {
@@ -25,10 +26,12 @@ export async function GET(req: NextRequest) {
   if (me?.role !== "superadmin") return back("/app");
   if (!id) {
     if (demo !== "merchant" && demo !== "driver") return back("/admin/people");
-    const { data: sample } = await supabase.from("profiles").select("id").eq("role", demo).eq("is_test", true).eq("approved", true)
-      .is("suspended_at", null).order("created_at").limit(1);
-    id = sample?.[0]?.id ?? null;
-    if (!id) return back("/admin/people"); // ยังไม่มีบัญชีทดสอบของบทบาทนี้ → เลือกคนเองจากรายชื่อ
+    const list = demo === "driver" ? "/admin/people?tab=riders" : "/admin/people";
+    const last = req.cookies.get(VIEW_AS_COOKIE)?.value;
+    if (!last) return back(list);
+    const { data: prev } = await supabase.from("profiles").select("id, role, is_test").eq("id", last).maybeSingle();
+    if (!prev || prev.role !== demo || prev.is_test) return back(list);
+    id = prev.id;
   }
   const { data: target } = await supabase.from("profiles").select("role").eq("id", id).maybeSingle();
   if (!target || !["merchant", "driver", "customer"].includes(target.role)) return back("/admin/people");

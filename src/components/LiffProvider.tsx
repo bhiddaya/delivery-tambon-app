@@ -145,14 +145,20 @@ export default function LiffProvider({
         setIsLoggedIn(loggedIn);
 
         if (loggedIn) {
-          const p = await sdk.getProfile();
-          if (cancelled) return;
-          setProfile({
-            userId: p.userId,
-            displayName: p.displayName,
-            pictureUrl: p.pictureUrl,
-            statusMessage: p.statusMessage,
-          });
+          const load = async () => {
+            const p = await sdk.getProfile();
+            if (cancelled) return;
+            setProfile({
+              userId: p.userId,
+              displayName: p.displayName,
+              pictureUrl: p.pictureUrl,
+              statusMessage: p.statusMessage,
+            });
+          };
+          // หน้าเปิดงาน (/liff/entry) ใช้แค่ ID token ไม่ต้องรอโปรไฟล์จาก LINE (ช้าไป 1 รอบเครือข่าย) → โหลดทีหลังโดยไม่บล็อก
+          // หน้าอื่นรอเหมือนเดิม เพราะใช้ชื่อ/รหัส LINE ทันทีที่พร้อม
+          if (window.location.pathname.startsWith("/liff/entry")) void load().catch(() => {});
+          else await load();
         }
 
         setStatus("ready");
