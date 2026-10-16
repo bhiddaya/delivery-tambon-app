@@ -30,6 +30,22 @@ export function bangkokDayStart(now: number): number {
 export type MerchantInfo = { merchant: Tables<"merchants">; profile: Tables<"profiles"> | undefined; menuCount: number };
 export type DriverInfo = { driver: Tables<"drivers"> | undefined; profile: Tables<"profiles"> };
 
+/** ร้านจริงของตำบล: ตัดร้าน/บัญชีทดสอบ (is_test) ออก ตัวแทนไม่ต้องเห็นของทดสอบ */
+export function realShops(list: MerchantInfo[]): MerchantInfo[] {
+  return list.filter((m) => !m.merchant.is_test && !m.profile?.is_test);
+}
+export function realRiders(list: DriverInfo[]): DriverInfo[] {
+  return list.filter((d) => !d.profile.is_test);
+}
+
+/** ชื่อเจ้าของร้านที่ควรแสดงใต้ชื่อร้าน — ไม่แสดงถ้าซ้ำกับชื่อร้าน (เช่น ร้านใช้ชื่อเดียวกับเจ้าของ) */
+export function ownerLabel(shopName: string, ownerName: string | null | undefined): string | null {
+  const owner = (ownerName ?? "").trim();
+  const shop = shopName.trim();
+  if (!owner || shop.includes(owner) || owner.includes(shop)) return null;
+  return owner;
+}
+
 /** สิ่งที่ร้านยังขาดก่อนรับออเดอร์จริงได้ */
 export function merchantGaps(m: MerchantInfo): string[] {
   if (m.profile?.suspended_at) return [`ถูกระงับ: ${m.profile.suspended_reason ?? "-"}`];
