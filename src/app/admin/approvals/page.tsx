@@ -28,6 +28,7 @@ export default function ApprovalsPage() {
       .from("profiles")
       .select("*")
       .eq("approved", false)
+      .eq("is_test", false) // บัญชีทดสอบไม่ต้องให้ตัวแทนอนุมัติ
       .is("suspended_at", null);
     const driverProfiles = (profiles ?? []).filter((p) => p.role === "driver");
     const merchantProfiles = (profiles ?? []).filter((p) => p.role === "merchant");

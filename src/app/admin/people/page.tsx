@@ -7,7 +7,7 @@ import { AdminTambonPicker, useAdminTambon } from "@/components/AdminTambonPicke
 import { useTambonAdminData } from "@/components/useTambonAdminData";
 import { PersonActions } from "@/components/AgentActions";
 import { VEHICLE_LABEL, money } from "@/lib/domain";
-import { countWaitingApproval, driverGaps, merchantGaps, telHref } from "@/lib/tambon-admin";
+import { countWaitingApproval, driverGaps, merchantGaps, ownerLabel, realRiders, realShops, telHref } from "@/lib/tambon-admin";
 import { useSession } from "@/lib/session-context";
 
 /** ส่วนกลางเปิดหน้าของคนนี้แบบอ่านอย่างเดียว — route handler จึงใช้ <a> ไม่ใช่ Link */
@@ -24,7 +24,9 @@ export default function AdminPeoplePage() {
   const data = useTambonAdminData(selected?.id ?? null);
   const [tab, setTab] = useState<"shops" | "riders">("shops");
   const q = selected?.slug ? `?t=${selected.slug}` : "";
-  const waiting = countWaitingApproval(data.merchants, data.drivers);
+  const shops = realShops(data.merchants);
+  const riders = realRiders(data.drivers);
+  const waiting = countWaitingApproval(shops, riders);
   const isSuper = useSession().profile.role === "superadmin";
 
   return (
@@ -44,8 +46,8 @@ export default function AdminPeoplePage() {
       <div className="flex gap-1.5 mb-3">
         {(
           [
-            ["shops", `ร้านค้า (${data.merchants.length})`],
-            ["riders", `ไรเดอร์ (${data.drivers.length})`],
+            ["shops", `ร้านค้า (${shops.length})`],
+            ["riders", `ไรเดอร์ (${riders.length})`],
           ] as const
         ).map(([k, label]) => (
           <button
@@ -63,12 +65,13 @@ export default function AdminPeoplePage() {
       {data.loading ? (
         <p className="text-ink-soft text-sm">กำลังโหลด…</p>
       ) : tab === "shops" ? (
-        data.merchants.length === 0 ? (
+        shops.length === 0 ? (
           <EmptyState>ยังไม่มีร้านในตำบลนี้</EmptyState>
         ) : (
           <div className="flex flex-col gap-2">
-            {data.merchants.map((m) => {
+            {shops.map((m) => {
               const gaps = merchantGaps(m);
+              const owner = ownerLabel(m.merchant.name, m.profile?.full_name);
               const tel = telHref(m.profile?.phone);
               return (
                 <Card key={m.merchant.id}>
@@ -79,7 +82,7 @@ export default function AdminPeoplePage() {
                     </span>
                   </div>
                   <p className="text-ink-soft text-xs">
-                    {m.profile?.full_name ?? "-"} · เมนู {m.menuCount}
+                    {owner ? `${owner} · ` : ""}เมนู {m.menuCount}
                     {tel && (
                       <a href={tel} className="text-indigo font-semibold ml-2">
                         โทร {m.profile?.phone}
@@ -105,11 +108,11 @@ export default function AdminPeoplePage() {
             })}
           </div>
         )
-      ) : data.drivers.length === 0 ? (
+      ) : riders.length === 0 ? (
         <EmptyState>ยังไม่มีไรเดอร์ในตำบลนี้</EmptyState>
       ) : (
         <div className="flex flex-col gap-2">
-          {data.drivers.map((d) => {
+          {riders.map((d) => {
             const gaps = driverGaps(d);
             const tel = telHref(d.profile.phone);
             return (
