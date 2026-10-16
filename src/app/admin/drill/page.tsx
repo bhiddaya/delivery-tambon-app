@@ -29,7 +29,8 @@ export default function AdminDrillPage() {
     <div>
       <PageHeading title="ออเดอร์ซ้อม" subtitle="ทดสอบเสียงแจ้งเตือนในหน้า PWA" />
       <Card className="mb-3 text-sm leading-7">
-        <p>ให้ร้านค้า ไรเดอร์ และตัวแทนตำบลเปิดหน้างานค้างไว้ กด &quot;แตะเพื่อเปิดเสียง&quot; แล้วกดปุ่มด้านล่าง</p>
+        <p>เจ้าของกดแค่ปุ่มด้านล่าง ระบบส่งงานซ้อมถึงร้าน ไรเดอร์ และตัวแทนตำบลให้เอง</p>
+        <p className="text-ink-soft">เสียงดังเฉพาะมือถือของคนที่เปิดหน้างานค้างไว้ และเคยกด &quot;แตะเพื่อเปิดเสียง&quot; ในมือถือตัวเองแล้ว 1 ครั้ง (ข้อบังคับของมือถือ ทำแทนไม่ได้)</p>
         <p className="text-ink-soft">ไม่นับเป็นออเดอร์จริง ไม่มีเงิน ไม่ส่ง LINE ถ้าไม่มีไรเดอร์รับ ระบบยกเลิกเองใน 15 นาที</p>
       </Card>
       <AdminTambonPicker tambons={tambons} slug={slug} onChange={setSlug} />
