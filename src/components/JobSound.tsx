@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui";
+import PushToggle from "@/components/PushToggle";
 import { useOptionalSession } from "@/lib/session-context";
 import { PEAK_GAIN, VOICE_TEXT, defaultSound, soundPlan, soundSettings, type SoundKind, type SoundSettings } from "@/lib/job-sound";
 
@@ -140,6 +141,7 @@ export default function JobSound({ ids, scope, kind, streamScope = scope }: { id
       ? <p className="text-sm font-semibold">{KIND_LABEL[kind]} · เปิดอยู่<span className="block text-xs font-normal text-ink-soft">เปิดหน้านี้ค้างไว้ หน้าจอจะไม่ดับ</span></p>
       : <><p className="mb-2 text-sm font-semibold">{KIND_LABEL[kind]}</p><Button className="w-full" onClick={() => void activate(!armed)}>{armed ? "แตะ 1 ครั้งเพื่อเริ่มฟังเสียงงานใหม่" : "แตะเพื่อเปิดเสียงแจ้งเตือนงานใหม่"}</Button></>}
     <div className="mt-2 flex flex-wrap gap-2"><Button variant="ghost" onClick={() => void activate()}>ทดลองเสียง</Button><Button variant="ghost" disabled={!ringing} onClick={stop}>หยุดเสียงรอบนี้</Button>{enabled && <Button variant="ghost" onClick={turnOff}>ปิดเสียงงานใหม่</Button>}</div>
+    {!viewAs && <PushToggle kind={kind} />}
     <details className="mt-2"><summary className="min-h-11 cursor-pointer text-sm text-indigo">ตั้งเสียง จำนวนครั้ง และระยะเวลา</summary>
       <div className="mt-2 grid grid-cols-2 gap-3 text-sm"><label>โทนเสียง<select className="mt-1 min-h-11 w-full rounded-lg border border-border bg-surface px-2" value={settings.tone} onChange={e => change({ tone: e.target.value as SoundSettings["tone"] })}><option value="voice">แตร + พูด &quot;บวรไทยมาแล้ว&quot;</option><option value="fanfare">แตรเร้าใจ · ติ๊ด ติ๊ด ติ๊ด ตู๊ด</option><option value="chime">เสียงร้าน · ไล่โน้ต</option><option value="pulse">เสียงไรเดอร์ · สองจังหวะ</option><option value="bell">เสียงระฆัง</option></select></label>
       {([{ field: "repeats", label: "เตือนกี่ครั้ง", min: 1, max: 10 }, { field: "seconds", label: "ครั้งละ (วินาที)", min: 1, max: 10 }, { field: "gap", label: "เว้นช่วง (วินาที)", min: 1, max: 30 }] as const).map(f => <label key={f.field}>{f.label}<input className="mt-1 min-h-11 w-full rounded-lg border border-border px-2" type="number" min={f.min} max={f.max} value={settings[f.field]} onChange={e => change({ [f.field]: Number(e.target.value) })} /></label>)}</div>

@@ -45,3 +45,31 @@ self.addEventListener("fetch", (event) => {
     return response;
   })());
 });
+
+// Web Push (แจ้งเตือนของมือถือ): เสียงเป็นของเครื่อง · ข้อความ การสั่น และการค้างจนกดอ่านกำหนดจากเซิร์ฟเวอร์ (push-notify)
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data ? event.data.text() : "" }; }
+  event.waitUntil(self.registration.showNotification(data.title || "บวรไทย", {
+    body: data.body || "",
+    tag: data.tag,
+    renotify: Boolean(data.tag),
+    requireInteraction: true,
+    vibrate: data.vibrate,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url: data.url || "/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  event.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const same = open.find((client) => client.url === target);
+    if (same) return same.focus();
+    if (open[0] && "navigate" in open[0]) { await open[0].focus(); return open[0].navigate(target); }
+    return self.clients.openWindow(target);
+  })());
+});
