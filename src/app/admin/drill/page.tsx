@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { AdminTambonPicker, useAdminTambon } from "@/components/AdminTambonPicker";
+import JobSound from "@/components/JobSound";
 import { useTambonAdminData } from "@/components/useTambonAdminData";
 import { Button, Card, EmptyState, PageHeading } from "@/components/ui";
-import { sendDrill, type DrillArgs } from "@/lib/drill";
+import { activeDrillIds, sendDrill, type DrillArgs } from "@/lib/drill";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { realShops } from "@/lib/tambon-admin";
@@ -17,6 +18,8 @@ export default function AdminDrillPage() {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const shops = realShops(data.merchants);
+  // เจ้าของได้ยินเสียงบนเครื่องนี้ด้วย: ออเดอร์ซ้อมใหม่ของตำบลที่เลือกโผล่ในรายการ → ดัง (เปิดหน้านี้ค้างไว้และกดเปิดเสียงก่อน)
+  const drillIds = data.loading || !selected ? null : activeDrillIds(data.orders);
 
   async function send(key: string, args: DrillArgs) {
     setBusy(key); setMessage("");
@@ -29,13 +32,14 @@ export default function AdminDrillPage() {
     <div>
       <PageHeading title="ออเดอร์ซ้อม" subtitle="ทดสอบเสียงแจ้งเตือนในหน้า PWA" />
       <Card className="mb-3 text-sm leading-7">
-        <p>เจ้าของกดแค่ปุ่มด้านล่าง ระบบส่งงานซ้อมถึงร้าน ไรเดอร์ และตัวแทนตำบลให้เอง</p>
+        <p>เจ้าของกดแค่ปุ่มด้านล่าง ระบบส่งงานซ้อมถึงร้าน ไรเดอร์ และตัวแทนตำบลให้เอง · อยากได้ยินเสียงบนมือถือเครื่องนี้ เลือกตำบล แล้วกด &quot;แตะเพื่อเปิดเสียง&quot; ก่อนกดส่ง และเปิดหน้านี้ค้างไว้</p>
         <p className="text-ink-soft">เสียงดังเฉพาะมือถือของคนที่เปิดหน้างานค้างไว้ และเคยกด &quot;แตะเพื่อเปิดเสียง&quot; ในมือถือตัวเองแล้ว 1 ครั้ง (ข้อบังคับของมือถือ ทำแทนไม่ได้)</p>
         <p className="text-ink-soft">ไม่นับเป็นออเดอร์จริง ไม่มีเงิน ไม่ส่ง LINE ถ้าไม่มีไรเดอร์รับ ระบบยกเลิกเองใน 15 นาที</p>
       </Card>
       <AdminTambonPicker tambons={tambons} slug={slug} onChange={setSlug} />
       {message && <p role="status" className="mb-3 text-sm font-semibold">{message}</p>}
       {!selected && <p className="mb-3 text-sm font-semibold text-clay">เลือกตำบลด้านบนก่อน แล้วปุ่มส่งจะขึ้น</p>}
+      {selected && <JobSound key={selected.id} kind="agent" scope={`drill:${selected.id}`} ids={drillIds} />}
       {selected && (
         <Card className="mb-3">
           <p className="mb-2 text-sm font-semibold">ส่งให้ไรเดอร์และตัวแทนตำบล ({selected.name})</p>

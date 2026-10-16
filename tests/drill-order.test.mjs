@@ -11,12 +11,15 @@ const require = createRequire(path.join(base, 'package.json'));
 const out = path.join(base, 'node_modules/.cache/drill.cjs');
 fs.mkdirSync(path.dirname(out), { recursive: true });
 await esbuild.build({ entryPoints: [path.join(base, 'src/lib/drill.ts')], bundle: true, platform: 'node', format: 'cjs', outfile: out, tsconfig: path.join(base, 'tsconfig.json') });
-const { riderOrderFilter, sendDrill } = require(out);
+const { riderOrderFilter, sendDrill, activeDrillIds } = require(out);
 
 // real riders: real orders (food only when paid) plus every drill; test riders: test orders only, same paid rule
 assert.equal(riderOrderFilter(false), 'and(is_test.eq.false,or(type.neq.food,customer_paid_at.not.is.null)),is_drill.eq.true');
 assert.equal(riderOrderFilter(true), 'and(is_test.eq.true,or(type.neq.food,customer_paid_at.not.is.null))');
 assert.ok(!riderOrderFilter(true).includes('is_drill'), 'test riders never need the drill clause (drills are test orders)');
+
+// owner's own sound: only open drill orders count, so a new one appearing rings and a cancelled/real one does not
+assert.deepEqual(activeDrillIds([{ id: 1, status: 'pending', is_drill: true }, { id: 2, status: 'cancelled', is_drill: true }, { id: 3, status: 'pending' }, { id: 4, status: 'accepted', is_drill: true }]), [1, 4]);
 
 // send helper: success names the order; a closed shop and other failures get plain Thai
 const db = (res) => ({ rpc: async (name, args) => { db.last = [name, args]; return res; } });
