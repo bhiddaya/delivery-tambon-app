@@ -68,10 +68,17 @@ export function buildPayload(order: OrderInfo, kind: PushKind) {
   return { title, body, url: URL_OF[kind], tag: `order-${order.id}-${kind}`, vibrate: VIBRATE[kind] };
 }
 
-/** สัญญาณทดสอบเสียง: ไม่ผูกกับออเดอร์ ผู้รับไม่ต้องทำอะไร */
+/**
+ * สัญญาณทดสอบเสียง: ทำให้เหมือนแจ้งเตือนงานจริง (มีเลขที่ ชนิดงาน และข้อความเฉพาะเจาะจง)
+ * เพราะ Chrome มือถือตรวจข้อความอัตโนมัติและถอนสิทธิ์เว็บที่ส่งข้อความทดสอบแบบกว้างๆ ซ้ำๆ ว่าเป็นสแปม (17 ต.ค. 69)
+ */
 export function buildBroadcastPayload(kind: PushKind, sentAt = Date.now()) {
+  const hhmm = new Date(sentAt + 7 * 3_600_000).toISOString().slice(11, 16);
+  const code = `ซ้อม${hhmm.replace(":", "")}`;
+  const title = kind === "merchant" ? `[ซ้อม] 🛒 ออเดอร์ใหม่ #${code}` : kind === "driver" ? `[ซ้อม] 🛵 งานใหม่ #${code}` : `[ซ้อม] 📋 ออเดอร์ใหม่ #${code}`;
+  const body = kind === "merchant" ? "งานซ้อมเสียงแจ้งเตือนของบวรไทย ไม่ต้องเตรียมอาหาร" : "งานซ้อมเสียงแจ้งเตือนของบวรไทย ไม่ต้องรับงาน";
   // tag ไม่ซ้ำทุกครั้ง: ถ้า tag ซ้ำ มือถือถือว่าเป็นการอัปเดตแจ้งเตือนเดิมและอาจไม่ส่งเสียงซ้ำ
-  return { title: "[ซ้อม] 🔔 ทดสอบเสียงแจ้งเตือน", body: "ถ้าได้ยินเสียงนี้ แปลว่าแจ้งเตือนใช้ได้ ไม่ต้องทำอะไร", url: URL_OF[kind], tag: `sound-test-${sentAt}`, vibrate: VIBRATE[kind] };
+  return { title, body, url: URL_OF[kind], tag: `sound-test-${sentAt}`, vibrate: VIBRATE[kind] };
 }
 
 type Target = { id: string; endpoint: string; p256dh: string; auth: string; kind: PushKind };
