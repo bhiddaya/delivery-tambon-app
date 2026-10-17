@@ -69,8 +69,9 @@ export function buildPayload(order: OrderInfo, kind: PushKind) {
 }
 
 /** สัญญาณทดสอบเสียง: ไม่ผูกกับออเดอร์ ผู้รับไม่ต้องทำอะไร */
-export function buildBroadcastPayload(kind: PushKind) {
-  return { title: "[ซ้อม] 🔔 ทดสอบเสียงแจ้งเตือน", body: "ถ้าได้ยินเสียงนี้ แปลว่าแจ้งเตือนใช้ได้ ไม่ต้องทำอะไร", url: URL_OF[kind], tag: "sound-test", vibrate: VIBRATE[kind] };
+export function buildBroadcastPayload(kind: PushKind, sentAt = Date.now()) {
+  // tag ไม่ซ้ำทุกครั้ง: ถ้า tag ซ้ำ มือถือถือว่าเป็นการอัปเดตแจ้งเตือนเดิมและอาจไม่ส่งเสียงซ้ำ
+  return { title: "[ซ้อม] 🔔 ทดสอบเสียงแจ้งเตือน", body: "ถ้าได้ยินเสียงนี้ แปลว่าแจ้งเตือนใช้ได้ ไม่ต้องทำอะไร", url: URL_OF[kind], tag: `sound-test-${sentAt}`, vibrate: VIBRATE[kind] };
 }
 
 type Target = { id: string; endpoint: string; p256dh: string; auth: string; kind: PushKind };
@@ -139,7 +140,8 @@ Deno.serve(async (req: Request) => {
     const targets = (data ?? []) as Target[];
     if (body.dry_run === true) return json({ ok: true, dry_run: true, targets: targets.length, by_kind: countByKind(targets) });
     webpush.setVapidDetails(SITE, keys.public as string, keys.private as string);
-    return json(await deliver(admin, targets, buildBroadcastPayload));
+    const sentAt = Date.now();
+    return json(await deliver(admin, targets, (kind) => buildBroadcastPayload(kind, sentAt)));
   }
 
   const orderId = Number(body.order_id);
