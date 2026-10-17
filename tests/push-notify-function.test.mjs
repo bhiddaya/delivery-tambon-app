@@ -116,7 +116,7 @@ const call = async (body, secret = SECRET) => {
   const r = await call({ action: 'broadcast' });
   assert.equal(r.body.targets, 4); assert.equal(r.body.sent, 3); assert.equal(r.body.removed, 1);
   const by = Object.fromEntries(c.sent.map(x => [x.endpoint.split('/').pop(), x.payload]));
-  assert.equal(by.a1.title, '[ซ้อม] 🔔 ทดสอบเสียงแจ้งเตือน'); assert.match(by.a1.body, /ไม่ต้องทำอะไร/); assert.equal(by.a1.tag, 'sound-test');
+  assert.match(by.a1.title, /^\[ซ้อม\] 📋 ออเดอร์ใหม่ #ซ้อม\d{4}$/); assert.match(by.d1.title, /^\[ซ้อม\] 🛵 งานใหม่ #ซ้อม\d{4}$/); assert.match(by.m1.title, /^\[ซ้อม\] 🛒 ออเดอร์ใหม่ #ซ้อม\d{4}$/); assert.match(by.a1.body, /ไม่ต้องรับงาน/); assert.match(by.m1.body, /ไม่ต้องเตรียมอาหาร/); assert.match(by.a1.tag, /^sound-test-\d+$/); assert.equal(by.a1.tag, by.d1.tag, 'one broadcast = one tag'); assert.notEqual(by.a1.tag, 'sound-test');
   assert.deepEqual([by.a1.url, by.d1.url, by.m1.url], ['/admin/workspace', '/driver', '/merchant/orders']);
   assert.notDeepEqual(by.a1.vibrate, by.d1.vibrate);
   assert.deepEqual(c.rpc.find(([n]) => n === 'push_delete_subscriptions')[1], { p_ids: ['m2'] });
