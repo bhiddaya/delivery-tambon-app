@@ -43,7 +43,7 @@ export default function RegisterCustomer() {
   }, [session.ready, session.profile, session.liff.profile?.displayName]);
   useEffect(() => {
     const p = session.profile;
-    if (session.ready && p?.role === "customer" && p.full_name && p.phone && p.tambon_id) {
+    if (session.ready && p?.full_name && p.phone) {
       router.replace(safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? base);
     }
   }, [session.ready, session.profile, router, base]);

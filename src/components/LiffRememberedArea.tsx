@@ -7,7 +7,7 @@ export default function LiffRememberedArea({ areas, shops, slug }: { areas: { id
   const session = useLineSession();
   const router = useRouter();
   useEffect(() => {
-    if (!session.ready || !session.profile?.tambon_id || session.profile.role !== "customer") return;
+    if (!session.ready || !session.profile?.tambon_id) return;
     const area = slug ? areas.find(t => t.slug === slug) : areas.find(t => t.id === session.profile?.tambon_id);
     if (!area) return;
     // ไม่พาเข้าหน้าร้านอัตโนมัติแม้ตำบลมีร้านเดียว ลูกค้าเห็นช่องค้นหาและการ์ดอาหารเสมอ (อาจารย์สั่ง 12 ต.ค. 2569)
