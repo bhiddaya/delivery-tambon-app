@@ -2040,6 +2040,18 @@ export type Database = {
       }
     }
     Functions: {
+      cashbook_month: {
+        Args: { p_scope: string; p_month: string; p_page?: number }
+        Returns: Json
+      }
+      cashbook_record: {
+        Args: { p_scope: string; p_date: string; p_kind: string; p_amount: number; p_category: string; p_note: string; p_request: string }
+        Returns: string
+      }
+      cashbook_void: {
+        Args: { p_id: string; p_reason: string }
+        Returns: boolean
+      }
       agent_dashboard_areas: { Args: Record<PropertyKey, never>; Returns: Json }
       agent_dashboard: { Args: { p_tambon_id: string; p_status?: string; p_offset?: number }; Returns: Json }
       admin_send_drill_order: { Args: { p_kind?: string; p_merchant_id?: string; p_tambon_id?: string }; Returns: Json }

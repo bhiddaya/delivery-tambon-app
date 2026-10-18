@@ -21,7 +21,7 @@ export default function AppShell({ role, children }: { role: UserRole; children:
   const effectiveRole = profile.role === "superadmin" ? "superadmin" : role;
   const pathname = usePathname();
   const router = useRouter();
-  const links = NAV[effectiveRole];
+  const links = [...NAV[effectiveRole], {href:"/account/cashbook",label:"รายรับ–รายจ่ายส่วนตัว",icon:Wallet}, ...(effectiveRole==="superadmin" ? [{href:"/finance/cashbook",label:"บัญชีโครงการดิลิเวอรี่",icon:Wallet}] : [])];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -61,3 +61,4 @@ export default function AppShell({ role, children }: { role: UserRole; children:
     <dialog ref={menuDialog} onClose={() => setMenuOpen(false)} onCancel={() => setMenuOpen(false)} className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[85dvh] w-full max-w-none overflow-y-auto rounded-t-3xl border-0 bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-ink backdrop:bg-ink/35" aria-label="เมนูทั้งหมด"><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-semibold">เมนูทั้งหมด</h2><button type="button" onClick={() => setMenuOpen(false)} aria-label="ปิดเมนู" className="flex h-11 w-11 items-center justify-center rounded-xl border border-border"><X size={20} /></button></div><nav className="space-y-1">{navItems()}</nav><div className="mt-5"><InstallPwa /></div><button type="button" onClick={signOut} disabled={busy} className="mt-4 flex min-h-12 w-full items-center gap-3 rounded-xl bg-clay-tint px-4 text-sm font-semibold text-clay"><LogOut size={18} aria-hidden="true" />ออกจากระบบ</button></dialog>
   </div>;
 }
+
