@@ -1,0 +1,43 @@
+begin;
+do $$
+declare a uuid:=gen_random_uuid(); b uuid:=gen_random_uuid(); boss uuid:=gen_random_uuid(); sid uuid:=gen_random_uuid();
+ rid uuid:=gen_random_uuid(); eid uuid; shared uuid; n int; report jsonb;
+begin
+ insert into auth.users(id,email,raw_app_meta_data,raw_user_meta_data) values
+ (a,'cashbook-a-'||a||'@qa.invalid','{}','{}'),(b,'cashbook-b-'||b||'@qa.invalid','{}','{}'),(boss,'cashbook-boss-'||boss||'@qa.invalid','{}','{}');
+ insert into public.profiles(id,full_name,role,approved,is_test) values(a,'QA cashbook A','customer',true,true),(b,'QA cashbook B','customer',true,true),(boss,'QA cashbook central','superadmin',true,true);
+ insert into auth.sessions(id,user_id,created_at,updated_at) values(sid,boss,now(),now());
+ insert into auth.mfa_amr_claims(id,session_id,created_at,updated_at,authentication_method) values(gen_random_uuid(),sid,now(),now(),'password');
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',a,'role','authenticated')::text,true);
+ execute 'set local role authenticated';
+ eid:=public.cashbook_record('personal','2026-10-18','income',100.25,'QA','test',rid);
+ if eid<>public.cashbook_record('personal','2026-10-18','income',100.25,'QA','test',rid) then raise exception 'duplicate'; end if;
+ begin perform public.cashbook_record('personal','2026-10-18','income',200,'QA','test',rid); raise exception 'reused request changed'; exception when invalid_parameter_value then null; end;
+ begin perform public.cashbook_record('delivery','2026-10-18','income',1,'QA','',gen_random_uuid()); raise exception 'member project write'; exception when insufficient_privilege then null; end;
+ begin perform public.cashbook_record('personal','2026-10-18','expense',1.001,'QA','',gen_random_uuid()); raise exception 'precision accepted'; exception when invalid_parameter_value then null; end;
+ begin update public.cashbook_entries set amount=3 where id=eid; raise exception 'amount overwrite'; exception when insufficient_privilege then null; end;
+ begin delete from public.cashbook_entries where id=eid; raise exception 'history delete'; exception when insufficient_privilege then null; end;
+ report:=public.cashbook_month('personal','2026-10-01');
+ if (report->>'income')::numeric<>100.25 or (report->>'count')::int<>1 then raise exception 'totals'; end if;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',b,'role','authenticated')::text,true);
+ select count(*) into n from public.cashbook_entries where id=eid; if n<>0 then raise exception 'other personal leaked'; end if;
+ if public.cashbook_void(eid,'attempt') then raise exception 'other void'; end if;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',boss,'role','authenticated','session_id',sid)::text,true);
+ select count(*) into n from public.cashbook_entries where id=eid; if n<>0 then raise exception 'admin personal leaked'; end if;
+ shared:=public.cashbook_record('delivery','2026-10-18','expense',25,'QA','',gen_random_uuid());
+ report:=public.cashbook_month('delivery','2026-10-01'); if (report->>'expense')::numeric<>25 then raise exception 'project total'; end if;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',a,'role','authenticated')::text,true);
+ begin perform public.cashbook_month('delivery','2026-10-01'); raise exception 'member project report'; exception when insufficient_privilege then null; end;
+ if not public.cashbook_void(eid,'QA correction') then raise exception 'own void failed'; end if;
+ report:=public.cashbook_month('personal','2026-10-01');
+ if (report->>'income')::numeric<>0 or (report->>'count')::int<>1 then raise exception 'void history/total'; end if;
+ begin update public.cashbook_entries set voided_at=null where id=eid; raise exception 'unvoid allowed'; exception when invalid_parameter_value then null; end;
+ execute 'reset role';
+ update public.profiles set suspended_at=now() where id=a;
+ execute 'set local role authenticated';
+ select count(*) into n from public.cashbook_entries where id=eid; if n<>0 then raise exception 'suspended personal read'; end if;
+ execute 'reset role';
+ if has_table_privilege('anon','public.cashbook_entries','SELECT') or has_function_privilege('anon','public.cashbook_record(text,date,text,numeric,text,text,uuid)','EXECUTE') then raise exception 'anonymous access'; end if;
+ raise notice 'Cashbook rollback checks passed';
+end $$;
+rollback;
