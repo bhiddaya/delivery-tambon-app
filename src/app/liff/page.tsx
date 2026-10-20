@@ -67,7 +67,7 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
       {failed ? (
         <p role="status" className="mt-6 rounded-2xl bg-[#fbebd6] p-5 text-sm leading-7 text-[#75450f]">ยังโหลดรายชื่อร้านไม่ได้ กรุณาลองใหม่อีกครั้ง</p>
       ) : groups.length === 0 ? (
-        <p role="status" className="mt-6 rounded-2xl bg-[#eff1ec] p-5 text-sm leading-7 text-[#5b6478]">ตอนนี้ยังไม่มีร้านในพื้นที่นี้ กลับมาดูใหม่ภายหลังได้</p>
+        <p role="status" className="mt-6 rounded-2xl bg-[#eff1ec] p-5 text-sm leading-7 text-[#5b6478]">ตอนนี้ยังไม่มีร้านในพื้นที่นี้ กลับมาดูใหม่ภายหลังได้{slug && <span> · <BaseLink className="font-semibold text-indigo underline" href="/">ดูร้านตำบลอื่น</BaseLink></span>}</p>
       ) : (
         <LiffFoodBrowser
           groups={groups.map(({ area, shops: list }) => ({ id: area.id, label: tambonDisplayName(area.name), shops: list.map(({ id, name, category, is_open }) => ({ id, name, category, isOpen: is_open })) }))}

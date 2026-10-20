@@ -41,6 +41,7 @@ async function render(searchParams = {}) {
       'next/link': { default: 'Link' },
       '@/components/LiffRememberedArea': { default: 'LiffRememberedArea' },
       '@/components/LiffFoodBrowser': { default: 'LiffFoodBrowser' },
+      '@/lib/liff-base': { BaseLink: 'BaseLink' },
       '@/lib/supabase/server': {
         isSupabaseConfigured: () => true,
         createClient: async () => { used.push('session'); return fakeDb(adminShops); },
@@ -66,4 +67,6 @@ test('a tambon with no public shop shows the empty message', async () => {
   const r = await render({ t: 'bungmai' });
   assert(r.text.includes('ยังไม่มีร้านในพื้นที่นี้'));
   assert(!r.text.includes('ร้านทดสอบ'));
+  // ตำบลที่ยังไม่มีร้านต้องมีทางออกไปดูร้านตำบลอื่น ไม่งั้นบัญชีที่อยู่ตำบลนั้นสั่งอะไรไม่ได้เลย
+  assert(r.text.includes('ดูร้านตำบลอื่น'));
 });
