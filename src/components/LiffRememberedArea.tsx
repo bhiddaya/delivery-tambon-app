@@ -11,7 +11,8 @@ export default function LiffRememberedArea({ areas, shops, slug }: { areas: { id
     const area = slug ? areas.find(t => t.slug === slug) : areas.find(t => t.id === session.profile?.tambon_id);
     if (!area) return;
     // ไม่พาเข้าหน้าร้านอัตโนมัติแม้ตำบลมีร้านเดียว ลูกค้าเห็นช่องค้นหาและการ์ดอาหารเสมอ (อาจารย์สั่ง 12 ต.ค. 2569)
-    if (!slug) router.replace(`/liff?t=${encodeURIComponent(area.slug)}`);
+    // พาไปตำบลที่จำไว้เฉพาะเมื่อตำบลนั้นมีร้าน ไม่งั้นบัญชีที่ตำบลยังไม่มีร้าน (เช่น ผู้ดูแล) ติดหน้าว่าง สั่งตำบลอื่นไม่ได้
+    if (!slug && shops.some(s => s.tambon_id === area.id)) router.replace(`/liff?t=${encodeURIComponent(area.slug)}`);
   }, [session.ready, session.profile, areas, shops, slug, router]);
   return null;
 }
