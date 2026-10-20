@@ -17,12 +17,13 @@ function load(file, sandbox) {
 const area = (id, name, slug) => ({ id, name, slug });
 const shop = (id, name, tambon_id) => ({ id, name, category: null, tambon_id });
 const areas = [area('k', 'คลองกุ่ม', 'khalong-kum'), area('b', 'บุ่งไหม', 'bungmai')];
-const publicShops = [shop('s1', 'ร้านจริง', 'k')];
+// s3 ยังไม่ปักหมุด (lat/lng ว่าง) — คิดค่าส่งไม่ได้
+const publicShops = [shop('s1', 'ร้านจริง', 'k'), shop('s3', 'ร้านไม่มีหมุด', 'k')];
 // ผู้ดูแลระดับสูงอ่านร้านทดสอบที่เปิดอยู่ได้ด้วย (policy merchants_select_scoped) ลูกค้าและผู้เยี่ยมชมอ่านไม่ได้
 const adminShops = [...publicShops, shop('s2', 'ร้านทดสอบ', 'b')];
 
 const fakeDb = shops => ({
-  rpc: async () => ({ data: true, error: null }),
+  rpc: async (name, args) => ({ data: name !== 'shop_has_pin' || args.p_merchant_id !== 's3', error: null }),
   from: table => {
     const result = { data: table === 'tambons' ? areas : shops, error: null };
     const c = { then: (resolve, reject) => Promise.resolve(result).then(resolve, reject) };
@@ -69,4 +70,11 @@ test('a tambon with no public shop shows the empty message', async () => {
   assert(!r.text.includes('ร้านทดสอบ'));
   // ตำบลที่ยังไม่มีร้านต้องมีทางออกไปดูร้านตำบลอื่น ไม่งั้นบัญชีที่อยู่ตำบลนั้นสั่งอะไรไม่ได้เลย
   assert(r.text.includes('ดูร้านตำบลอื่น'));
+});
+
+test('a shop without a pin is shown as not orderable, a pinned shop stays open', async () => {
+  const r = await render();
+  // ร้านเปิดอยู่แต่ไม่มีหมุด ต้องไม่ขึ้น "เปิดอยู่" ไม่งั้นลูกค้าใส่ตะกร้าแล้วไปตกตอนสรุปยอด (shop_no_pin)
+  assert.match(r.text, /"id":"s3","name":"ร้านไม่มีหมุด","category":null,"isOpen":false,"hasPin":false/);
+  assert.match(r.text, /"id":"s1","name":"ร้านจริง","category":null,"isOpen":true,"hasPin":true/);
 });

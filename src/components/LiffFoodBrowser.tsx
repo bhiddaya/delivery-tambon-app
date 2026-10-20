@@ -9,9 +9,9 @@ import { readBasket, writeBasket } from "@/lib/quick-food-store";
 import type { Basket } from "@/rebuilt/order-logic";
 import { useLiffBase } from "@/lib/liff-base";
 
-export type BrowserShop = { id: string; name: string; category: string | null; isOpen: boolean };
+export type BrowserShop = { id: string; name: string; category: string | null; isOpen: boolean; hasPin: boolean };
 export type BrowserGroup = { id: string; label: string; shops: BrowserShop[] };
-export type BrowserItem = { id: string; name: string; price: number; photo: string | null; description: string | null; shopId: string; shopName: string; shopOpen: boolean };
+export type BrowserItem = { id: string; name: string; price: number; photo: string | null; description: string | null; shopId: string; shopName: string; shopOpen: boolean; shopPin: boolean };
 
 type Filter = "all" | ShopKind | "open";
 const FILTERS: { id: Filter; label: string }[] = [
@@ -34,7 +34,7 @@ function ItemCard({ item, wide, qty, onAdjust }: { item: BrowserItem; wide?: boo
   return <div className={`relative min-w-0 ${wide ? "w-36 flex-none snap-start" : ""}`}>
     <Link href={shopHref(item.shopId)} className={`block active:opacity-80 ${item.shopOpen ? "" : "opacity-60"}`}>
       <ProductPhoto src={item.photo} name={item.name} className={`aspect-square rounded-2xl border border-[#e7e9e1] ${item.shopOpen ? "" : "grayscale"}`} />
-      {!item.shopOpen && <span className="absolute left-2 top-2 rounded-full bg-[#1c2333]/80 px-2.5 py-1 text-xs font-semibold text-white">ร้านปิดอยู่</span>}
+      {!item.shopOpen && <span className="absolute left-2 top-2 rounded-full bg-[#1c2333]/80 px-2.5 py-1 text-xs font-semibold text-white">{item.shopPin ? "ร้านปิดอยู่" : "ยังสั่งไม่ได้"}</span>}
       <p className="mt-2 text-lg font-bold">{money(item.price)}</p>
       <p className="line-clamp-2 text-sm leading-5">{item.name}</p>
       {!wide && <p className="truncate text-xs text-[#5b6478]">{item.shopName}</p>}
@@ -44,8 +44,8 @@ function ItemCard({ item, wide, qty, onAdjust }: { item: BrowserItem; wide?: boo
       {qty > 0 ? <div className="pointer-events-auto flex items-center rounded-full bg-white shadow-md">
         <button type="button" aria-label={`ลด ${item.name}`} className={`${round} text-[#06a14a]`} onClick={() => onAdjust(-1)}><Minus size={16} aria-hidden="true" /></button>
         <output aria-label={`จำนวน ${item.name}`} className="min-w-5 text-center text-sm font-bold tabular-nums">{qty}</output>
-        <button type="button" disabled={qty >= 99} aria-label={`เพิ่ม ${item.name}`} className={`${round} text-[#06a14a] disabled:opacity-40`} onClick={() => onAdjust(1)}><Plus size={16} aria-hidden="true" /></button>
-      </div> : <button type="button" aria-label={`ใส่ ${item.name} ลงตะกร้า`} className={`${round} pointer-events-auto bg-[#06c755] text-white shadow-md`} onClick={() => onAdjust(1)}><Plus size={20} aria-hidden="true" /></button>}
+        <button type="button" disabled={qty >= 99 || !item.shopPin} aria-label={`เพิ่ม ${item.name}`} className={`${round} text-[#06a14a] disabled:opacity-40`} onClick={() => onAdjust(1)}><Plus size={16} aria-hidden="true" /></button>
+      </div> : item.shopPin && <button type="button" aria-label={`ใส่ ${item.name} ลงตะกร้า`} className={`${round} pointer-events-auto bg-[#06c755] text-white shadow-md`} onClick={() => onAdjust(1)}><Plus size={20} aria-hidden="true" /></button>}
     </div>
   </div>;
 }
@@ -121,7 +121,7 @@ export default function LiffFoodBrowser({ groups, items }: { groups: BrowserGrou
           <span className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-[#e4e7f0] text-[#2e3e68]"><Store size={26} aria-hidden="true" /></span>
           <span className="min-w-0 flex-1">
             <span className="line-clamp-2 text-lg font-semibold leading-6">{shop.name}</span>
-            <span className="block truncate text-sm text-[#5b6478]">{shop.isOpen ? <span className="font-semibold text-[#06a14a]">เปิดอยู่</span> : <span>ปิดอยู่ · ดูได้ ยังสั่งไม่ได้</span>}{shop.category ? ` · ${shop.category}` : ""}</span>
+            <span className="block truncate text-sm text-[#5b6478]">{!shop.hasPin ? <span className="font-semibold text-clay">ยังสั่งไม่ได้ ร้านยังไม่ได้ปักหมุด</span> : shop.isOpen ? <span className="font-semibold text-[#06a14a]">เปิดอยู่</span> : <span>ปิดอยู่ · ดูได้ ยังสั่งไม่ได้</span>}{shop.category ? ` · ${shop.category}` : ""}</span>
           </span>
           <span className="flex flex-none items-center text-sm text-[#5b6478]">ดูร้าน<ChevronRight size={18} aria-hidden="true" /></span>
         </Link>

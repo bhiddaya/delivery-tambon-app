@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 type Area = { id: string; name: string; slug: string };
-type Shop = { id: string; name: string; category: string | null; tambon_id: string; is_open: boolean };
+type Shop = { id: string; name: string; category: string | null; tambon_id: string; is_open: boolean; has_pin: boolean };
 type Item = { id: string; name: string; price: number; photo_url: string | null; description: string | null; merchant_id: string };
 
 /**
@@ -44,9 +44,17 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
       // "เปิดอยู่" ต้องเป็นตามเวลาเปิด-ปิดที่ร้านตั้งด้วย (shop_is_open = กติกาเดียวกับบอทและการสั่ง)
       // ไม่งั้นร้านที่กดเปิดไว้แต่เลยเวลาแล้วจะขึ้น "เปิดอยู่" ทั้งที่สั่งไม่ได้
       // ponytail: เรียกทีละร้าน พอสำหรับร้านหลักสิบ ถ้าร้านเป็นร้อยค่อยทำ RPC คืนทั้งรายการ
-      const openNow = await Promise.all((shopResult.data ?? []).map(s => db.rpc("shop_is_open", { p_merchant_id: s.id })));
+      const list = shopResult.data ?? [];
+      const [openNow, pins] = await Promise.all([
+        Promise.all(list.map(s => db.rpc("shop_is_open", { p_merchant_id: s.id }))),
+        // ร้านยังไม่ปักหมุดคิดค่าส่งไม่ได้ ห้ามขึ้น "เปิดอยู่" และห้ามใส่ตะกร้า (เรียกไม่สำเร็จ = ทำงานแบบเดิม)
+        Promise.all(list.map(s => db.rpc("shop_has_pin", { p_merchant_id: s.id }))),
+      ]);
       if (openNow.some(r => r.error)) throw new Error("load failed");
-      shops = (shopResult.data ?? []).map((s, i) => ({ ...s, is_open: Boolean(openNow[i].data) }));
+      shops = list.map((s, i) => {
+        const has_pin = pins[i].data !== false;
+        return { ...s, has_pin, is_open: Boolean(openNow[i].data) && has_pin };
+      });
       items = itemResult.data ?? [];
     } catch {
       failed = true;
@@ -70,10 +78,10 @@ export default async function LiffShopsPage({ searchParams }: { searchParams: Pr
         <p role="status" className="mt-6 rounded-2xl bg-[#eff1ec] p-5 text-sm leading-7 text-[#5b6478]">ตอนนี้ยังไม่มีร้านในพื้นที่นี้ กลับมาดูใหม่ภายหลังได้{slug && <span> · <BaseLink className="font-semibold text-indigo underline" href="/">ดูร้านตำบลอื่น</BaseLink></span>}</p>
       ) : (
         <LiffFoodBrowser
-          groups={groups.map(({ area, shops: list }) => ({ id: area.id, label: tambonDisplayName(area.name), shops: list.map(({ id, name, category, is_open }) => ({ id, name, category, isOpen: is_open })) }))}
+          groups={groups.map(({ area, shops: list }) => ({ id: area.id, label: tambonDisplayName(area.name), shops: list.map(({ id, name, category, is_open, has_pin }) => ({ id, name, category, isOpen: is_open, hasPin: has_pin })) }))}
           items={items.flatMap(item => {
             const shop = visibleShops.get(item.merchant_id);
-            return shop ? [{ id: item.id, name: item.name, price: Number(item.price), photo: item.photo_url, description: item.description, shopId: shop.id, shopName: shop.name, shopOpen: shop.is_open }] : [];
+            return shop ? [{ id: item.id, name: item.name, price: Number(item.price), photo: item.photo_url, description: item.description, shopId: shop.id, shopName: shop.name, shopOpen: shop.is_open, shopPin: shop.has_pin }] : [];
           })}
         />
       )}

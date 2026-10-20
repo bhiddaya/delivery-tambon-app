@@ -2070,6 +2070,7 @@ export type Database = {
       customer_food_confirm: { Args: { p_token: string }; Returns: Json }
       partner_order_action: { Args: { p_order_id: number; p_action: string; p_action_id?: string }; Returns: Json }
       shop_is_open: { Args: { p_merchant_id: string }; Returns: boolean }
+      shop_has_pin: { Args: { p_merchant_id: string }; Returns: boolean }
       _cart_json: { Args: { p_user: string }; Returns: Json }
       admin_assign_order: {
         Args: { p_driver_id: string; p_order_id: number }
