@@ -83,10 +83,61 @@ export function buildBroadcastPayload(kind: PushKind, sentAt = Date.now()) {
 
 type Target = { id: string; endpoint: string; p256dh: string; auth: string; kind: PushKind };
 type Admin = ReturnType<typeof createClient>;
+type Payload = { title: string; body: string; tag: string };
+type FcmAccount = { project_id: string; client_email: string; private_key: string };
+
+const b64url = (bytes: ArrayBuffer | Uint8Array) =>
+  btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const b64urlText = (text: string) => b64url(new TextEncoder().encode(text));
+
+/** แอป Android "บวรไทย": แลกบัญชีบริการ Firebase (secret FCM_SERVICE_ACCOUNT) เป็น access token ด้วย JWT RS256 */
+async function fcmAccessToken(account: FcmAccount): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const header = b64urlText(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const claims = b64urlText(JSON.stringify({
+    iss: account.client_email, scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600,
+  }));
+  const der = account.private_key.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
+  const key = await crypto.subtle.importKey(
+    "pkcs8", Uint8Array.from(atob(der), (c) => c.charCodeAt(0)),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"],
+  );
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(`${header}.${claims}`));
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${header}.${claims}.${b64url(signature)}` }),
+  });
+  if (!res.ok) throw new Error(`fcm token ${res.status}`);
+  return (await res.json()).access_token;
+}
+
+/** ส่งเป็น data message: แอปสร้างแจ้งเตือนเองด้วยช่องที่มีเสียง "บวรไทยมาแล้ว" (เสียงเลือกได้ ต่างจากเว็บ) */
+function sendFcm(account: FcmAccount, accessToken: string, token: string, payload: Payload): Promise<Response> {
+  return fetch(`https://fcm.googleapis.com/v1/projects/${account.project_id}/messages:send`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+    body: JSON.stringify({ message: { token, data: { title: payload.title, body: payload.body, tag: payload.tag }, android: { priority: "high" } } }),
+  });
+}
 
 /** ส่งถึงทุกเครื่องพร้อมกัน แล้วลบเครื่องที่เลิกรับแล้ว (เซิร์ฟเวอร์แจ้งเตือนตอบ 404/410) */
-async function deliver(admin: Admin, targets: Target[], payloadFor: (kind: PushKind) => unknown) {
+async function deliver(admin: Admin, targets: Target[], payloadFor: (kind: PushKind) => Payload) {
+  const raw = Deno.env.get("FCM_SERVICE_ACCOUNT");
+  const account = raw ? JSON.parse(raw) as FcmAccount : null;
+  let fcmToken: Promise<string> | undefined;
   const results = await Promise.all(targets.map(async (t) => {
+    if (t.endpoint.startsWith("fcm:")) {
+      if (!account) return { id: t.id, kind: t.kind, status: 0 };
+      try {
+        fcmToken ??= fcmAccessToken(account);
+        const res = await sendFcm(account, await fcmToken, t.endpoint.slice(4), payloadFor(t.kind));
+        return { id: t.id, kind: t.kind, status: res.status };
+      } catch {
+        return { id: t.id, kind: t.kind, status: 0 };
+      }
+    }
     try {
       await webpush.sendNotification(
         { endpoint: t.endpoint, keys: { p256dh: t.p256dh, auth: t.auth } },

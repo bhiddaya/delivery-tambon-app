@@ -2058,6 +2058,8 @@ export type Database = {
       push_public_key: { Args: Record<PropertyKey, never>; Returns: string | null }
       push_save_subscription: { Args: { p_endpoint: string; p_p256dh: string; p_auth: string; p_kind: string; p_user_agent?: string }; Returns: undefined }
       push_remove_subscription: { Args: { p_endpoint: string }; Returns: undefined }
+      push_save_app_token: { Args: { p_token: string; p_kind: string; p_user_agent?: string }; Returns: undefined }
+      push_remove_app_token: { Args: { p_token: string }; Returns: undefined }
       admin_send_sound_test: { Args: Record<PropertyKey, never>; Returns: Json }
       admin_push_status: { Args: Record<PropertyKey, never>; Returns: Json }
       agent_memory_snapshot: { Args: { p_tambon_id: string }; Returns: Json }

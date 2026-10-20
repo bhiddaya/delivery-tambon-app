@@ -5,7 +5,16 @@ export type PushKind = "merchant" | "driver" | "agent";
 export type PushState = "unsupported" | "denied" | "off" | "on";
 export type PushHelp = "ios-install" | "open-browser" | "none";
 
+/** แอป Android "บวรไทย" เปิดเว็บนี้ใน WebView แล้วให้ FCM token ผ่าน window.BavornthaiApp (แจ้งเตือนมีเสียงของแอปเอง) */
+type AppBridge = { fcmToken(): string };
+const APP_TOKEN_KEY = "bavornthai-app-push-token";
+
+function appBridge(): AppBridge | null {
+  return typeof window === "undefined" ? null : (window as unknown as { BavornthaiApp?: AppBridge }).BavornthaiApp ?? null;
+}
+
 export function pushSupported(): boolean {
+  if (appBridge()) return true;
   return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
@@ -22,6 +31,11 @@ export function keyToBytes(base64Url: string): Uint8Array {
 }
 
 export async function pushState(): Promise<PushState> {
+  const app = appBridge();
+  if (app) {
+    const token = app.fcmToken();
+    return token && localStorage.getItem(APP_TOKEN_KEY) === token ? "on" : "off";
+  }
   if (!pushSupported()) return "unsupported";
   if (Notification.permission === "denied") return "denied";
   try {
@@ -33,6 +47,15 @@ export async function pushState(): Promise<PushState> {
 
 /** เปิดแจ้งเตือน: ต้องเรียกจากการกดของผู้ใช้ (เบราว์เซอร์บังคับ) */
 export async function enablePush(kind: PushKind): Promise<PushState | "error"> {
+  const app = appBridge();
+  if (app) {
+    const token = app.fcmToken();
+    if (!token) return "error"; // แอปยังไม่ได้ token จาก Firebase
+    const saved = await createClient().rpc("push_save_app_token", { p_token: token, p_kind: kind, p_user_agent: navigator.userAgent.slice(0, 200) });
+    if (saved.error) return "error";
+    localStorage.setItem(APP_TOKEN_KEY, token);
+    return "on";
+  }
   if (!pushSupported()) return "unsupported";
   if ((await Notification.requestPermission()) !== "granted") return "denied";
   try {
@@ -50,6 +73,12 @@ export async function enablePush(kind: PushKind): Promise<PushState | "error"> {
 }
 
 export async function disablePush(): Promise<void> {
+  const app = appBridge();
+  if (app) {
+    await createClient().rpc("push_remove_app_token", { p_token: app.fcmToken() });
+    localStorage.removeItem(APP_TOKEN_KEY);
+    return;
+  }
   const registration = await navigator.serviceWorker.getRegistration();
   const subscription = await registration?.pushManager.getSubscription();
   if (!subscription) return;
