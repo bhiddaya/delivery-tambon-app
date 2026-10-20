@@ -133,6 +133,15 @@ export async function pushMessage(
   await callLineApi("/message/push", accessToken, { to, messages });
 }
 
+/** ส่งข้อความหาหลายคนในครั้งเดียว — นับโควตาเท่าจำนวนผู้รับ */
+export async function multicastMessage(
+  to: string[],
+  messages: LineMessage[],
+  accessToken: string
+): Promise<void> {
+  await callLineApi("/message/multicast", accessToken, { to, messages });
+}
+
 /** ลิงก์เปิด LIFF app จากในแชท LINE */
 export function liffUrl(path = ""): string | null {
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
