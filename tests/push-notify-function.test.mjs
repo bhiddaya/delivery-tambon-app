@@ -124,4 +124,34 @@ const call = async (body, secret = SECRET) => {
   setup({ keys: { public: null, private: null, notify_secret: SECRET } });
   assert.equal((await call({ action: 'broadcast' })).status, 503);
 }
-console.log('PASS push-notify: secret check, keys never leak, role-specific payloads, dead devices removed, dry run');
+// 8) Android app devices (endpoint fcm:<token>) go through Firebase with a signed JWT; an unregistered app (404) is removed
+{
+  const { privateKey } = (await import('node:crypto')).generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
+  env.FCM_SERVICE_ACCOUNT = JSON.stringify({ project_id: 'bavornthai-superapp', client_email: 'svc@x.iam.gserviceaccount.com', private_key: privateKey });
+  const app = (id, kind) => ({ id, endpoint: `fcm:${id}-token-0123456789`, p256dh: '', auth: '', kind });
+  const c = setup({ order: { ...baseOrder, is_drill: true }, targets: [target('w1', 'merchant'), app('f1', 'driver'), app('f2', 'agent')] });
+  const fetched = []; const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    fetched.push({ url: String(url), init });
+    if (String(url).includes('oauth2')) return new Response(JSON.stringify({ access_token: 'AT' }));
+    const token = JSON.parse(init.body).message.token;
+    return new Response('{}', { status: token.startsWith('f2') ? 404 : 200 });
+  };
+  try {
+    const r = await call({ order_id: 7, event: 'new' });
+    assert.equal(r.body.targets, 3); assert.equal(r.body.sent, 2); assert.equal(r.body.removed, 1);
+    assert.equal(c.sent.length, 1, 'only the browser device goes through web-push');
+    assert.equal(fetched.filter(f => f.url.includes('oauth2')).length, 1, 'one access token per call');
+    const send = fetched.find(f => f.url.endsWith('/projects/bavornthai-superapp/messages:send'));
+    assert.equal(send.init.headers.authorization, 'Bearer AT');
+    const msg = JSON.parse(send.init.body).message;
+    assert.equal(msg.token, 'f1-token-0123456789'); assert.equal(msg.android.priority, 'high');
+    assert.match(msg.data.title, /^\[ซ้อม\] 🛵 งานใหม่ #7/); assert.equal(msg.data.tag, 'order-7-driver');
+    assert.deepEqual(c.rpc.find(([n]) => n === 'push_delete_subscriptions')[1], { p_ids: ['f2'] });
+    delete env.FCM_SERVICE_ACCOUNT; // without the Firebase secret app devices are skipped, never removed
+    const c2 = setup({ targets: [app('f1', 'driver')] });
+    const r2 = await call({ order_id: 7, event: 'new' });
+    assert.equal(r2.body.sent, 0); assert.equal(r2.body.removed, 0); assert.ok(!c2.rpc.some(([n]) => n === 'push_delete_subscriptions'));
+  } finally { globalThis.fetch = realFetch; delete env.FCM_SERVICE_ACCOUNT; }
+}
+console.log('PASS push-notify: secret check, keys never leak, role-specific payloads, dead devices removed, dry run, Android app via Firebase');

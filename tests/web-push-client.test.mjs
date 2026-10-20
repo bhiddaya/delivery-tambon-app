@@ -95,6 +95,28 @@ assert.equal(await web.enablePush('merchant'), 'error', 'server keys not created
 b = browser({ saveError: { message: 'boom' } });
 assert.equal(await web.enablePush('merchant'), 'error');
 
+// inside the Android app "บวรไทย": the app's Firebase token is saved instead of a browser subscription
+{
+  const store = new Map();
+  globalThis.localStorage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: k => store.delete(k) };
+  b = browser();
+  globalThis.window = { BavornthaiApp: { fcmToken: () => 'app-token-0123456789' } }; // WebView: no PushManager/Notification
+  assert.equal(web.pushSupported(), true);
+  assert.equal(await web.pushState(), 'off');
+  assert.equal(await web.enablePush('merchant'), 'on');
+  assert.deepEqual(b.rpc.at(-1), ['push_save_app_token', { p_token: 'app-token-0123456789', p_kind: 'merchant', p_user_agent: 'Mozilla/5.0 (Linux; Android 14) Chrome' }]);
+  assert.equal(b.subscribeArgs.length, 0, 'no browser subscription inside the app');
+  assert.equal(await web.pushState(), 'on');
+  await web.disablePush();
+  assert.deepEqual(b.rpc.at(-1), ['push_remove_app_token', { p_token: 'app-token-0123456789' }]);
+  assert.equal(await web.pushState(), 'off');
+  globalThis.window = { BavornthaiApp: { fcmToken: () => '' } };
+  assert.equal(await web.enablePush('driver'), 'error', 'app has no Firebase token yet');
+  b = browser({ saveError: { message: 'boom' } });
+  globalThis.window = { BavornthaiApp: { fcmToken: () => 'app-token-0123456789' } };
+  assert.equal(await web.enablePush('driver'), 'error'); assert.equal(await web.pushState(), 'off');
+}
+
 // browsers without push (LINE in-app browser, iPhone outside the home screen)
 globalThis.window = {}; assert.equal(web.pushSupported(), false); assert.equal(await web.pushState(), 'unsupported'); assert.equal(await web.enablePush('driver'), 'unsupported');
 assert.equal(web.unsupportedHelp('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)'), 'ios-install');
