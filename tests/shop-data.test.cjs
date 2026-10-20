@@ -15,10 +15,10 @@ function load() {
 }
 
 // ตัวจำลอง Supabase: จดว่าแต่ละตารางถูกขอคอลัมน์อะไรและกรองด้วยอะไร
-function fakeDb({ merchant = null, merchantError = null, menu = [], area = null }) {
+function fakeDb({ merchant = null, merchantError = null, menu = [], area = null, pin = { data: true, error: null } }) {
   const calls = [];
   const db = {
-    rpc: async () => ({ data: merchant?.is_open ?? false, error: null }),
+    rpc: async name => (name === 'shop_has_pin' ? pin : { data: merchant?.is_open ?? false, error: null }),
     from(table) {
       const c = { table, cols: null, eqs: [] };
       c.select = cols => { c.cols = cols; return c; };
@@ -80,4 +80,19 @@ test('an unknown or hidden shop returns no shop and does not query the menu', as
 test('a database error is thrown, not shown as an empty shop', async () => {
   const { db } = fakeDb({ merchantError: { message: 'boom' } });
   await assert.rejects(load()(db, 'm1', null), /shop unavailable/);
+});
+
+test('a shop without a pin is not open, so the menu blocks the cart before checkout', async () => {
+  const { db } = fakeDb({ merchant: publicMerchant, area: publicArea, pin: { data: false, error: null } });
+  const page = await load()(db, 'm1', null);
+  assert.equal(page.shop.has_pin, false);
+  assert.equal(page.shop.is_open, false);
+});
+
+test('a pinned shop, or shop_has_pin not deployed yet, keeps the old open state', async () => {
+  for (const pin of [{ data: true, error: null }, { data: null, error: { message: 'missing function' } }]) {
+    const page = await load()(fakeDb({ merchant: publicMerchant, area: publicArea, pin }).db, 'm1', null);
+    assert.equal(page.shop.has_pin, true);
+    assert.equal(page.shop.is_open, true);
+  }
 });
