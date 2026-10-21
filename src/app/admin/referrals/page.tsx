@@ -9,7 +9,7 @@ import { useManagedTambons } from "@/components/AdminTambonPicker";
 type TambonRow = { tambon_id: string; name: string; orders: number; gp: number; cost: number; net_gp: number; seller_share: number; buyer_share: number; bavorn: number };
 type ReferrerRow = { referrer_id: string; full_name: string | null; code: string; banned: boolean; seller: number | null; buyer: number | null; total: number; orders: number };
 type PayoutRow = { referrer_id: string; full_name: string | null; amount: number; promptpay: boolean; paid_at: string | null };
-type Rate = { tambon_id: string; name: string; gp_pct: number; admin_pct: number; system_pct: number; agent_pct: number; transfer_tax_pct: number; reserve_pct: number; starts_on: string };
+type Rate = { tambon_id: string; name: string; gp_pct: number; admin_pct: number; system_pct: number; agent_pct: number; transfer_tax_pct: number; reserve_pct: number; starts_on: string | null };
 type Report = { month: string; closed: boolean; note: string | null; rates: Rate[]; tambons: TambonRow[]; referrers: ReferrerRow[]; payouts: PayoutRow[] | null };
 
 const baht = (n: number | null | undefined) => "฿" + Number(n || 0).toLocaleString("th-TH", { maximumFractionDigits: 2 });
@@ -52,8 +52,11 @@ export default function AdminReferralsPage() {
   async function saveRate(e: FormEvent) {
     e.preventDefault(); setMessage("");
     const n = (k: string) => Number(rate[k] || 0);
-    const r = await createClient().rpc("referral_set_rates", { p_tambon_id: rate.tambon_id, p_gp_pct: n("gp_pct"), p_admin_pct: n("admin_pct"),
-      p_system_pct: n("system_pct"), p_transfer_tax_pct: n("transfer_tax_pct"), p_reserve_pct: n("reserve_pct"), p_starts_on: rate.starts_on });
+    // ตัวแทนตั้งได้เฉพาะอัตรา GP ของตำบลตัวเอง · ส่วนกลางตั้งค่าใช้จ่ายและวันเริ่มคำนวณ
+    const r = isSuperadmin
+      ? await createClient().rpc("referral_set_rates", { p_tambon_id: rate.tambon_id, p_gp_pct: n("gp_pct"), p_admin_pct: n("admin_pct"),
+        p_system_pct: n("system_pct"), p_transfer_tax_pct: n("transfer_tax_pct"), p_reserve_pct: n("reserve_pct"), p_starts_on: rate.starts_on })
+      : await createClient().rpc("referral_set_gp", { p_tambon_id: rate.tambon_id, p_gp_pct: n("gp_pct") });
     setMessage(r.error ? r.error.message : "บันทึกอัตราแล้ว");
     load();
   }
@@ -85,15 +88,15 @@ export default function AdminReferralsPage() {
         {!report.payouts.length && <p className="text-sm">ยังไม่มี (ปิดยอดแล้วจึงจะมีรายการ)</p>}</Card>}
       <Card className="mb-3 overflow-x-auto"><h2 className="mb-2 font-semibold">อัตรารายตำบล</h2>
         <table className="w-full text-sm"><thead><tr className="text-left"><th>ตำบล</th><th>GP</th><th>admin</th><th>ระบบ</th><th>ตัวแทน</th><th>โอน/ภาษี</th><th>สำรอง</th><th>เริ่ม</th></tr></thead>
-          <tbody>{report.rates.map(r => <tr key={r.tambon_id} className="border-t border-border"><td>{r.name}</td><td>{r.gp_pct}%</td><td>{r.admin_pct}%</td><td>{r.system_pct}%</td><td>{r.agent_pct}%</td><td>{r.transfer_tax_pct}%</td><td>{r.reserve_pct}%</td><td>{r.starts_on}</td></tr>)}</tbody></table>
-        <p className="mt-2 text-xs text-ink-soft">ค่าใช้จ่ายคิดเป็น % ของค่า GP · ส่วนแบ่งตัวแทนใช้อัตราในหน้าตั้งค่าตำบล · ตัวแทนตำบลเสนอ ส่วนกลางเป็นผู้กรอก</p>
-        {isSuperadmin && <form onSubmit={saveRate} className="mt-3 grid gap-2 sm:grid-cols-2">
+          <tbody>{report.rates.map(r => <tr key={r.tambon_id} className="border-t border-border"><td>{r.name}</td><td>{r.gp_pct}%</td><td>{r.admin_pct}%</td><td>{r.system_pct}%</td><td>{r.agent_pct}%</td><td>{r.transfer_tax_pct}%</td><td>{r.reserve_pct}%</td><td>{r.starts_on ?? "ยังไม่กำหนด"}</td></tr>)}</tbody></table>
+        <p className="mt-2 text-xs text-ink-soft">ค่าใช้จ่ายคิดเป็น % ของค่า GP · ส่วนแบ่งตัวแทนใช้อัตราในหน้าตั้งค่าตำบล · อัตรา GP แต่ละตำบลตัดสินใจเอง (ตัวแทนตั้งได้) · ค่าใช้จ่ายและวันเริ่มคำนวณ ส่วนกลางเป็นผู้กรอก</p>
+        <form onSubmit={saveRate} className="mt-3 grid gap-2 sm:grid-cols-2">
           <Field label="ตำบล"><select required className="min-h-12 w-full rounded-xl border border-border bg-surface px-3" value={rate.tambon_id ?? ""} onChange={e => pickTambon(e.target.value)}>
             <option value="">เลือกตำบล</option>{tambons?.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
-          {RATE_FIELDS.map(([k, label]) => <Field key={k} label={label}><Input type="number" min={0} max={100} step="0.01" required={k === "gp_pct"} value={rate[k] ?? ""} onChange={e => setRate({ ...rate, [k]: e.target.value })} /></Field>)}
-          <Field label="วันเริ่มคำนวณ"><Input type="date" required value={rate.starts_on ?? ""} onChange={e => setRate({ ...rate, starts_on: e.target.value })} /></Field>
+          {RATE_FIELDS.filter(([k]) => isSuperadmin || k === "gp_pct").map(([k, label]) => <Field key={k} label={label}><Input type="number" min={0} max={100} step="0.01" required={k === "gp_pct"} value={rate[k] ?? ""} onChange={e => setRate({ ...rate, [k]: e.target.value })} /></Field>)}
+          {isSuperadmin && <Field label="วันเริ่มคำนวณ"><Input type="date" required value={rate.starts_on ?? ""} onChange={e => setRate({ ...rate, starts_on: e.target.value })} /></Field>}
           <Button className="sm:col-span-2">บันทึกอัตรา</Button>
-        </form>}</Card>
+        </form></Card>
     </>}
   </div>;
 }

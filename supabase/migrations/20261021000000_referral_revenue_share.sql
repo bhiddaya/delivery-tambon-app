@@ -1,7 +1,7 @@
 -- 20261021000000_referral_revenue_share.sql — ระดับ F (เงิน) · ยังไม่ติดตั้ง รอเจ้าของอนุมัติ
 --
 -- ระบบผู้แนะนำ ตามกติกาส่วนแบ่งรายได้ (เจ้าของตัดสิน 21 ต.ค. 2569, docs/referral-revenue-share.md)
---   ฐาน = ค่า GP ของออเดอร์ = ค่าสินค้า × อัตรา GP ของตำบล (ตัวแทนเสนอ ส่วนกลางตั้ง)
+--   ฐาน = ค่า GP ของออเดอร์ = ค่าสินค้า × อัตรา GP ของตำบล (แต่ละตำบลตัดสินใจเอง)
 --   หักค่าใช้จ่าย % ของค่า GP: admin, ระบบ/เซิร์ฟเวอร์, ส่วนแบ่งตัวแทน (tambons.agent_share_commission_pct เดิม),
 --     ค่าโอน/ภาษี, สำรองและพัฒนา → ค่า GP สุทธิ
 --   แบ่ง 30% ผู้แนะนำผู้ขาย · 40% ผู้แนะนำผู้ซื้อ · ที่เหลือ (รวมส่วนที่ไม่มีผู้แนะนำ) สนับสนุน บวร
@@ -21,6 +21,7 @@
 -- ฟังก์ชัน:
 --   ผู้ใช้ LINE: referral_claim(code), referral_me()
 --   ส่วนกลาง:   referral_set_rates(...), referral_close_month(month), referral_ban(profile, reason)
+--   ตัวแทนตำบล: referral_set_gp(tambon, pct) อัตรา GP ของตำบลตัวเอง
 --   ส่วนกลาง/ตัวแทน (ตำบลที่ดูแล): referral_month_report(month)
 --   ภายใน:      referral_month_rows(month) (ไม่ให้ใครเรียกตรง)
 --
@@ -55,7 +56,7 @@ create table if not exists public.referral_tambon_rates (
   system_pct numeric(5,2) not null default 0 check (system_pct between 0 and 100),
   transfer_tax_pct numeric(5,2) not null default 0 check (transfer_tax_pct between 0 and 100),
   reserve_pct numeric(5,2) not null default 0 check (reserve_pct between 0 and 100),
-  starts_on date not null,
+  starts_on date, -- ว่าง = ส่วนกลางยังไม่กำหนดวันเริ่ม ไม่คำนวณ
   updated_at timestamptz not null default now(),
   updated_by uuid
 );
@@ -284,6 +285,20 @@ begin
     starts_on = excluded.starts_on, updated_at = now(), updated_by = auth.uid();
 end $$;
 
+-- ── ตัวแทนตำบล: ตั้งอัตรา GP ของตำบลตัวเอง (เจ้าของ 21 ต.ค. 69: ให้อิสระแต่ละตำบลตัดสินใจ) ──
+-- แก้ได้เฉพาะ gp_pct · ค่าใช้จ่ายและวันเริ่มคำนวณยังเป็นของส่วนกลาง (แถวใหม่ starts_on ว่าง = ยังไม่คำนวณ)
+create or replace function public.referral_set_gp(p_tambon_id uuid, p_gp_pct numeric)
+returns void
+language plpgsql security definer set search_path = public, pg_temp
+as $$
+begin
+  if not public.can_admin_tambon(p_tambon_id) then raise exception 'ตั้งอัตรา GP ได้เฉพาะตัวแทนของตำบลนี้'; end if;
+  if p_gp_pct is null or p_gp_pct not between 0 and 100 then raise exception 'อัตรา GP ต้องอยู่ระหว่าง 0–100%%'; end if;
+  insert into public.referral_tambon_rates (tambon_id, gp_pct, updated_by)
+  values (p_tambon_id, round(p_gp_pct, 2), auth.uid())
+  on conflict (tambon_id) do update set gp_pct = excluded.gp_pct, updated_at = now(), updated_by = auth.uid();
+end $$;
+
 -- ── ส่วนกลาง/ตัวแทน: รายงานของเดือน ─────────────────────────────────────
 -- เดือนที่ปิดแล้วอ่านจาก referral_earnings (ยอดไม่เปลี่ยน) · ยังไม่ปิด = ประมาณการจากออเดอร์ล่าสุด
 -- ตัวแทนเห็นเฉพาะตำบลที่ดูแล (can_admin_tambon)
@@ -406,9 +421,11 @@ end $$;
 
 revoke all on function public.referral_claim(text), public.referral_me(), public.referral_caller_line_id(),
   public.referral_set_rates(uuid, numeric, numeric, numeric, numeric, numeric, date),
-  public.referral_month_report(date), public.referral_close_month(date), public.referral_ban(uuid, text)
+  public.referral_month_report(date), public.referral_close_month(date), public.referral_ban(uuid, text),
+  public.referral_set_gp(uuid, numeric)
   from public, anon;
 grant execute on function public.referral_claim(text), public.referral_me(),
   public.referral_set_rates(uuid, numeric, numeric, numeric, numeric, numeric, date),
-  public.referral_month_report(date), public.referral_close_month(date), public.referral_ban(uuid, text)
+  public.referral_month_report(date), public.referral_close_month(date), public.referral_ban(uuid, text),
+  public.referral_set_gp(uuid, numeric)
   to authenticated;

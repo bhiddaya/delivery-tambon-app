@@ -2072,6 +2072,7 @@ export type Database = {
       referral_me: { Args: Record<PropertyKey, never>; Returns: Json }
       referral_month_report: { Args: { p_month: string }; Returns: Json }
       referral_close_month: { Args: { p_month: string }; Returns: Json }
+      referral_set_gp: { Args: { p_tambon_id: string; p_gp_pct: number }; Returns: undefined }
       referral_ban: { Args: { p_profile_id: string; p_reason: string }; Returns: undefined }
       referral_set_rates: { Args: { p_tambon_id: string; p_gp_pct: number; p_admin_pct: number; p_system_pct: number; p_transfer_tax_pct: number; p_reserve_pct: number; p_starts_on: string }; Returns: undefined }
       customer_food_review: { Args: { p_merchant_id: string; p_items: Json; p_point?: Json | null; p_note?: string | null }; Returns: Json }

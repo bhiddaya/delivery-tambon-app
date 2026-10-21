@@ -88,6 +88,16 @@ do $$ begin perform public.referral_set_rates('00000000-0000-0000-0000-000000000
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000ff');
 select public.referral_set_rates('00000000-0000-0000-0000-0000000000a1', 10, 10, 10, 5, 5, '2026-01-01');
 
+-- ตัวแทนตำบลตั้งอัตรา GP ของตำบลตัวเองได้ (แต่ละตำบลตัดสินใจเอง) แต่ตั้งของตำบลอื่นไม่ได้
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000ee');
+select public.referral_set_gp('00000000-0000-0000-0000-0000000000a2', 8);
+select pg_temp.check((select gp_pct = 8 and starts_on is null from public.referral_tambon_rates
+  where tambon_id = '00000000-0000-0000-0000-0000000000a2'), 'ตัวแทนตั้ง GP ตำบลตัวเองได้ (ยังไม่มีวันเริ่ม = ยังไม่คำนวณ)');
+do $$ begin perform public.referral_set_gp('00000000-0000-0000-0000-0000000000a1', 50);
+  raise exception 'ไม่ผ่าน: ตัวแทนตั้ง GP ตำบลอื่นได้'; exception when raise_exception then
+  if sqlerrm like 'ไม่ผ่าน%' then raise; end if; raise notice 'ผ่าน: ตัวแทนตั้ง GP ตำบลอื่นไม่ได้'; end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000ff');
+
 -- ออเดอร์เดือนก่อน (เวลาไทย กลางเดือน)
 select (date_trunc('month', now() at time zone 'Asia/Bangkok') - interval '1 month')::date as last_month \gset
 create function pg_temp.mid() returns timestamptz language sql as
