@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { tambonDisplayName } from "@/lib/tambon-choice";
 import { tambonLineLink, tambonWebLink } from "@/lib/tambon-links";
 
-function QrBlock({ url, label, file }: { url: string; label: string; file: string }) {
+export function QrBlock({ url, label, file }: { url: string; label: string; file: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
