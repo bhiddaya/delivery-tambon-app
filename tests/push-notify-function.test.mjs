@@ -147,6 +147,8 @@ const call = async (body, secret = SECRET) => {
     const msg = JSON.parse(send.init.body).message;
     assert.equal(msg.token, 'f1-token-0123456789'); assert.equal(msg.android.priority, 'high');
     assert.match(msg.data.title, /^\[ซ้อม\] 🛵 งานใหม่ #7/); assert.equal(msg.data.tag, 'order-7-driver');
+    // มี notification + ช่องเสียงของแอป ให้ระบบแสดงเองแม้แอปถูกปิด (OPPO)
+    assert.equal(msg.notification.title, msg.data.title); assert.equal(msg.android.notification.channel_id, 'alert_voice_v4'); assert.equal(msg.android.notification.tag, 'order-7-driver');
     assert.deepEqual(c.rpc.find(([n]) => n === 'push_delete_subscriptions')[1], { p_ids: ['f2'] });
     delete env.FCM_SERVICE_ACCOUNT; // without the Firebase secret app devices are skipped, never removed
     const c2 = setup({ targets: [app('f1', 'driver')] });

@@ -113,12 +113,28 @@ async function fcmAccessToken(account: FcmAccount): Promise<string> {
   return (await res.json()).access_token;
 }
 
-/** ส่งเป็น data message: แอปสร้างแจ้งเตือนเองด้วยช่องที่มีเสียง "บวรไทยมาแล้ว" (เสียงเลือกได้ ต่างจากเว็บ) */
+/** ช่องแจ้งเตือนในแอปที่มีเสียง "บวรไทยมาแล้ว" (ต้องตรงกับ AlertService.CHANNEL_ID ของแอป) */
+export const ALERT_CHANNEL = "alert_voice_v4";
+
+/**
+ * ส่งแบบมี notification ให้ Google Play services แสดงเองด้วยช่องเสียงของแอป
+ * เพราะมือถือบางยี่ห้อ (OPPO/Xiaomi) ไม่ปลุกแอปที่ถูกปิด data message อย่างเดียวจึงไม่ดัง (ทดสอบบน OPPO 20 ต.ค. 69)
+ * ตอนแอปเปิดอยู่ แอปได้ data แล้วสร้างแจ้งเตือนเอง
+ */
+export function fcmMessage(token: string, payload: Payload) {
+  return {
+    token,
+    notification: { title: payload.title, body: payload.body },
+    data: { title: payload.title, body: payload.body, tag: payload.tag },
+    android: { priority: "high", notification: { channel_id: ALERT_CHANNEL, tag: payload.tag } },
+  };
+}
+
 function sendFcm(account: FcmAccount, accessToken: string, token: string, payload: Payload): Promise<Response> {
   return fetch(`https://fcm.googleapis.com/v1/projects/${account.project_id}/messages:send`, {
     method: "POST",
     headers: { authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
-    body: JSON.stringify({ message: { token, data: { title: payload.title, body: payload.body, tag: payload.tag }, android: { priority: "high" } } }),
+    body: JSON.stringify({ message: fcmMessage(token, payload) }),
   });
 }
 
