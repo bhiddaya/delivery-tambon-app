@@ -14,8 +14,20 @@ const QUALITY = 0.82;
 
 export type ResizeResult = { blob: Blob; ext: "jpg" };
 
+/** รูปจากกล้อง Samsung/iPhone บางรุ่นเป็น HEIC ซึ่ง Chrome บน Android เปิดเองไม่ได้ (ชนิดไฟล์อาจว่าง จึงดูนามสกุลด้วย) */
+export function isHeic(file: File): boolean {
+  return /^image\/hei[cf]/.test(file.type) || /\.hei[cf]$/i.test(file.name);
+}
+
 export async function resizeImage(file: File): Promise<ResizeResult> {
-  const bitmap = await createImageBitmap(file);
+  // แปลง HEIC เป็น JPEG ก่อน โหลดตัวแปลง (ใหญ่) เฉพาะตอนเจอไฟล์ HEIC
+  let source: Blob = file;
+  if (isHeic(file)) {
+    const heic2any = (await import("heic2any")).default;
+    const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    source = Array.isArray(converted) ? converted[0] : converted;
+  }
+  const bitmap = await createImageBitmap(source);
 
   // ย่อตามด้านที่ยาวกว่า เพื่อรักษาสัดส่วนเดิมไว้
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
