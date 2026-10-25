@@ -9,6 +9,7 @@ import LinkLineCard from "@/components/LinkLineCard";
 import PaymentQrCard from "@/components/PaymentQrCard";
 import { PromptPayCard } from "@/components/PromptPayCard";
 import { AgentLinkCard } from "@/components/AgentLinkCard";
+import { ContactEmailCard } from "@/components/ContactEmailCard";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
 import SetPhonePasswordCard from "@/components/SetPhonePasswordCard";
 import { ROLE_LABEL } from "@/lib/domain";
@@ -63,7 +64,7 @@ function AccountView() {
           </div>
           {realEmail && (
             <div className="flex justify-between py-1.5 border-t border-border">
-              <dt className="text-ink-soft">อีเมล</dt>
+              <dt className="text-ink-soft">อีเมลเข้าสู่ระบบ</dt>
               <dd className="truncate max-w-[60%]">{realEmail}</dd>
             </div>
           )}
@@ -75,6 +76,8 @@ function AccountView() {
           </div>
         </dl>
       </Card>
+
+      <ContactEmailCard profileId={profile.id} initial={profile.contact_email} />
 
       {profile.role !== "admin" && profile.role !== "superadmin" && <AgentLinkCard profileId={profile.id} />}
 

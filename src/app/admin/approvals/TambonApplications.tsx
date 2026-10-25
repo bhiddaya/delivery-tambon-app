@@ -128,7 +128,8 @@ export function TambonApplications() {
                 </div>
                 <div className="text-ink-soft text-xs mb-2">
                   ผู้ยื่น: {app.applicant_name} · {app.applicant_phone}
-                  {app.applicant_line ? ` · LINE ${app.applicant_line}` : ""} · ร้าน {app.merchant_count ?? "-"} · ไรเดอร์{" "}
+                  {app.applicant_line ? ` · LINE ${app.applicant_line}` : ""}
+                  {app.applicant_email ? ` · ${app.applicant_email}` : ""} · ร้าน {app.merchant_count ?? "-"} · ไรเดอร์{" "}
                   {app.driver_count ?? "-"}
                 </div>
                 {!hasThai(app.tambon_name) && (
