@@ -72,6 +72,15 @@ export async function enablePush(kind: PushKind): Promise<PushState | "error"> {
   } catch { return "error"; }
 }
 
+/** หน้าซ้อมเสียงของ Super app แสดงเครื่องแอปด้วยชื่อนี้ (no-cors: ส่งอย่างเดียว ไม่อ่านคำตอบ ไม่สำเร็จก็ไม่กระทบการแจ้งเตือน) */
+const DRILL_DEVICE_URL = "https://bavornthai-superapp.bhiddaya.workers.dev/api/subscribe-fcm";
+
+export function nameAppDevice(name: string): void {
+  const token = appBridge()?.fcmToken();
+  if (!token || !name) return;
+  void fetch(DRILL_DEVICE_URL, { method: "POST", mode: "no-cors", body: JSON.stringify({ token, name }) }).catch(() => {});
+}
+
 export async function disablePush(): Promise<void> {
   const app = appBridge();
   if (app) {
