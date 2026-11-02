@@ -130,6 +130,8 @@ assert.equal(await web.enablePush('merchant'), 'error');
   globalThis.window = {}; web.nameAppDevice('ร้านค้า: ป้าแดง');
   globalThis.window = { BavornthaiApp: { fcmToken: () => '' } }; web.nameAppDevice('ร้านค้า: ป้าแดง');
   assert.equal(posts.length, 1, 'no token or no app: nothing sent');
+  assert.equal(web.appDeviceLabel('ร้านค้า', 'ป้าแดง'), 'ร้านค้า: ป้าแดง');
+  assert.equal(web.appDeviceLabel('ลูกค้า', 'ลูกค้า LINE'), 'ลูกค้า LINE', 'placeholder name is not doubled');
 }
 
 // browsers without push (LINE in-app browser, iPhone outside the home screen)
