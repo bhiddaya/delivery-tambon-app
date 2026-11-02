@@ -117,6 +117,21 @@ assert.equal(await web.enablePush('merchant'), 'error');
   assert.equal(await web.enablePush('driver'), 'error'); assert.equal(await web.pushState(), 'off');
 }
 
+// app device name for the Super app drill page: sent once with the app's token, nothing outside the app
+{
+  const posts = [];
+  globalThis.fetch = async (url, init) => { posts.push({ url, init }); return {}; };
+  globalThis.window = { BavornthaiApp: { fcmToken: () => 'app-token-0123456789' } };
+  web.nameAppDevice('ร้านค้า: ป้าแดง');
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, 'https://bavornthai-superapp.bhiddaya.workers.dev/api/subscribe-fcm');
+  assert.equal(posts[0].init.mode, 'no-cors');
+  assert.deepEqual(JSON.parse(posts[0].init.body), { token: 'app-token-0123456789', name: 'ร้านค้า: ป้าแดง' });
+  globalThis.window = {}; web.nameAppDevice('ร้านค้า: ป้าแดง');
+  globalThis.window = { BavornthaiApp: { fcmToken: () => '' } }; web.nameAppDevice('ร้านค้า: ป้าแดง');
+  assert.equal(posts.length, 1, 'no token or no app: nothing sent');
+}
+
 // browsers without push (LINE in-app browser, iPhone outside the home screen)
 globalThis.window = {}; assert.equal(web.pushSupported(), false); assert.equal(await web.pushState(), 'unsupported'); assert.equal(await web.enablePush('driver'), 'unsupported');
 assert.equal(web.unsupportedHelp('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)'), 'ios-install');

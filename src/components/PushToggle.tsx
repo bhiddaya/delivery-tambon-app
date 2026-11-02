@@ -1,18 +1,26 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
-import { disablePush, enablePush, pushState, unsupportedHelp, type PushKind, type PushState } from "@/lib/web-push";
+import { useOptionalSession } from "@/lib/session-context";
+import { disablePush, enablePush, nameAppDevice, pushState, unsupportedHelp, type PushKind, type PushState } from "@/lib/web-push";
+
+const KIND_TH: Record<PushKind, string> = { merchant: "ร้านค้า", driver: "ไรเดอร์", agent: "ตัวแทน" };
 
 /** แจ้งเตือนของมือถือแม้ปิดหน้า (Web Push) · เสียงเป็นของเครื่อง ตั้งได้ในการตั้งค่ามือถือ */
 export default function PushToggle({ kind }: { kind: PushKind }) {
   const [state, setState] = useState<PushState | "checking">("checking");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const fullName = useOptionalSession()?.profile.full_name;
   useEffect(() => {
     let live = true;
     void pushState().then(next => { if (live) setState(next); });
     return () => { live = false; };
   }, []);
+  // แอปบวรไทย: บอกหน้าซ้อมเสียงว่าเครื่องนี้ของใคร (บทบาทขึ้นก่อน ชื่อยาวถูกตัดที่ 40 ตัว)
+  useEffect(() => {
+    if (state === "on" && fullName) nameAppDevice(`${KIND_TH[kind]}: ${fullName}`);
+  }, [state, fullName, kind]);
   async function turnOn() {
     setBusy(true); setFailed(false);
     const result = await enablePush(kind);
