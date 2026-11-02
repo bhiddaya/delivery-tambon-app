@@ -112,3 +112,13 @@ export function resolveIdentifier(input: string): Identifier {
 
   return { kind: "phone", authEmail: phoneToAuthEmail(phone), phone };
 }
+
+/**
+ * อีเมลติดต่อแบบไม่บังคับ (profiles.contact_email, tambon_applications.applicant_email)
+ * ว่าง → null · รูปแบบถูก → ตัวพิมพ์เล็ก · ผิด → false (ให้หน้าฟอร์มแจ้งเตือน)
+ */
+export function optionalEmail(input: string): string | null | false {
+  const value = input.trim().toLowerCase();
+  if (!value) return null;
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : false;
+}
