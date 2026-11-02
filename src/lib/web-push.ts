@@ -75,6 +75,11 @@ export async function enablePush(kind: PushKind): Promise<PushState | "error"> {
 /** หน้าซ้อมเสียงของ Super app แสดงเครื่องแอปด้วยชื่อนี้ (no-cors: ส่งอย่างเดียว ไม่อ่านคำตอบ ไม่สำเร็จก็ไม่กระทบการแจ้งเตือน) */
 const DRILL_DEVICE_URL = "https://bavornthai-superapp.bhiddaya.workers.dev/api/subscribe-fcm";
 
+/** "ร้านค้า: ป้าแดง" · ชื่อกลางที่มีบทบาทอยู่แล้วไม่ต้องซ้ำ เช่น "ลูกค้า LINE" */
+export function appDeviceLabel(roleLabel: string, fullName: string): string {
+  return fullName.startsWith(roleLabel) ? fullName : `${roleLabel}: ${fullName}`;
+}
+
 export function nameAppDevice(name: string): void {
   const token = appBridge()?.fcmToken();
   if (!token || !name) return;
