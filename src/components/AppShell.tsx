@@ -8,6 +8,7 @@ import InstallPwa from "@/components/InstallPwa";
 import { createClient } from "@/lib/supabase/client";
 import { useSession } from "@/lib/session-context";
 import { homePathFor, ROLE_LABEL, type UserRole } from "@/lib/domain";
+import { appDeviceLabel, nameAppDevice } from "@/lib/web-push";
 
 const customer = [{ href: "/customer", label: "ค้นหาร้านค้า", icon: Store }, { href: "/customer/orders", label: "ออเดอร์ของฉัน", icon: ClipboardList }, { href: "/account", label: "บัญชีของฉัน", icon: UserRound }];
 const merchant = [{ href: "/merchant/orders", label: "ออเดอร์เข้าร้าน", icon: ClipboardList }, { href: "/merchant", label: "ร้านและเมนู", icon: Store }, { href: "/merchant/earnings", label: "รายรับ", icon: Wallet }, { href: "/account", label: "บัญชีของฉัน", icon: UserRound }];
@@ -24,6 +25,10 @@ export default function AppShell({ role, children }: { role: UserRole; children:
   const links = [...NAV[effectiveRole], {href:"/account/cashbook",label:"รายรับ–รายจ่ายส่วนตัว",icon:Wallet}, ...(effectiveRole==="superadmin" ? [{href:"/finance/cashbook",label:"บัญชีโครงการดิลิเวอรี่",icon:Wallet}] : [])];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuDialog = useRef<HTMLDialogElement>(null);
+  // แอปบวรไทย: บอกหน้าซ้อมเสียงว่าเครื่องนี้ของใคร ทุกบทบาท (โหมดดูแทน profile เป็นของคนอื่น จึงไม่ส่ง)
+  useEffect(() => {
+    if (!viewAs && profile.full_name) nameAppDevice(appDeviceLabel(ROLE_LABEL[profile.role], profile.full_name));
+  }, [viewAs, profile.role, profile.full_name]);
   useEffect(() => {
     const dialog = menuDialog.current;
     if (menuOpen && dialog && !dialog.open) dialog.showModal();
