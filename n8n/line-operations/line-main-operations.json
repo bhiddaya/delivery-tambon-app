@@ -5055,7 +5055,7 @@
                       "operation": "regex",
                       "type": "string"
                     },
-                    "rightValue": "^(สมัครร้านค้า|สมัครไรเดอร์|สมัครขับรถส่วนตัว|สมัครรถส่วนบุคคล|สมัครรถไถ|สมัครรถเกี่ยวข้าว|สมัครรถดำนา|สมัครโดรน|สมัครงาน|สมัครงานอาชีพ)(\\s*$|\\s*\\n)"
+                    "rightValue": "^(สมัครลูกค้า|สมัครลูกค้าใหม่|สมัครร้านค้า|สมัครไรเดอร์|สมัครขับรถส่วนตัว|สมัครรถส่วนบุคคล|สมัครรถไถ|สมัครรถเกี่ยวข้าว|สมัครรถดำนา|สมัครโดรน|สมัครงาน|สมัครงานอาชีพ)(\\s*$|\\s*\\n)"
                   }
                 ],
                 "combinator": "and"
@@ -6124,7 +6124,7 @@
         "workflowId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ /^food=(?:add|rm|cart|clear|review|checkout|confirm|menu|shops|tambon|tambons|location|partner)(?:&|$)/.test(String($json.pb || '')) || /^(?:สมัครลูกค้า(?:ใหม่)?|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(String($json.text || '').trim()) ? 'Csc8nDWFBvLegG1d' : '1v3lerEKWR5DUUc1' }}"
+          "value": "={{ /^food=(?:add|rm|cart|clear|review|checkout|confirm|menu|shops|tambon|tambons|location|partner)(?:&|$)/.test(String($json.pb || '')) || /^(?:สมัครใช้งาน|สมัคร|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(String($json.text || '').trim()) ? 'Csc8nDWFBvLegG1d' : '1v3lerEKWR5DUUc1' }}"
         },
         "mode": "each",
         "options": {
@@ -6152,7 +6152,7 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $json.handled !== true && !/^food=(?:add|rm|cart|clear|review|checkout|confirm|menu|shops|tambon|tambons|location|partner)(?:&|$)/.test(String($('ข้อมูลข้อความสื่อสาร').item.json.pb || '')) && !/^(?:สมัครลูกค้า(?:ใหม่)?|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(String($('ข้อมูลข้อความสื่อสาร').item.json.text || '').trim()) }}",
+              "leftValue": "={{ $json.handled !== true && !/^food=(?:add|rm|cart|clear|review|checkout|confirm|menu|shops|tambon|tambons|location|partner)(?:&|$)/.test(String($('ข้อมูลข้อความสื่อสาร').item.json.pb || '')) && !/^(?:สมัครใช้งาน|สมัคร|งานร้านค้า|งานไรเดอร์|การเงินตำบล)$/.test(String($('ข้อมูลข้อความสื่อสาร').item.json.text || '').trim()) }}",
               "operator": {
                 "type": "boolean",
                 "operation": "true",
