@@ -28,10 +28,13 @@ const box = contents => ({ type: 'box', layout: 'vertical', spacing: 'md', conte
 const bubble = (title, rows, buttons = []) => ({ type: 'bubble', body: box([txt(title, { weight: 'bold', size: 'lg' }), ...rows]), ...(buttons.length ? { footer: box(buttons) } : {}) });
 const moneyRow = (label, amount, bold = false) => ({ type: 'box', layout: 'horizontal', contents: [txt(label, { flex: 4, ...(bold ? { weight: 'bold' } : {}) }), txt(baht(amount), { flex: 2, align: 'end', ...(bold ? { weight: 'bold', color: O } : {}) })] });
 const picker = list => !list?.length ? [{ type: 'text', text: 'ขณะนี้ยังไม่มีพื้นที่เปิดบริการครับ' }] : [flex('เลือกพื้นที่สั่งอาหาร', { type: 'carousel', contents: list.slice(0, 10).map(t => bubble(t.name, [txt([t.district, t.province].filter(Boolean).join(' · '))], [button('เลือกพื้นที่นี้', 'food=tambon&id=' + encodeURIComponent(t.slug))])) })];
+// ลิงก์ฟอร์มลงลายเซ็นของผู้ใช้คนนี้ (จาก workflow ฟอร์มสมัคร) กดการ์ดแล้วเปิดฟอร์มทันที ถ้าไม่มีลิงก์ให้ส่งข้อความสมัครแบบเดิม
+const signupLinks = (req.action === 'register_menu' && r.links) || {};
+const applyButton = (type, text, color) => ({ type: 'button', style: 'primary', height: 'sm', color, action: signupLinks[type] ? uri('กรอกใบสมัคร', signupLinks[type]) : { type: 'message', label: 'กรอกใบสมัคร', text } });
 const registerMenu = () => flex('เลือกใบสมัคร', { type: 'carousel', contents: [
-  bubble('ใบสมัครลูกค้า', [txt('สั่งอาหารและของในตำบลของคุณ'), txt('กรอก: ชื่อ · เบอร์โทร · ตำบลที่รับอาหาร', { color: '#555555' }), txt('สมัครครั้งเดียว ใช้บัญชี LINE นี้สั่งได้เลย ไม่ต้องรออนุมัติ', { color: '#555555' })], [{ type: 'button', style: 'primary', height: 'sm', color: G, action: { type: 'message', label: 'กรอกใบสมัคร', text: 'สมัครลูกค้า' } }]),
-  bubble('ใบสมัครร้านค้า', [txt('ขายอาหารหรือของในตำบลของคุณ'), txt('กรอก: ชื่อร้าน · ประเภท · ที่อยู่ · เบอร์ติดต่อ', { color: '#555555' }), txt('ทีมงานตรวจและอนุมัติภายใน 1-2 วันทำการ', { color: '#555555' })], [{ type: 'button', style: 'primary', height: 'sm', color: G, action: { type: 'message', label: 'กรอกใบสมัคร', text: 'สมัครร้านค้า' } }]),
-  bubble('ใบสมัครไรเดอร์', [txt('รับงานส่งของในตำบลของคุณ'), txt('กรอก: ชื่อ · เบอร์โทร · ทะเบียนรถ', { color: '#555555' }), txt('ทีมงานตรวจและอนุมัติภายใน 1-2 วันทำการ', { color: '#555555' })], [{ type: 'button', style: 'primary', height: 'sm', color: O, action: { type: 'message', label: 'กรอกใบสมัคร', text: 'สมัครไรเดอร์' } }])
+  bubble('ใบสมัครลูกค้า', [txt('สั่งอาหารและของในตำบลของคุณ'), txt('กรอก: ชื่อ · เบอร์โทร · ตำบลที่รับอาหาร', { color: '#555555' }), txt('สมัครครั้งเดียว ใช้บัญชี LINE นี้สั่งได้เลย ไม่ต้องรออนุมัติ', { color: '#555555' })], [applyButton('customer', 'สมัครลูกค้า', G)]),
+  bubble('ใบสมัครร้านค้า', [txt('ขายอาหารหรือของในตำบลของคุณ'), txt('กรอก: ชื่อร้าน · ประเภท · ที่อยู่ · เบอร์ติดต่อ', { color: '#555555' }), txt('ทีมงานตรวจและอนุมัติภายใน 1-2 วันทำการ', { color: '#555555' })], [applyButton('merchant', 'สมัครร้านค้า', G)]),
+  bubble('ใบสมัครไรเดอร์', [txt('รับงานส่งของในตำบลของคุณ'), txt('กรอก: ชื่อ · เบอร์โทร · ทะเบียนรถ', { color: '#555555' }), txt('ทีมงานตรวจและอนุมัติภายใน 1-2 วันทำการ', { color: '#555555' })], [applyButton('motorcycle', 'สมัครไรเดอร์', O)])
 ] });
 const cart = r.cart || {};
 const view = r.view || req.action;
