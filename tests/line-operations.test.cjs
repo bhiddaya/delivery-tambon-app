@@ -4,12 +4,16 @@ const child=JSON.parse(fs.readFileSync(root+'food-operations.json','utf8')),main
 const code=fs.readFileSync(root+'build-reply.js','utf8'),parser=fs.readFileSync(root+'parse-command.js','utf8');
 const render=(req,result)=>new Function('$','$json',code)(()=>({item:{json:req}}),result).json;
 const parse=json=>new Function('$input',parser)({first:()=>({json})})[0]?.json;
-for(const text of ['สมัครลูกค้า','สมัครลูกค้าใหม่','งานร้านค้า','งานไรเดอร์','การเงินตำบล'])assert.equal(parse({text,userId:'TEST'}).action,'partner');
+for(const text of ['สมัครลูกค้า','สมัครลูกค้าใหม่'])assert.equal(parse({text,userId:'TEST'}),undefined,'customer sign-up goes to the signed form, not the food flow');
+for(const text of ['งานร้านค้า','งานไรเดอร์','การเงินตำบล'])assert.equal(parse({text,userId:'TEST'}).action,'partner');
 assert.equal(JSON.parse(parse({text:'การเงินตำบล',userId:'TEST'}).arg).action,'finance');
 assert.equal(parse({pb:'food=partner&id='+encodeURIComponent('{"action":"ready","order_id":123}'),userId:'TEST'}).action,'partner');
 const route=main.nodes.find(n=>n.name==='ส่งไประบบข้อความสื่อสาร').parameters.workflowId.value;
-for(const j of [{pb:'food=partner&id=1'},{text:'สมัครลูกค้า'}, {text:'งานไรเดอร์'}, {text:'การเงินตำบล'}])assert.equal(new Function('$json','return '+route.slice(3,-2))(j),'Csc8nDWFBvLegG1d');
-assert.equal(new Function('$json','return '+route.slice(3,-2))({text:'งานอื่น'}),'1v3lerEKWR5DUUc1');
+assert.equal(parse({text:'สมัคร',userId:'TEST'}).action,'register_menu');
+assert.equal(parse({text:'สมัครใช้งาน',userId:'TEST'}).action,'register_menu');
+for(const j of [{pb:'food=partner&id=1'}, {text:'งานไรเดอร์'}, {text:'การเงินตำบล'}, {text:'สมัคร'}, {text:'สมัครใช้งาน'}])assert.equal(new Function('$json','return '+route.slice(3,-2))(j),'Csc8nDWFBvLegG1d');
+for(const text of ['งานอื่น','สมัครลูกค้า'])assert.equal(new Function('$json','return '+route.slice(3,-2))({text}),'1v3lerEKWR5DUUc1');
+{const sw=main.nodes.find(n=>n.name==='ร้องเรียน/สลับเมนู?').parameters.rules.values.find(v=>v.outputKey==='สมัคร').conditions.conditions[1].rightValue;for(const t of ['สมัครลูกค้า','สมัครร้านค้า','สมัครไรเดอร์'])assert(new RegExp(sw).test(t),t+' opens the signed form');}
 const req={action:'partner',test:true};
 let r=render(req,{ok:true,view:'partner',title:'สมัครลูกค้า',links:{'สมัครลูกค้า':'https://delivery-tambon-app-v3.vercel.app/liff/register'}});assert(r.messages[0].contents.footer.contents[0].action.uri.endsWith('/liff/register'));
 r=render(req,{ok:true,view:'partner',role:'driver',title:'งาน',jobs:[{id:1,status:'pending',dropoff:'QA'}],links:{'ออนไลน์':'https://delivery-tambon-app-v3.vercel.app/driver'}});assert(JSON.stringify(r.messages).includes('accept_driver'));
@@ -26,5 +30,6 @@ assert.equal(action.type,'uri');assert(action.uri.endsWith('/liff/shop/shop-123'
 assert(r.messages[0].contents.footer.contents.some(b=>b.action.data==='food=cart'),'old chat basket remains accessible');
 assert(!JSON.stringify(r.messages).includes('food=add'),'menu entry opens immediate checkbox UI instead of old add cards');
 assert(r.messages[0].quickReply.items.some(i=>i.action.type==='uri'&&i.action.uri===action.uri));
+{const menu=render({action:'register_menu',test:true},{});const flexMsg=menu.messages[0];assert.equal(flexMsg.type,'flex');assert.equal(flexMsg.contents.type,'carousel');assert.equal(flexMsg.contents.contents.length,3);assert.equal(flexMsg.contents.contents[0].body.contents[0].text,'ใบสมัครลูกค้า');assert.equal(flexMsg.contents.contents[1].body.contents[0].text,'ใบสมัครร้านค้า');const all=JSON.stringify(menu.messages);assert(all.includes('"text":"สมัครร้านค้า"'));assert(all.includes('"text":"สมัครไรเดอร์"'));assert(all.includes('"text":"สมัครลูกค้า"'));assert(!all.includes('/liff/register'));assert(!all.includes('สมัครลูกค้าใหม่'));}
 for(const w of [main,child]){assert.equal(new Set(w.nodes.map(n=>n.name)).size,w.nodes.length);for(const n of w.nodes.filter(n=>n.type==='n8n-nodes-base.code'))new Function(n.parameters.jsCode);}
-console.log('PASS 12 workflow checks: signup/role text, partner postback, direct routing, signup link, driver action, retry response, silent cart, LIFF shop entry, old menu links and unique nodes');
+console.log('PASS workflow checks: สมัครใช้งาน cards, customer signed form route, signup/role text, partner postback, direct routing, signup link, driver action, retry response, silent cart, LIFF shop entry, old menu links and unique nodes');

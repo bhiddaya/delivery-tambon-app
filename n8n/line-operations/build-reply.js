@@ -16,7 +16,7 @@ const postback = (label, data, display) => ({ type: 'postback', label: cut(label
 const button = (label, data, color = G) => ({ type: 'button', style: 'primary', height: 'sm', color, action: postback(label, data) });
 const quick = actions => ({ items: actions.slice(0, 13).map(action => ({ type: 'action', action })) });
 const nav = (c = {}, itemId) => {
-  const actions = [uri('ติ๊กเลือกอาหาร',c.merchant_id?menuUrl(c.merchant_id):liffBase+'/liff'),uri('สมัครลูกค้าใหม่',liffBase+'/liff/register'),partner('งานร้านค้า / ไรเดอร์','home')];
+  const actions = [uri('ติ๊กเลือกอาหาร',c.merchant_id?menuUrl(c.merchant_id):liffBase+'/liff'),{type:'message',label:'สมัครใช้งาน',text:'สมัครใช้งาน'},partner('งานร้านค้า / ไรเดอร์','home')];
   if (itemId) actions.push(postback('+1 รายการนี้', 'food=add&id=' + itemId), postback('−1 รายการนี้', 'food=rm&id=' + itemId));
   if (c.merchant_id) actions.push(uri('เปิดเมนูร้าน',menuUrl(c.merchant_id)));
   actions.push(postback('เพิ่ม / ลดสินค้า', 'food=cart'), postback('สรุปยอด', 'food=review'));
@@ -28,10 +28,17 @@ const box = contents => ({ type: 'box', layout: 'vertical', spacing: 'md', conte
 const bubble = (title, rows, buttons = []) => ({ type: 'bubble', body: box([txt(title, { weight: 'bold', size: 'lg' }), ...rows]), ...(buttons.length ? { footer: box(buttons) } : {}) });
 const moneyRow = (label, amount, bold = false) => ({ type: 'box', layout: 'horizontal', contents: [txt(label, { flex: 4, ...(bold ? { weight: 'bold' } : {}) }), txt(baht(amount), { flex: 2, align: 'end', ...(bold ? { weight: 'bold', color: O } : {}) })] });
 const picker = list => !list?.length ? [{ type: 'text', text: 'ขณะนี้ยังไม่มีพื้นที่เปิดบริการครับ' }] : [flex('เลือกพื้นที่สั่งอาหาร', { type: 'carousel', contents: list.slice(0, 10).map(t => bubble(t.name, [txt([t.district, t.province].filter(Boolean).join(' · '))], [button('เลือกพื้นที่นี้', 'food=tambon&id=' + encodeURIComponent(t.slug))])) })];
+const registerMenu = () => flex('เลือกใบสมัคร', { type: 'carousel', contents: [
+  bubble('ใบสมัครลูกค้า', [txt('สั่งอาหารและของในตำบลของคุณ'), txt('กรอก: ชื่อ · เบอร์โทร · ตำบลที่รับอาหาร', { color: '#555555' }), txt('สมัครครั้งเดียว ใช้บัญชี LINE นี้สั่งได้เลย ไม่ต้องรออนุมัติ', { color: '#555555' })], [{ type: 'button', style: 'primary', height: 'sm', color: G, action: { type: 'message', label: 'กรอกใบสมัคร', text: 'สมัครลูกค้า' } }]),
+  bubble('ใบสมัครร้านค้า', [txt('ขายอาหารหรือของในตำบลของคุณ'), txt('กรอก: ชื่อร้าน · ประเภท · ที่อยู่ · เบอร์ติดต่อ', { color: '#555555' }), txt('ทีมงานตรวจและอนุมัติภายใน 1-2 วันทำการ', { color: '#555555' })], [{ type: 'button', style: 'primary', height: 'sm', color: G, action: { type: 'message', label: 'กรอกใบสมัคร', text: 'สมัครร้านค้า' } }]),
+  bubble('ใบสมัครไรเดอร์', [txt('รับงานส่งของในตำบลของคุณ'), txt('กรอก: ชื่อ · เบอร์โทร · ทะเบียนรถ', { color: '#555555' }), txt('ทีมงานตรวจและอนุมัติภายใน 1-2 วันทำการ', { color: '#555555' })], [{ type: 'button', style: 'primary', height: 'sm', color: O, action: { type: 'message', label: 'กรอกใบสมัคร', text: 'สมัครไรเดอร์' } }])
+] });
 const cart = r.cart || {};
 const view = r.view || req.action;
 let messages = [];
-if (r.handled === false) {
+if (req.action === 'register_menu') {
+  messages = [registerMenu()];
+} else if (r.handled === false) {
   // The main workflow will continue its original location handling without a reply here.
 } else if (r.ok && view==='partner_reject_confirm') {
   messages=[flex('ยืนยันรับออเดอร์ไม่ได้',bubble('ออเดอร์ #'+r.order_id,[txt('ยืนยันว่าร้านรับออเดอร์นี้ไม่ได้ ระบบจะยกเลิกออเดอร์ที่ยังไม่มีสลิปหรือรับเงิน')],[{type:'button',style:'primary',color:G,action:partner('ยืนยันรับไม่ได้','reject_shop',{order_id:r.order_id})},{type:'button',style:'link',action:partner('กลับไปดูงาน','home')}]))];
