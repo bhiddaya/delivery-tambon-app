@@ -11,7 +11,7 @@ import { loadConfig, missingSecrets } from '../src/config.js';
 const cfg = loadConfig({
   BRIDGE_SECRET: 's',
   SUPABASE_SERVICE_ROLE_KEY: 'k',
-  ANTHROPIC_API_KEY: 'a',
+  OPENROUTER_API_KEY: 'a',
   GITHUB_TOKEN: 'g',
   LINE_CHANNEL_ACCESS_TOKEN: 'l',
   DAILY_TASK_LIMIT: '2',
@@ -57,34 +57,58 @@ test('staffLevel: เฉพาะระดับที่ได้รับอ�
   assert.equal(called, false);
 });
 
-test('runAgent: เรียกเครื่องมือแล้วได้คำตอบสุดท้าย และส่งผลเครื่องมือกลับไป', async () => {
+test('runAgent: เรียกเครื่องมือแล้วได้คำตอบสุดท้าย และส่งผลเครื่องมือกลับไปเป็น role tool', async () => {
   const requests = [];
   const responses = [
-    { stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 't1', name: 'read_file', input: { path: 'a.ts' } }] },
-    { stop_reason: 'end_turn', content: [{ type: 'text', text: 'เสร็จ' }] },
+    {
+      choices: [{
+        finish_reason: 'tool_calls',
+        message: { role: 'assistant', content: null, tool_calls: [
+          { id: 'c1', type: 'function', function: { name: 'read_file', arguments: '{"path":"a.ts"}' } },
+        ] },
+      }],
+    },
+    { choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: 'เสร็จ' } }] },
   ];
-  const client = { messages: { create: async (body) => { requests.push(structuredClone(body)); return responses.shift(); } } };
+  const client = { chat: { create: async (body) => { requests.push(structuredClone(body)); return responses.shift(); } } };
   const seen = [];
   const tools = {
-    defs: [],
+    defs: [{ name: 'read_file', description: 'อ่าน', input_schema: { type: 'object', properties: {} } }],
     handlers: { read_file: async (input) => { seen.push(input.path); return 'DATA'; } },
   };
   const out = await runAgent({ cfg, client, task: 'อ่าน a.ts', tools });
   assert.equal(out.text, 'เสร็จ');
   assert.equal(out.steps, 2);
   assert.deepEqual(seen, ['a.ts']);
+  assert.equal(requests[0].tools[0].type, 'function');
+  assert.equal(requests[0].messages[0].role, 'system');
   const last = requests[1].messages.at(-1);
-  assert.equal(last.role, 'user');
-  assert.equal(last.content[0].type, 'tool_result');
-  assert.equal(last.content[0].content, 'DATA');
-  assert.equal(last.content[0].is_error, false);
+  assert.equal(last.role, 'tool');
+  assert.equal(last.tool_call_id, 'c1');
+  assert.equal(last.content, 'DATA');
 });
 
-test('runAgent: เครื่องมือ error ส่งกลับเป็น is_error และหยุดตามจำนวนขั้นตอน', async () => {
-  const client = { messages: { create: async () => ({ stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'x', name: 'nope', input: {} }] }) } };
+test('runAgent: เครื่องมือ error ส่งกลับเป็น ERROR และหยุดตามจำนวนขั้นตอน', async () => {
+  const client = { chat: { create: async () => ({ choices: [{ message: { role: 'assistant', content: null, tool_calls: [
+    { id: 'x', type: 'function', function: { name: 'nope', arguments: '{}' } },
+  ] } }] }) } };
   const out = await runAgent({ cfg, client, task: 't', tools: { defs: [], handlers: {} } });
   assert.equal(out.steps, cfg.maxSteps);
   assert.match(out.text, /หยุด/);
+});
+
+test('runAgent: arguments ที่ไม่ใช่ JSON กลายเป็น ERROR ให้โมเดลแก้ตัวเอง', async () => {
+  const requests = [];
+  const responses = [
+    { choices: [{ message: { role: 'assistant', content: null, tool_calls: [
+      { id: 'b1', type: 'function', function: { name: 'read_file', arguments: '{bad' } },
+    ] } }] },
+    { choices: [{ message: { role: 'assistant', content: 'ok' } }] },
+  ];
+  const client = { chat: { create: async (b) => { requests.push(structuredClone(b)); return responses.shift(); } } };
+  const out = await runAgent({ cfg, client, task: 't', tools: { defs: [], handlers: { read_file: async () => 'x' } } });
+  assert.equal(out.text, 'ok');
+  assert.match(requests[1].messages.at(-1).content, /^ERROR: arguments/);
 });
 
 test('handleEvent: ไม่มีสิทธิ์ไม่รันงาน, มีสิทธิ์รันและส่งลิงก์ PR, โควตาครบแล้วหยุด', async () => {
@@ -135,6 +159,20 @@ test('secretOk และ missingSecrets', () => {
   assert.equal(secretOk(undefined, 'abc'), false);
   assert.equal(secretOk('', ''), false);
   assert.deepEqual(missingSecrets(loadConfig({})).sort(), [
-    'ANTHROPIC_API_KEY', 'BRIDGE_SECRET', 'GITHUB_TOKEN', 'LINE_CHANNEL_ACCESS_TOKEN', 'SUPABASE_SERVICE_ROLE_KEY',
+    'BRIDGE_SECRET', 'GITHUB_TOKEN', 'LINE_CHANNEL_ACCESS_TOKEN', 'OPENROUTER_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
   ]);
+});
+
+test('openRouterClient: ส่ง Bearer ไป OpenRouter และแปลง error เป็นข้อความ', async () => {
+  const { openRouterClient } = await import('../src/agent.js');
+  let seen;
+  const ok = openRouterClient(cfg, async (url, opt) => {
+    seen = { url, auth: opt.headers.Authorization };
+    return { ok: true, json: async () => ({ choices: [] }) };
+  });
+  await ok.chat.create({ model: 'm', messages: [] });
+  assert.equal(seen.url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(seen.auth, 'Bearer a');
+  const bad = openRouterClient(cfg, async () => ({ ok: false, status: 429, json: async () => ({ error: { message: 'rate' } }) }));
+  await assert.rejects(() => bad.chat.create({}), /OpenRouter 429: rate/);
 });

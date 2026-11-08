@@ -1,4 +1,4 @@
-// วนลูป tool use กับ Claude: เรียกเครื่องมือจนได้คำตอบสุดท้าย หรือครบจำนวนขั้นตอน
+// วนลูป tool calling ผ่าน OpenRouter (รูปแบบ OpenAI-compatible) จนได้คำตอบสุดท้ายหรือครบจำนวนขั้นตอน
 export const SYSTEM_PROMPT = [
   'คุณเป็นผู้ช่วยพัฒนาโปรเจกต์บวรไทย รับคำสั่งจากผู้ดูแลระบบที่ได้รับอนุญาตผ่าน LINE ตอบเป็นภาษาไทย กระชับ',
   'กติกา:',
@@ -10,69 +10,74 @@ export const SYSTEM_PROMPT = [
   '6) ห้ามพยายามอ่านหรือเปิดเผยค่าลับ รหัส หรือ token',
 ].join('\n');
 
-export function anthropicClient(cfg, fetchImpl = fetch) {
+export function openRouterClient(cfg, fetchImpl = fetch) {
   return {
-    messages: {
+    chat: {
       create: async (body) => {
-        const res = await fetchImpl('https://api.anthropic.com/v1/messages', {
+        const res = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'x-api-key': cfg.anthropicKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
+            Authorization: `Bearer ${cfg.openrouterKey}`,
+            'Content-Type': 'application/json',
+            'X-Title': 'line-agent',
           },
           body: JSON.stringify(body),
         });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(`Anthropic ${res.status}: ${json?.error?.message || 'error'}`);
+        if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${json?.error?.message || 'error'}`);
         return json;
       },
     },
   };
 }
 
-function textOf(content) {
-  return (content || [])
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim();
-}
-
 export async function runAgent({ cfg, client, task, tools, system = SYSTEM_PROMPT }) {
-  const messages = [{ role: 'user', content: task }];
+  const messages = [
+    { role: 'system', content: system },
+    { role: 'user', content: task },
+  ];
+  const toolSpecs = tools.defs.map((d) => ({
+    type: 'function',
+    function: { name: d.name, description: d.description, parameters: d.input_schema },
+  }));
+
   for (let step = 0; step < cfg.maxSteps; step += 1) {
-    const resp = await client.messages.create({
+    const resp = await client.chat.create({
       model: cfg.model,
       max_tokens: 4000,
-      system,
-      tools: tools.defs,
       messages,
+      tools: toolSpecs,
     });
-    messages.push({ role: 'assistant', content: resp.content });
-    if (resp.stop_reason !== 'tool_use') {
-      return { text: textOf(resp.content) || 'เสร็จแล้วครับ', steps: step + 1 };
+    const msg = resp?.choices?.[0]?.message;
+    if (!msg) throw new Error('ไม่มีคำตอบจากโมเดล');
+
+    const calls = msg.tool_calls || [];
+    messages.push({
+      role: 'assistant',
+      content: msg.content || null,
+      ...(calls.length ? { tool_calls: calls } : {}),
+    });
+    if (calls.length === 0) {
+      return { text: (msg.content || '').trim() || 'เสร็จแล้วครับ', steps: step + 1 };
     }
-    const results = [];
-    for (const block of (resp.content || []).filter((b) => b.type === 'tool_use')) {
+
+    for (const call of calls) {
       let out;
-      let isError = false;
       try {
-        const handler = tools.handlers[block.name];
-        if (!handler) throw new Error(`ไม่มีเครื่องมือชื่อ ${block.name}`);
-        out = String(await handler(block.input || {}));
+        const handler = tools.handlers[call.function?.name];
+        if (!handler) throw new Error(`ไม่มีเครื่องมือชื่อ ${call.function?.name}`);
+        let args;
+        try {
+          args = JSON.parse(call.function.arguments || '{}');
+        } catch {
+          throw new Error('arguments ไม่ใช่ JSON');
+        }
+        out = String(await handler(args));
       } catch (e) {
-        out = String(e.message || e);
-        isError = true;
+        out = `ERROR: ${e.message || e}`;
       }
-      results.push({
-        type: 'tool_result',
-        tool_use_id: block.id,
-        content: out.slice(0, 20000),
-        is_error: isError,
-      });
+      messages.push({ role: 'tool', tool_call_id: call.id, content: out.slice(0, 20000) });
     }
-    messages.push({ role: 'user', content: results });
   }
   return { text: 'หยุดเพราะใช้ขั้นตอนครบตามกำหนดแล้ว ลองสั่งงานให้เล็กลงครับ', steps: cfg.maxSteps };
 }

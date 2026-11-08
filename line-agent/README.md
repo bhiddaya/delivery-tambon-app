@@ -23,7 +23,7 @@ PR ที่ได้จะเป็น draft เสมอ เจ้าของ
 
 ## Environment (ตั้งใน Render)
 
-ดูรายการในไฟล์ `.env.example` ค่าที่ต้องใส่จริง: `BRIDGE_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `GITHUB_TOKEN`
+ดูรายการในไฟล์ `.env.example` ค่าที่ต้องใส่จริง: `BRIDGE_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENROUTER_API_KEY`, `GITHUB_TOKEN`
 
 ## Deploy บน Render
 

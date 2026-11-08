@@ -3,7 +3,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { staffLevel } from './auth.js';
 import { pushText } from './line.js';
-import { anthropicClient, runAgent } from './agent.js';
+import { openRouterClient, runAgent } from './agent.js';
 import { Repo } from './repo.js';
 import { buildTools } from './tools.js';
 import { handleEvent, createUsage } from './process.js';
@@ -47,7 +47,7 @@ function readJson(req, limit = 32 * 1024) {
 export function createServer(cfg, deps = {}) {
   const usage = createUsage(cfg.dailyLimit);
   const repo = new Repo(cfg);
-  const client = deps.client || anthropicClient(cfg);
+  const client = deps.client || openRouterClient(cfg);
   const push = deps.push || ((to, text) => pushText(to, text, cfg));
   const level = deps.level || ((id) => staffLevel(id, cfg));
   const log = deps.log || ((obj) => console.log(JSON.stringify({ ts: new Date().toISOString(), ...obj })));

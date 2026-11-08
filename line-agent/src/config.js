@@ -6,8 +6,8 @@ export function loadConfig(env = process.env) {
     lineToken: env.LINE_CHANNEL_ACCESS_TOKEN || '',
     supabaseUrl: (env.SUPABASE_URL || 'https://kaeoxqiqonwjoqjoiiho.supabase.co').replace(/\/$/, ''),
     supabaseKey: env.SUPABASE_SERVICE_ROLE_KEY || '',
-    anthropicKey: env.ANTHROPIC_API_KEY || '',
-    model: env.ANTHROPIC_MODEL || 'claude-opus-5-5',
+    openrouterKey: env.OPENROUTER_API_KEY || '',
+    model: env.OPENROUTER_MODEL || 'anthropic/claude-opus-5.5',
     githubToken: env.GITHUB_TOKEN || '',
     githubRepo: env.GITHUB_REPO || 'bhiddaya/delivery-tambon-app',
     baseBranch: env.BASE_BRANCH || 'main',
@@ -24,7 +24,7 @@ export function missingSecrets(cfg) {
     ['BRIDGE_SECRET', cfg.bridgeSecret],
     ['LINE_CHANNEL_ACCESS_TOKEN', cfg.lineToken],
     ['SUPABASE_SERVICE_ROLE_KEY', cfg.supabaseKey],
-    ['ANTHROPIC_API_KEY', cfg.anthropicKey],
+    ['OPENROUTER_API_KEY', cfg.openrouterKey],
     ['GITHUB_TOKEN', cfg.githubToken],
   ];
   return need.filter(([, v]) => !v).map(([k]) => k);
