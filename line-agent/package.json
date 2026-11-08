@@ -1,0 +1,14 @@
+{
+  "name": "line-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "สั่งงานพัฒนาโปรเจกต์บวรไทยจาก LINE OA (ระยะที่ 1: อ่านอย่างเดียว + ร่าง PR)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  }
+}
