@@ -7,7 +7,7 @@ export function loadConfig(env = process.env) {
     supabaseUrl: (env.SUPABASE_URL || 'https://kaeoxqiqonwjoqjoiiho.supabase.co').replace(/\/$/, ''),
     supabaseKey: env.SUPABASE_SERVICE_ROLE_KEY || '',
     openrouterKey: env.OPENROUTER_API_KEY || '',
-    model: env.OPENROUTER_MODEL || 'anthropic/claude-opus-5.5',
+    model: env.OPENROUTER_MODEL || 'anthropic/claude-haiku-5.5',
     githubToken: env.GITHUB_TOKEN || '',
     githubRepo: env.GITHUB_REPO || 'bhiddaya/delivery-tambon-app',
     baseBranch: env.BASE_BRANCH || 'main',
