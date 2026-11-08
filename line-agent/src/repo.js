@@ -26,7 +26,10 @@ export class Repo {
   constructor(cfg) {
     this.cfg = cfg;
     this.dir = cfg.repoDir;
-    this.remote = `https://x-access-token:${cfg.githubToken}@github.com/${cfg.githubRepo}.git`;
+    // repo เป็น public จึง clone ได้โดยไม่ต้องมี token (token ใช้ตอน push และเปิด PR เท่านั้น)
+    this.remote = cfg.githubToken
+      ? `https://x-access-token:${cfg.githubToken}@github.com/${cfg.githubRepo}.git`
+      : `https://github.com/${cfg.githubRepo}.git`;
     this.cloned = null;
   }
 
