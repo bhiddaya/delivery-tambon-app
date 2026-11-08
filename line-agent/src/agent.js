@@ -10,21 +10,22 @@ export const SYSTEM_PROMPT = [
   '6) ห้ามพยายามอ่านหรือเปิดเผยค่าลับ รหัส หรือ token',
 ].join('\n');
 
+// เรียก OpenRouter ผ่าน webhook ของ n8n (n8n ถือคีย์ OpenRouter เดิม และส่งคำขอ/คำตอบตรง ๆ)
 export function openRouterClient(cfg, fetchImpl = fetch) {
   return {
     chat: {
       create: async (body) => {
-        const res = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
+        const res = await fetchImpl(`${cfg.n8nUrl}/webhook/agent-llm`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${cfg.openrouterKey}`,
+            'x-bridge-secret': cfg.bridgeSecret,
             'Content-Type': 'application/json',
-            'X-Title': 'line-agent',
           },
           body: JSON.stringify(body),
         });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${json?.error?.message || 'error'}`);
+        if (!res.ok) throw new Error(`LLM proxy ${res.status}`);
+        if (json?.error) throw new Error(`OpenRouter: ${json.error.message || 'error'}`);
         return json;
       },
     },

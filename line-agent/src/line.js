@@ -1,4 +1,4 @@
-// ส่งข้อความกลับ LINE ด้วย push (reply token หมดอายุเร็วเกินไปสำหรับงานที่ใช้เวลานาน)
+// ส่งข้อความกลับ LINE ผ่าน n8n (ใช้ LINE credential เดิม) ด้วย push เพราะงานใช้เวลานานกว่า reply token
 const MAX_TEXT = 4800;
 
 export function clip(text, max = MAX_TEXT) {
@@ -8,15 +8,17 @@ export function clip(text, max = MAX_TEXT) {
 
 export async function pushText(to, text, cfg, fetchImpl = fetch) {
   try {
-    const res = await fetchImpl('https://api.line.me/v2/bot/message/push', {
+    const res = await fetchImpl(`${cfg.n8nUrl}/webhook/agent-push`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${cfg.lineToken}`,
+        'x-bridge-secret': cfg.bridgeSecret,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ to, messages: [{ type: 'text', text: clip(text) }] }),
+      body: JSON.stringify({ to, text: clip(text) }),
     });
-    return res.ok;
+    if (!res.ok) return false;
+    const json = await res.json().catch(() => ({}));
+    return json?.ok === true;
   } catch {
     return false;
   }

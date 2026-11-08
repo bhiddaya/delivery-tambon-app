@@ -9,13 +9,11 @@ import { secretOk } from '../src/server.js';
 import { loadConfig, missingSecrets } from '../src/config.js';
 
 const cfg = loadConfig({
-  BRIDGE_SECRET: 's',
-  SUPABASE_SERVICE_ROLE_KEY: 'k',
-  OPENROUTER_API_KEY: 'a',
-  GITHUB_TOKEN: 'g',
-  LINE_CHANNEL_ACCESS_TOKEN: 'l',
-  DAILY_TASK_LIMIT: '2',
-  MAX_AGENT_STEPS: '3',
+  BRIDGE_SECRET: "s",
+  GITHUB_TOKEN: "g",
+  N8N_BRIDGE_URL: "https://n8n.test/",
+  DAILY_TASK_LIMIT: "2",
+  MAX_AGENT_STEPS: "3",
 });
 
 test('parseCommand: งาน: และ งาน เว้นวรรค', () => {
@@ -158,21 +156,29 @@ test('secretOk และ missingSecrets', () => {
   assert.equal(secretOk('abd', 'abc'), false);
   assert.equal(secretOk(undefined, 'abc'), false);
   assert.equal(secretOk('', ''), false);
-  assert.deepEqual(missingSecrets(loadConfig({})).sort(), [
-    'BRIDGE_SECRET', 'GITHUB_TOKEN', 'LINE_CHANNEL_ACCESS_TOKEN', 'OPENROUTER_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
-  ]);
+  assert.deepEqual(missingSecrets(loadConfig({})).sort(), ["BRIDGE_SECRET", "GITHUB_TOKEN"]);
 });
 
-test('openRouterClient: ส่ง Bearer ไป OpenRouter และแปลง error เป็นข้อความ', async () => {
-  const { openRouterClient } = await import('../src/agent.js');
+test("openRouterClient: ส่งผ่าน webhook ของ n8n พร้อม secret และแปลง error", async () => {
+  const { openRouterClient } = await import("../src/agent.js");
   let seen;
   const ok = openRouterClient(cfg, async (url, opt) => {
-    seen = { url, auth: opt.headers.Authorization };
+    seen = { url, secret: opt.headers["x-bridge-secret"], body: opt.body };
     return { ok: true, json: async () => ({ choices: [] }) };
   });
-  await ok.chat.create({ model: 'm', messages: [] });
-  assert.equal(seen.url, 'https://openrouter.ai/api/v1/chat/completions');
-  assert.equal(seen.auth, 'Bearer a');
-  const bad = openRouterClient(cfg, async () => ({ ok: false, status: 429, json: async () => ({ error: { message: 'rate' } }) }));
-  await assert.rejects(() => bad.chat.create({}), /OpenRouter 429: rate/);
+  await ok.chat.create({ model: "m", messages: [] });
+  assert.equal(seen.url, "https://n8n.test/webhook/agent-llm");
+  assert.equal(seen.secret, "s");
+  assert.equal(JSON.parse(seen.body).model, "m");
+  const bad = openRouterClient(cfg, async () => ({ ok: true, json: async () => ({ error: { message: "rate" } }) }));
+  await assert.rejects(() => bad.chat.create({}), /OpenRouter: rate/);
+});
+
+test("pushText: ส่งผ่าน n8n และคืน true เมื่อ n8n ตอบ ok", async () => {
+  const { pushText } = await import("../src/line.js");
+  let url;
+  const sent = await pushText("U1", "สวัสดี", cfg, async (u) => { url = u; return { ok: true, json: async () => ({ ok: true }) }; });
+  assert.equal(sent, true);
+  assert.equal(url, "https://n8n.test/webhook/agent-push");
+  assert.equal(await pushText("U1", "x", cfg, async () => ({ ok: true, json: async () => ({ ok: false }) })), false);
 });

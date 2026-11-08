@@ -23,7 +23,17 @@ PR ที่ได้จะเป็น draft เสมอ เจ้าของ
 
 ## Environment (ตั้งใน Render)
 
-ดูรายการในไฟล์ `.env.example` ค่าที่ต้องใส่จริง: `BRIDGE_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENROUTER_API_KEY`, `GITHUB_TOKEN`
+มีแค่ 2 ค่าที่ต้องใส่เอง: `BRIDGE_SECRET` และ `GITHUB_TOKEN` ค่าอื่นมีค่าเริ่มต้นแล้ว
+
+การเรียก LINE, Supabase และ OpenRouter ผ่าน webhook ของ n8n ซึ่งใช้ credential เดิมที่มีอยู่แล้ว บริการนี้จึงไม่ต้องเก็บคีย์เหล่านั้น
+
+## n8n ที่ต้องมี (workflow "LINE Agent Bridge (n8n proxy)")
+
+- `POST /webhook/agent-staff-level` ตรวจระดับผู้ดูแลผ่าน `line_staff_level`
+- `POST /webhook/agent-push` ส่งข้อความ LINE แบบ push
+- `POST /webhook/agent-llm` ส่งคำขอ chat completions ไป OpenRouter
+
+ทั้งสามตรวจ header `x-bridge-secret` ก่อนทำงาน
 
 ## Deploy บน Render
 
