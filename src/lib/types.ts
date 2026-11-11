@@ -1097,6 +1097,7 @@ export type Database = {
           full_name: string
           id: string
           is_test: boolean
+          contact_email: string | null
           line_user_id: string | null
           phone: string | null
           promptpay_id: string | null
@@ -1117,6 +1118,7 @@ export type Database = {
           full_name: string
           id?: string
           is_test?: boolean
+          contact_email?: string | null
           line_user_id?: string | null
           phone?: string | null
           promptpay_id?: string | null
@@ -1137,6 +1139,7 @@ export type Database = {
           full_name?: string
           id?: string
           is_test?: boolean
+          contact_email?: string | null
           line_user_id?: string | null
           phone?: string | null
           promptpay_id?: string | null
@@ -1446,6 +1449,7 @@ export type Database = {
       }
       tambon_applications: {
         Row: {
+          applicant_email: string | null
           applicant_line: string | null
           applicant_name: string
           applicant_phone: string
@@ -1471,6 +1475,7 @@ export type Database = {
           tambon_name: string
         }
         Insert: {
+          applicant_email?: string | null
           applicant_line?: string | null
           applicant_name: string
           applicant_phone: string
@@ -1496,6 +1501,7 @@ export type Database = {
           tambon_name: string
         }
         Update: {
+          applicant_email?: string | null
           applicant_line?: string | null
           applicant_name?: string
           applicant_phone?: string
@@ -2067,7 +2073,7 @@ export type Database = {
       agent_work_update: { Args: { p_task_id: string; p_request_id: string; p_version: number; p_action: string; p_note?: string }; Returns: Json }
       agent_refunds: { Args: { p_tambon_id: string }; Returns: Json }
       agent_refund_done: { Args: { p_order_id: number; p_note?: string | null }; Returns: Json }
-      register_line_customer: { Args: { p_name: string; p_phone: string; p_tambon_id: string }; Returns: Json }
+      register_line_customer: { Args: { p_email?: string; p_name: string; p_phone: string; p_tambon_id: string }; Returns: Json }
       referral_claim: { Args: { p_code: string }; Returns: Json }
       referral_me: { Args: Record<PropertyKey, never>; Returns: Json }
       referral_month_report: { Args: { p_month: string }; Returns: Json }
