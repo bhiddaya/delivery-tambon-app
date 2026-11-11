@@ -38,6 +38,8 @@ export type LiffContextValue = {
    * คืน null ถ้ายังไม่ได้ล็อกอิน LINE หรือ LIFF ยังไม่พร้อม
    */
   getIdToken: () => string | null;
+  /** access token ของ LIFF ให้ API ภายนอก (เช่น n8n) เอาไปตรวจตัวตนกับ LINE เอง — null ถ้ายังไม่ได้ล็อกอิน */
+  getAccessToken: () => string | null;
   /**
    * บังคับขอสิทธิ์จาก LINE ใหม่
    *
@@ -73,6 +75,7 @@ const LiffContext = createContext<LiffContextValue>({
   login: () => {},
   logout: () => {},
   getIdToken: () => null,
+  getAccessToken: () => null,
   relogin: () => {},
   sendText: async () => {
     throw new LiffSendError("not_in_client");
@@ -198,6 +201,7 @@ export default function LiffProvider({
         if (!liff || !liff.isLoggedIn()) return null;
         return liff.getIDToken();
       },
+      getAccessToken: () => (liff && liff.isLoggedIn() ? liff.getAccessToken() : null),
       relogin: () => {
         if (!liff) return;
         // ออกก่อนแล้วเข้าใหม่ เพื่อให้ LINE แสดงหน้าขออนุญาตอีกครั้ง
