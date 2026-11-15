@@ -2040,6 +2040,10 @@ export type Database = {
       }
     }
     Functions: {
+      bavorn_switch_my_line_service: {
+        Args: { p_target: "food" | "web" }
+        Returns: Json
+      }
       cashbook_month: {
         Args: { p_scope: string; p_month: string; p_page?: number }
         Returns: Json

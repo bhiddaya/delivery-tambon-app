@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { LiffSendError, errorCode } from "@/lib/liff-send";
+import { switchLineServiceOnOpen } from "@/lib/line-service-switch";
 
 /**
  * เชื่อม LIFF (LINE Front-end Framework) เข้ากับแอป
@@ -148,6 +149,10 @@ export default function LiffProvider({
         setIsLoggedIn(loggedIn);
 
         if (loggedIn) {
+          await switchLineServiceOnOpen(sdk).catch(() => {
+            console.error("line-service-switch: could not suspend previous chat mode");
+          });
+          if (cancelled) return;
           const load = async () => {
             const p = await sdk.getProfile();
             if (cancelled) return;
