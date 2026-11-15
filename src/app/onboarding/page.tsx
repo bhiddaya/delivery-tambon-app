@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { phoneFromAuthEmail, formatPhoneLocal } from "@/lib/identifier";
+import { phoneFromAuthEmail, formatPhoneLocal, isPhoneAuthEmail, optionalEmail } from "@/lib/identifier";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { AuthFrame } from "@/components/AuthFrame";
 import {
@@ -28,6 +28,7 @@ export default function OnboardingPage() {
   const [role, setRole] = useState<UserRole>("customer");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [tambonId, setTambonId] = useState("");
   const [promptpay, setPromptpay] = useState("");
   const [vehicle, setVehicle] = useState<VehicleType>("motorcycle");
@@ -62,6 +63,10 @@ export default function OnboardingPage() {
         (meta.phone as string | undefined) ?? phoneFromAuthEmail(user?.email);
       if (fromSignup) setPhone(formatPhoneLocal(fromSignup));
 
+      // สมัครด้วยอีเมลจริง — ใส่ให้เป็นอีเมลติดต่อเลย (อีเมลแฝงของเบอร์/LINE ไม่ใช่อีเมลจริง)
+      const authEmail = user?.email;
+      if (authEmail && !isPhoneAuthEmail(authEmail) && !authEmail.endsWith(".invalid")) setEmail(authEmail);
+
       // เข้าด้วย LINE — ใช้ชื่อที่แสดงใน LINE เป็นชื่อเริ่มต้น (แก้ได้)
       // เบอร์โทรยังต้องกรอกเอง เพราะ LINE ไม่ได้ให้เบอร์มา และไรเดอร์/ร้าน
       // ต้องมีเบอร์ไว้ให้ลูกค้าติดต่อ
@@ -76,6 +81,11 @@ export default function OnboardingPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const contactEmail = optionalEmail(email);
+    if (contactEmail === false) {
+      setError("รูปแบบอีเมลไม่ถูกต้อง (ไม่ใส่ก็ได้)");
+      return;
+    }
     setLoading(true);
 
     const supabase = createClient();
@@ -93,6 +103,8 @@ export default function OnboardingPage() {
       role,
       full_name: fullName,
       phone,
+      // ส่งเฉพาะตอนกรอก ไม่กรอกก็สมัครได้เหมือนเดิม
+      ...(contactEmail ? { contact_email: contactEmail } : {}),
       tambon_id: tambonId || null,
       promptpay_id: promptpay || null,
       // ผูกบัญชี LINE ไว้ตั้งแต่แถวแรก ครั้งหน้าจะกดปุ่ม LINE เข้าบัญชีนี้ได้เลย
@@ -170,6 +182,9 @@ export default function OnboardingPage() {
             </Field>
             <Field label="เบอร์โทร">
               <Input required value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </Field>
+            <Field label="อีเมล (ไม่บังคับ)">
+              <Input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
             <Field label="ตำบล">
               <select

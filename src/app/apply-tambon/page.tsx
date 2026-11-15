@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { optionalEmail } from "@/lib/identifier";
 import { Button, Card, Field, Input, Textarea } from "@/components/ui";
 import { AuthFrame } from "@/components/AuthFrame";
 
@@ -22,6 +23,7 @@ export default function ApplyTambonPage() {
     applicant_name: "",
     applicant_phone: "",
     applicant_line: "",
+    applicant_email: "",
     merchant_count: "",
     driver_count: "",
     note: "",
@@ -52,6 +54,11 @@ export default function ApplyTambonPage() {
       setError("กรุณากรอกเบอร์โทรให้ถูกต้อง (เช่น 0812345678)");
       return;
     }
+    const email = optionalEmail(form.applicant_email);
+    if (email === false) {
+      setError("รูปแบบอีเมลไม่ถูกต้อง (ไม่ใส่ก็ได้)");
+      return;
+    }
     const count = (v: string) => (v.trim() === "" ? null : Math.max(0, Math.floor(Number(v)) || 0));
 
     setLoading(true);
@@ -63,6 +70,7 @@ export default function ApplyTambonPage() {
       applicant_name: form.applicant_name.trim(),
       applicant_phone: phone,
       applicant_line: form.applicant_line.trim() || null,
+      ...(email ? { applicant_email: email } : {}),
       merchant_count: count(form.merchant_count),
       driver_count: count(form.driver_count),
       details: form.note.trim() ? { note: form.note.trim() } : {},
@@ -127,6 +135,9 @@ export default function ApplyTambonPage() {
             <Field label="LINE ID (ถ้ามี)">
               <Input value={form.applicant_line} onChange={set("applicant_line")} />
             </Field>
+            <Field label="อีเมล (ไม่บังคับ)">
+              <Input type="email" autoComplete="email" value={form.applicant_email} onChange={set("applicant_email")} />
+            </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="ร้านที่พร้อมเข้าร่วม (ประมาณ)">
                 <Input type="number" min={0} inputMode="numeric" value={form.merchant_count} onChange={set("merchant_count")} />
@@ -146,7 +157,7 @@ export default function ApplyTambonPage() {
                 onChange={(e) => setConsent(e.target.checked)}
               />
               <span>
-                ยินยอมให้บวรไทยเก็บชื่อและเบอร์โทรนี้ เพื่อพิจารณาและติดต่อกลับเรื่องการเปิดตำบลเท่านั้น
+                ยินยอมให้บวรไทยเก็บชื่อ เบอร์โทร และอีเมล (ถ้าให้ไว้) นี้ เพื่อพิจารณาและติดต่อกลับเรื่องการเปิดตำบลเท่านั้น
               </span>
             </label>
             {error && <p className="text-clay text-sm mb-3">{error}</p>}
