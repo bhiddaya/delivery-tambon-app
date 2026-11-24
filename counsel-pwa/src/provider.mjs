@@ -4,6 +4,7 @@
 // interface ของ session:
 //   sendAudio(base64Pcm16_16k)  ส่งเสียงผู้ใช้
 //   sendText(text)              ส่งข้อความผู้ใช้
+//   activity(start)             แปลสด: บอกเองว่าเริ่มพูด (true) / พูดจบ (false) เพราะปิด VAD ของ Google
 //   close()
 // callbacks:
 //   onAudio(base64Pcm16_24k)    เสียงตอบกลับ
@@ -21,7 +22,9 @@ export const stripTags = (text) => text.replace(/\s*\[[^\]]*?\b[SP]\d+[^\]]*\]/g
 
 // searchTeachings(query) -> ข้อความ <sources> (ไม่ส่งมา = ไม่มีเครื่องมือค้น)
 // googleSearch: เปิดเครื่องมือค้น Google ในตัวของ Gemini (หน้า NOVA)
-export async function connectGeminiLive({ config, systemPrompt, callbacks, searchTeachings, googleSearch = false }) {
+// manualTurns: แปลสด ปิด VAD ของ Google และไม่คิดก่อนพูด หน้าเว็บบอกเองว่าพูดจบ
+// (วัดจริง 24 พ.ย. 2569: VAD + คิดก่อนพูด 4.1-5.5 วินาที, บอกพูดจบเอง + ไม่คิด 1.4-1.8 วินาที นับจากพูดจบ)
+export async function connectGeminiLive({ config, systemPrompt, callbacks, searchTeachings, googleSearch = false, manualTurns = false }) {
   // SDK v3 ใช้ v1 เป็นค่าเริ่มต้น แต่โมเดล Live รุ่น preview อยู่ที่ v1beta (v1 ตอบ 404)
   const ai = new GoogleGenAI({ apiKey: config.geminiApiKey, httpOptions: { apiVersion: "v1beta" } });
   let session = null;
@@ -53,6 +56,9 @@ export async function connectGeminiLive({ config, systemPrompt, callbacks, searc
       outputAudioTranscription: {},
       // คุยยาวแล้วไม่หลุด: บีบบริบทเก่าแทนการปิด session เมื่อเต็ม
       contextWindowCompression: { slidingWindow: {} },
+      ...(manualTurns
+        ? { realtimeInputConfig: { automaticActivityDetection: { disabled: true } }, thinkingConfig: { thinkingBudget: 0 } }
+        : {}),
       ...(searchTeachings || googleSearch
         ? {
             tools: [
@@ -93,7 +99,13 @@ export async function connectGeminiLive({ config, systemPrompt, callbacks, searc
     // ส่งข้อความทางเดียวกับเสียง (realtime input): รุ่น native audio ตอบและเรียกเครื่องมือได้เหมือนผู้ใช้พูด
     // (ส่งแบบ client content แล้วรุ่นนี้บอกว่าจะค้นแต่ไม่เรียกเครื่องมือจริง)
     sendText(text) {
+      // แปลสด (ปิด VAD ของ Google): ข้อความต้องอยู่ระหว่างเริ่ม/จบ ไม่งั้น Gemini เงียบ (ทดสอบแล้ว)
+      if (manualTurns) session.sendRealtimeInput({ activityStart: {} });
       session.sendRealtimeInput({ text });
+      if (manualTurns) session.sendRealtimeInput({ activityEnd: {} });
+    },
+    activity(start) {
+      session.sendRealtimeInput(start ? { activityStart: {} } : { activityEnd: {} });
     },
     close() {
       session.close();
@@ -105,6 +117,7 @@ export async function connectGeminiLive({ config, systemPrompt, callbacks, searc
 export function createFakeProvider(callbacks) {
   return {
     sendAudio() {},
+    activity() {},
     sendText(text) {
       callbacks.onUserText?.(text);
       callbacks.onBotText?.("ทดสอบ");

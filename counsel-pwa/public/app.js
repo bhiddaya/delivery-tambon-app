@@ -317,9 +317,12 @@ function startMic() {
     if (IS_NOVA) orbEl.style.setProperty("--lvl", Math.min(1, peak * 3).toFixed(2)); // วงกลมขยายตามเสียงผู้ใช้
     const msg = JSON.stringify({ type: "audio", data: floatToPcm16Base64(downsample(input, micCtx.sampleRate, 16000)) });
     const now = performance.now() / 1000;
-    for (const m of gateFeed(msg, peak, now)) ws.send(m);
-    // จบประโยค (พ้นช่วงท้ายหลังหยุดพูด): บอกเซิร์ฟเวอร์ ใช้กับหู ElevenLabs ที่ถอดทีละประโยค
+    const out = gateFeed(msg, peak, now);
+    // เริ่มพูด / จบประโยค (พ้นช่วงท้ายหลังหยุดพูด): บอกเซิร์ฟเวอร์
+    // ใช้กับหู ElevenLabs ที่ถอดทีละประโยค และแปลสดที่บอก Gemini เองว่าพูดจบ (ไม่รอ VAD ของ Google)
     const talkingNow = now - gate.lastVoice <= GATE.tailS;
+    if (!gate.wasTalking && talkingNow) ws.send(JSON.stringify({ type: "utterance_start" })); // ก่อนเสียงช่วงนั้น
+    for (const m of out) ws.send(m);
     if (gate.wasTalking && !talkingNow) ws.send(JSON.stringify({ type: "utterance_end" }));
     gate.wasTalking = talkingNow;
   };
@@ -423,6 +426,8 @@ async function start(mode) {
   ws.onmessage = (e) => handle(JSON.parse(e.data));
   ws.onclose = () => stop();
   Object.assign(gate, { lead: [], lastVoice: -Infinity, lastSent: -Infinity, wasTalking: false });
+  // แปลสด: เงียบ 0.5 วินาที = พูดจบ แปลทันที (โหมดอื่นรอ 1.2 วินาทีให้ VAD ของ Google เห็นว่าเงียบ)
+  GATE.tailS = mode === "interpret" ? 0.5 : 1.2;
   touch();
   idleTimer = setInterval(checkIdle, 5000);
 }

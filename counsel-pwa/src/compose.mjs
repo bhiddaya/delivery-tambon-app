@@ -148,6 +148,7 @@ export const interpretPrompt = (a, b) => {
       "Keep Pali and Buddhist terms in their usual form for the target language.",
     "- If you cannot understand, or hear another language, say briefly in the speaker's language that you did not catch it and ask them to repeat.",
     "- A typed message is interpreted the same way as speech.",
+    "- Speak only the target language: never add words of the other language (such as Thai polite particles) to a translation.",
   ].join("\n");
 };
 

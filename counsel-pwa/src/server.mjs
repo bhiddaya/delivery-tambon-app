@@ -479,6 +479,7 @@ wss.on("connection", (ws) => {
   let authed = false;
   let elevenEar = false; // หู ElevenLabs (รหัสเจ้าของ)
   let lang = null; // ภาษาสนทนาที่ผู้ใช้เลือก (null = ตามภาษาที่พูด)
+  let interpreting = false; // โหมดแปลสด: หน้าเว็บส่ง utterance_start / utterance_end
   let crisisText = config.crisisMessage;
   let utter = []; // เสียงของประโยคที่กำลังพูด
   let utterBytes = 0;
@@ -522,6 +523,7 @@ wss.on("connection", (ws) => {
       const pair = mode === "interpret" ? [langOf(msg.langA) || "th", langOf(msg.langB) || "en"] : null;
       if (pair && pair[0] === pair[1]) return send({ type: "error", message: "เลือกสองภาษาที่ต่างกัน · Choose two different languages" });
       if (pair) lang = null;
+      interpreting = !!pair;
       console.log(`เข้าใช้: ${person} โหมด ${mode}${pair ? ` ${pair.join("<->")}` : lang ? ` ภาษา ${lang}` : ""}`);
       authed = true;
       if (mode === "dhamma" && !compose && !useFake) {
@@ -530,9 +532,10 @@ wss.on("connection", (ws) => {
       }
       // เสียง Paxa/ElevenLabs: ทิ้งเสียงของ Gemini แล้วสังเคราะห์ใหม่จากข้อความ (ทั้งเทิร์น หรือคำตอบ Haiku ตรงตัว)
       // ElevenLabs ("el:<id>") เฉพาะรหัสเจ้าของ เพราะเครดิตแผนฟรีน้อย คนอื่นเลือกแล้วจะได้เสียง Gemini
-      const paxaVoice = (paxa && PAXA_VOICES[msg.voice]) || (isOwner && isElevenVoice(msg.voice)) ? msg.voice : null;
+      // แปลสด: ใช้เสียงของ Gemini เอง (เร็วที่สุด) ไม่ผ่าน Paxa/ElevenLabs
+      const paxaVoice = !pair && ((paxa && PAXA_VOICES[msg.voice]) || (isOwner && isElevenVoice(msg.voice))) ? msg.voice : null;
       // หู ElevenLabs: ไม่ส่งเสียงให้ Gemini ฟัง แต่เก็บทีละประโยค ถอดเป็นข้อความ แล้วส่งข้อความให้ Gemini
-      elevenEar = isOwner && msg.ear === "eleven" && !!config.elevenApiKey;
+      elevenEar = !pair && isOwner && msg.ear === "eleven" && !!config.elevenApiKey;
       if (elevenEar) {
         // Gemini ปิด session ที่เงียบนาน: ส่งเสียงเงียบ 0.1 วินาทีทุก 10 วินาที
         keepAlive = setInterval(() => session?.sendAudio(SILENCE_100MS), 10_000);
@@ -634,6 +637,7 @@ wss.on("connection", (ws) => {
                 callbacks,
                 searchTeachings: search,
                 googleSearch: mode === "nova",
+                manualTurns: !!pair,
               });
           newUserTurn = callbacks.onUserTurnFromText;
           const voiceLabel = !paxaVoice ? voice : isElevenVoice(paxaVoice) ? "ElevenLabs" : `Paxa ${paxaVoice}`;
@@ -655,6 +659,9 @@ wss.on("connection", (ws) => {
         utter.push(chunk);
         utterBytes += chunk.length;
       }
+    } else if ((msg.type === "utterance_start" || msg.type === "utterance_end") && interpreting) {
+      // แปลสด: หน้าเว็บบอกว่าเริ่มพูด/พูดจบ (เงียบ 0.5 วินาที) แปลทันทีไม่รอ VAD ของ Google
+      session.activity(msg.type === "utterance_start");
     } else if (msg.type === "utterance_end" && elevenEar) {
       // จบประโยค: ถอดด้วย ElevenLabs แล้วส่งเป็นข้อความให้ Gemini (สั้นกว่าครึ่งวินาทีถือว่าเป็นเสียงรบกวน)
       const pcm = Buffer.concat(utter);
