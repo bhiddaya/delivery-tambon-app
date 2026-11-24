@@ -189,8 +189,9 @@ async function handleAsk(req, res) {
   }
 }
 
-// POST /api/read (รหัสเจ้าของ): NOVA บน PC ให้ Haiku อ่านข้อความ ภาพ และ PDF (แทน Gemini 2.5 ที่ปิดรับผู้ใช้ใหม่)
-// body { parts: [{type:"text",text} | {type:"image",mime,data} | {type:"pdf",name,data}], max_tokens } -> { text }
+// POST /api/read (รหัสเจ้าของ): สมองกลางของ NOVA บน PC — ทุกเครื่องมือที่ต้องคิด (วางแผน เขียนโค้ด อ่านภาพ/PDF) ใช้ Haiku ที่นี่
+// body { system?, web?, parts: [{type:"text",text} | {type:"image",mime,data} | {type:"pdf",name,data}], max_tokens } -> { text }
+// web: true = ค้นเว็บก่อนตอบ (OpenRouter :online ~0.01 USD/ครั้ง) แทน Google Search ของ Gemini บน PC
 async function handleRead(req, res) {
   const token = bearer(req);
   if (!config.ownerToken || token !== config.ownerToken) return reply(res, 401, { error: "รหัสไม่ถูกต้อง" });
@@ -215,16 +216,23 @@ async function handleRead(req, res) {
       method: "POST",
       headers: { "content-type": "application/json", "x-bridge-secret": config.llmBridgeSecret },
       body: JSON.stringify({
-        model: config.composeModel,
+        model: d.web ? `${config.composeModel}:online` : config.composeModel,
         max_tokens: Math.min(Number(d.max_tokens) || 4000, 8000),
-        messages: [{ role: "user", content }],
+        messages: [
+          ...(d.system || d.web ? [{ role: "system", content: [
+            // ค้นเว็บ: บอกวันนี้ให้ Haiku ไม่งั้นเดาวันในสัปดาห์ผิดและเลือกข่าวเก่า
+            d.web ? `วันนี้คือ${new Date().toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "full" })}` : "",
+            String(d.system || "").slice(0, 100_000),
+          ].filter(Boolean).join("\n") }] : []),
+          { role: "user", content },
+        ],
       }),
       signal: AbortSignal.timeout(120000),
     });
     const json = await r.json().catch(() => ({}));
     const text = json?.choices?.[0]?.message?.content;
     if (!r.ok || typeof text !== "string") throw new Error(json?.error?.message || json?.error?.description || `HTTP ${r.status}`);
-    console.log(`api/read: ${content.map((c) => c.type).join("+")}`);
+    console.log(`api/read: ${d.web ? "web+" : ""}${d.system ? "system+" : ""}${content.map((c) => c.type).join("+")}`);
     reply(res, 200, { text });
   } catch (e) {
     console.error("api/read failed:", e.message);
