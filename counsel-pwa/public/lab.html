@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ห้องทดลองเสียง</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <style>
+    :root { --fg:#1d1d1b; --muted:#6b6a64; --bg:#faf9f5; --card:#ffffff; --line:#e4e2da; --accent:#2f5d50; --bad:#9a3412; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --fg:#ecebe6; --muted:#a3a198; --bg:#1b1c1a; --card:#252623; --line:#3a3b37; --accent:#7fb8a5; --bad:#fdba74; }
+    }
+    :root[data-theme="dark"] { --fg:#ecebe6; --muted:#a3a198; --bg:#1b1c1a; --card:#252623; --line:#3a3b37; --accent:#7fb8a5; --bad:#fdba74; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, "Sarabun", "Noto Sans Thai", sans-serif; font-size:16px; line-height:1.6; }
+    main { max-width:760px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+    h1 { font-size:22px; font-weight:500; margin:8px 0 0; }
+    h2 { font-size:18px; font-weight:600; margin:0 0 6px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+    label { font-size:13px; color:var(--muted); }
+    input, select, textarea { width:100%; font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:10px; }
+    textarea { min-height:120px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .row > button, .row > select { flex:1; min-width:140px; }
+    .checks { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:15px; }
+    .checks label { color:var(--fg); font-size:15px; display:flex; gap:6px; align-items:center; }
+    .checks input { width:auto; }
+    button { font:inherit; border:0; border-radius:8px; padding:10px 14px; background:var(--accent); color:#fff; cursor:pointer; }
+    button.secondary { background:transparent; color:var(--fg); border:1px solid var(--line); }
+    button:disabled { opacity:.5; cursor:default; }
+    .result { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--bg); white-space:pre-wrap; }
+    .result b { color:var(--accent); }
+    .meta { font-size:13px; color:var(--muted); }
+    .err { color:var(--bad); }
+    .hint { font-size:13px; color:var(--muted); margin:0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>ห้องทดลองเสียง: หู สมอง ปาก</h1>
+  <p class="hint">ลองหลายแบบด้วยข้อความเดียวกัน แล้วเทียบความถูกต้องและเวลา ทุกครั้งที่กดมีค่าใช้จ่ายเล็กน้อย (ยกเว้นตัวที่เขียนว่าฟรี)</p>
+
+  <section class="card">
+    <label for="token">รหัสเจ้าของ</label>
+    <input id="token" type="password" autocomplete="off" placeholder="รหัสเดียวกับหน้า NOVA">
+    <label for="ref">ข้อความทดสอบ (อ่านออกเสียงข้อความนี้ตอนทดสอบหู)</label>
+    <textarea id="ref" rows="12"></textarea>
+  </section>
+
+  <section class="card">
+    <h2>1. หู: ฟังเสียงเป็นข้อความ</h2>
+    <div class="checks">
+      <label><input type="checkbox" id="ear-browser" checked> เบราว์เซอร์ (ฟรี)</label>
+      <label><input type="checkbox" id="ear-whisper" checked> Whisper บน Cloudflare (ฟรีตามโควตา)</label>
+      <label><input type="checkbox" id="ear-gemini" checked> Gemini 3.8 Flash</label>
+      <label><input type="checkbox" id="ear-paxa" checked> Paxa STT</label>
+      <label><input type="checkbox" id="ear-iapp" checked> iApp Chinda ASR (ฟรีถึง 30 พ.ย.)</label>
+      <label><input type="checkbox" id="ear-eleven" checked> ElevenLabs Scribe v3</label>
+      <label><input type="checkbox" id="vocab" checked> ใส่คำบาลีช่วยฟัง</label>
+    </div>
+    <div class="row">
+      <button id="rec">เริ่มอัดเสียง</button>
+      <button id="recStop" class="secondary" disabled>หยุดแล้วถอดเสียง</button>
+    </div>
+    <p id="recStatus" class="hint">กดเริ่มอัด อ่านข้อความทดสอบ แล้วกดหยุด</p>
+    <p class="hint">% ตรง = เทียบตัวอักษรกับข้อความทดสอบ (ไม่นับช่องว่างและวรรคตอน) ถ้าอ่านแค่บางส่วน % จะต่ำตามสัดส่วน</p>
+    <div id="earResults"></div>
+  </section>
+
+  <section class="card">
+    <h2>2. สมอง: เขียนคำตอบจากคลังคำสอน</h2>
+    <label for="question">คำถาม</label>
+    <input id="question" value="วิชชา ๘ มีอะไรบ้าง">
+    <div class="row">
+      <select id="mode" aria-label="โหมด">
+        <option value="dhamma">ถามธรรมะ (prompt พุทธยาน)</option>
+        <option value="counsel">ปรึกษาชีวิต (prompt ปรึกษา)</option>
+      </select>
+      <button id="ask">ถามทุกสมอง</button>
+    </div>
+    <div id="brainResults"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. ปาก: พูดข้อความ</h2>
+    <label for="say">ข้อความที่ให้พูด</label>
+    <textarea id="say" rows="5"></textarea>
+    <div class="row">
+      <select id="paxaVoice" aria-label="เสียง Paxa"></select>
+      <button data-mouth="paxa">Paxa</button>
+    </div>
+    <div class="row">
+      <select id="geminiVoice" aria-label="เสียง Gemini">
+        <option>Kore</option><option>Aoede</option><option>Leda</option><option>Zephyr</option>
+        <option>Puck</option><option>Charon</option><option>Fenrir</option>
+      </select>
+      <button data-mouth="gemini">Gemini 3.8 TTS</button>
+    </div>
+    <div class="row">
+      <select id="iappVoice" aria-label="เสียง iApp">
+        <option value="kaitom">ไก่ต้ม (ชาย ทั่วไป)</option>
+        <option value="kaimook">ไก่มุก (หญิง เป็นมิตร)</option>
+        <option value="kaidang">ไก่แดง (ชาย ประกาศ)</option>
+      </select>
+      <select id="iappStyle" aria-label="อารมณ์เสียง iApp">
+        <option value="calm">สงบ</option><option value="neutral">ปกติ</option><option value="friendly">เป็นมิตร</option>
+        <option value="empathetic">เห็นใจ</option><option value="serious">จริงจัง</option><option value="cheerful">ร่าเริง</option>
+        <option value="sad">เศร้า</option><option value="excited">ตื่นเต้น</option>
+      </select>
+      <button data-mouth="iapp">iApp Chinda TTS</button>
+    </div>
+    <div class="row">
+      <select id="elevenVoice" aria-label="เสียง ElevenLabs"><option value="">กด "โหลดเสียง" ก่อน</option></select>
+      <select id="elevenModel" aria-label="รุ่น ElevenLabs">
+        <option value="eleven_v4">Eleven v4</option>
+        <option value="eleven_v4_turbo">Eleven v4 Turbo (เร็ว)</option>
+        <option value="eleven_v3">Eleven v3</option>
+      </select>
+    </div>
+    <div class="row">
+      <button id="elevenLoad" class="secondary">โหลดเสียง ElevenLabs</button>
+      <button data-mouth="eleven">ElevenLabs</button>
+    </div>
+    <div class="row">
+      <button data-mouth="browser" class="secondary">เสียงในเบราว์เซอร์ (ฟรี)</button>
+    </div>
+    <p class="hint">edge-tts (เสียงนิวัฒน์ ฟรี) ยังไม่ได้ติดตั้ง</p>
+    <div id="mouthResults"></div>
+  </section>
+
+  <section class="card">
+    <h2>4. ภาษาอื่น: ตรวจคุณภาพคำตอบ</h2>
+    <p class="hint">ใส่คำถามภาษาไทยครั้งเดียว ระบบแปลเป็นภาษาที่เลือก ถามคลังคำสอนจริง แปลคำตอบกลับเป็นไทย ให้ Gemini ตรวจให้คะแนนเทียบต้นฉบับ และนับคำสำคัญ (ใช้เวลาราว 20-40 วินาที)</p>
+    <label for="mlQuestion">คำถามภาษาไทย</label>
+    <input id="mlQuestion" value="วิชชา ๘ มีอะไรบ้าง">
+    <label for="mlTerms">คำสำคัญที่คำตอบควรมี (คั่นด้วย ,)</label>
+    <input id="mlTerms" value="วิปัสสนาญาณ, มโนมยิทธิญาณ, อิทธิวิธญาณ, ทิพโสตญาณ, เจโตปริยญาณ, ปุพเพนิวาสานุสสติญาณ, จุตูปปาตญาณ, อาสวักขยญาณ">
+    <div class="checks" id="mlLangs"></div>
+    <div class="checks">
+      <label><input type="checkbox" id="mlVoice"> ทดสอบเสียงไปกลับด้วย ElevenLabs (ใช้เครดิต ต้องโหลดเสียงในส่วนที่ 3 ก่อน)</label>
+    </div>
+    <div class="row">
+      <select id="mlLength" aria-label="ความยาว">
+        <option value="1">ความยาว ๑</option><option value="2" selected>ความยาว ๒</option><option value="3">ความยาว ๓</option>
+      </select>
+      <button id="mlRun">ตรวจทุกภาษา</button>
+    </div>
+    <div id="mlResults"></div>
+  </section>
+</main>
+<script src="/lab.js" type="module"></script>
+</body>
+</html>

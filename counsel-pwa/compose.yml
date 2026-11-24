@@ -1,0 +1,23 @@
+# รันบน VPS ที่ /opt/counsel-pwa: docker compose up -d --build
+# edge = เครือข่ายที่ Caddy (qdrant-caddy-1) ใช้ส่งต่อเว็บ, qdrant_default = ค้น Qdrant ภายในโดยไม่ออกอินเทอร์เน็ต
+services:
+  counsel-pwa:
+    build: .
+    container_name: counsel-pwa
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PROMPT_DIR: /prompt
+      QDRANT_URL: http://qdrant:6333
+      CODES_FILE: /access/codes.json
+      FEEDBACK_FILE: /feedback/feedback.jsonl
+    volumes:
+      - ./prompt:/prompt:ro
+      - ./access:/access:ro # รหัสรายคน แก้ไฟล์แล้วมีผลทันที
+      - ./feedback:/feedback # รายงาน "ตอบไม่ถูก" (โฟลเดอร์ต้องเป็นของ uid 1000)
+    networks: [edge, qdrant_default]
+networks:
+  edge:
+    external: true
+  qdrant_default:
+    external: true
