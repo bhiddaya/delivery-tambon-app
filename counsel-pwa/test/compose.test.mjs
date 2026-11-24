@@ -42,3 +42,14 @@ test("แจ้งข้อผิดพลาดเมื่อ LLM ไม่ม
   const compose = createComposer({ composeModel: "m", openrouterKey: "k" }, fetchFn);
   await assert.rejects(compose({ systemPrompt: "", question: "", sourcesText: "" }), /rate limited/);
 });
+
+test("ภาษาที่เลือก: Haiku และ Gemini ตอบภาษานั้น ไม่เลือก = ตามภาษาคำถาม", async () => {
+  const { geminiLanguageRule, langOf, languageNote } = await import("../src/compose.mjs");
+  assert.match(languageNote("บุญคืออะไร", "en"), /ภาษาอังกฤษเท่านั้น/);
+  assert.equal(languageNote("บุญคืออะไร", null), "");
+  assert.match(languageNote("What is merit?", null), /ไม่ใช่ภาษาไทย/);
+  assert.match(geminiLanguageRule("ja"), /only in Japanese/);
+  assert.equal(geminiLanguageRule(null), "");
+  assert.equal(langOf("xx"), null);
+  assert.equal(langOf("zh"), "zh");
+});

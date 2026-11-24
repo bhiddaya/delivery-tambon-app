@@ -55,5 +55,8 @@ export function loadConfig(env = process.env) {
     // ข้อความที่ใช้ตอบเมื่อพบสัญญาณวิกฤต
     crisisMessage:
       "ถ้าคุณกำลังคิดทำร้ายตัวเองหรือไม่อยากอยู่ต่อ กรุณาโทร 1323 สายด่วนสุขภาพจิต หรือ 1669 ถ้าเป็นเหตุฉุกเฉินตอนนี้",
+    // ผู้ใช้เลือกภาษาอื่นที่ไม่ใช่ไทย
+    crisisMessageEn:
+      "If you are thinking about hurting yourself or do not want to go on, please call 1323 (Thailand mental health hotline) now, or 1669 if this is an emergency.",
   };
 }

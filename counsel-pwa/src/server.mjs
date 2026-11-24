@@ -12,7 +12,7 @@ import { hasCrisisSignal } from "./safety.mjs";
 import { createDailyLimiter } from "./ratelimit.mjs";
 import { connectGeminiLive, createFakeProvider } from "./provider.mjs";
 import { createTeachingSearch, formatSources } from "./teachings.mjs";
-import { SPEAKER_RULE, createChat, createComposer, createQueryTranslator, finishAnswer, lengthOf } from "./compose.mjs";
+import { SPEAKER_RULE, createChat, createComposer, createQueryTranslator, finishAnswer, geminiLanguageRule, langOf, lengthOf } from "./compose.mjs";
 import { LINE_PIECE_CHARS, lineMessages, linePlan, trimTagDumps } from "./line.mjs";
 import { checkAttachment } from "./feedback.mjs";
 import { createLab, LAB_LANGS, LAB_VOCAB, pcmToWav } from "./lab.mjs";
@@ -101,8 +101,8 @@ const capSpeech = (text, max = 420) => {
 // เครื่องมือที่ Gemini เรียก: คืน <sources> ให้ Gemini คิดเอง หรือคืนคำตอบของ Haiku ให้อ่าน
 // onAnswer(text): เสียง Paxa อ่านคำตอบของ Haiku ตรงตัว ไม่ต้องรอคำถอดเสียงของ Gemini
 // Haiku เขียนคำตอบจากผลค้น ด้วย prompt ของโหมด (counsel.txt / dhamma.txt จาก dhamma.prompts) -> { text, cites }
-async function haikuAnswer(mode, query, found, length = 2, speaker = null) {
-  const raw = await compose({ systemPrompt: await readPrompt(mode), question: query, sourcesText: found.text, mode, length, speaker });
+async function haikuAnswer(mode, query, found, length = 2, speaker = null, lang = null) {
+  const raw = await compose({ systemPrompt: await readPrompt(mode), question: query, sourcesText: found.text, mode, length, speaker, lang });
   const answer = finishAnswer(raw, found.sources);
   return { text: capSpeech(answer.text, lengthOf(length).cap), cites: answer.cites };
 }
@@ -119,12 +119,12 @@ async function voiceGender(voice) {
 const geminiSpeakerRule = (speaker) =>
   SPEAKER_RULE[speaker] ? `\n\n${SPEAKER_RULE[speaker].replace("ผู้อ่านคำตอบเป็น", "คุณพูดด้วย")}` : "";
 
-async function runTool(mode, query, send, { haiku, onAnswer, length = 2, speaker = null }) {
+async function runTool(mode, query, send, { haiku, onAnswer, length = 2, speaker = null, lang = null }) {
   send({ type: "searching" });
   const found = await searchTeachings(await toThaiQuery(query), mode);
   if (!haiku) return formatSources(found.sources, mode === "nova" ? "named" : false); // ไม่มีรหัส [S#] ให้ Gemini พูดตาม
   try {
-    const { text, cites } = await haikuAnswer(mode, query, found, length, speaker);
+    const { text, cites } = await haikuAnswer(mode, query, found, length, speaker, lang);
     if (mode === "dhamma" && cites.length) send({ type: "sources", items: cites });
     if (onAnswer) {
       onAnswer(text);
@@ -168,23 +168,25 @@ async function handleAsk(req, res) {
   const token = bearer(req);
   if (!config.ownerToken || token !== config.ownerToken) return reply(res, 401, { error: "รหัสไม่ถูกต้อง" });
   if (!compose) return reply(res, 503, { error: "ยังไม่เปิดใช้การเรียบเรียงคำตอบ" });
-  let question, mode, length, speaker;
+  let question, mode, length, speaker, lang;
   try {
     const data = await readJson(req);
     question = String(data.question || "").trim().slice(0, 1000);
     mode = data.mode === "counsel" ? "counsel" : "dhamma";
     length = Math.min(5, Math.max(1, Math.round(Number(data.length) || 2))); // ความยาวคำตอบ 1-5 (NOVA เลือก)
     speaker = SPEAKER_RULE[data.speaker] ? data.speaker : null; // เพศเสียงของ NOVA -> ครับ/ค่ะ
+    lang = langOf(data.lang); // ภาษาสนทนาที่เลือกใน NOVA (ไม่เลือก = ตามภาษาคำถาม)
   } catch {
     return reply(res, 400, { error: "รูปแบบข้อมูลไม่ถูกต้อง" });
   }
   if (!question) return reply(res, 400, { error: "ไม่มีคำถาม" });
   if (!apiLimiter.allow(token)) return reply(res, 429, { error: "วันนี้ใช้งานครบจำนวนแล้ว" });
   try {
-    const answer = await haikuAnswer(mode, question, await searchTeachings(await toThaiQuery(question), mode), length, speaker);
+    const answer = await haikuAnswer(mode, question, await searchTeachings(await toThaiQuery(question), mode), length, speaker, lang);
     // เก็บคำถามและที่มาไว้ใน log ของเจ้าของ เปิดดูย้อนหลังได้ว่า NOVA ตอบจากแหล่งไหน (docker logs counsel-pwa | grep api/ask)
-    console.log(`api/ask: เจ้าของ โหมด ${mode} ยาว ${length} | ถาม: ${question.slice(0, 200)} | ที่มา: ${answer.cites.join(" ; ") || "-"}`);
-    reply(res, 200, { ...answer, crisis: hasCrisisSignal(question) ? config.crisisMessage : null });
+    console.log(`api/ask: เจ้าของ โหมด ${mode} ยาว ${length}${lang ? ` ภาษา ${lang}` : ""} | ถาม: ${question.slice(0, 200)} | ที่มา: ${answer.cites.join(" ; ") || "-"}`);
+    const crisisText = lang && lang !== "th" ? config.crisisMessageEn : config.crisisMessage;
+    reply(res, 200, { ...answer, crisis: hasCrisisSignal(question) ? crisisText : null });
   } catch (e) {
     console.error("api/ask failed:", e.message);
     reply(res, 502, { error: "ค้นหรือเรียบเรียงคำตอบไม่สำเร็จ" });
@@ -279,15 +281,17 @@ async function handleStt(req, res) {
   if (!config.ownerToken || token !== config.ownerToken) return reply(res, 401, { error: "รหัสไม่ถูกต้อง" });
   if (!config.elevenApiKey) return reply(res, 503, { error: "ยังไม่ได้ใส่คีย์ ElevenLabs" });
   if (!ttsLimiter.allow(`stt|${token}`)) return reply(res, 429, { error: "วันนี้ใช้งานครบจำนวนแล้ว" });
-  let wav;
+  let wav, lang;
   try {
-    wav = Buffer.from(String((await readJson(req, 14_000_000)).wav || ""), "base64");
+    const d = await readJson(req, 14_000_000);
+    wav = Buffer.from(String(d.wav || ""), "base64");
+    lang = langOf(d.lang); // ภาษาที่เลือกใน NOVA ช่วยให้ฟังประโยคสั้นแม่นขึ้น
   } catch {
     return reply(res, 400, { error: "รูปแบบข้อมูลไม่ถูกต้องหรือใหญ่เกิน" });
   }
   if (wav.length < 1000) return reply(res, 400, { error: "ไม่มีเสียง" });
   try {
-    const out = await lab.ears.eleven(wav, null);
+    const out = await lab.ears.eleven(wav, null, lang);
     reply(res, 200, { text: out.text });
   } catch (e) {
     console.error("api/stt failed:", e.message);
@@ -463,6 +467,8 @@ wss.on("connection", (ws) => {
   let session = null;
   let authed = false;
   let elevenEar = false; // หู ElevenLabs (รหัสเจ้าของ)
+  let lang = null; // ภาษาสนทนาที่ผู้ใช้เลือก (null = ตามภาษาที่พูด)
+  let crisisText = config.crisisMessage;
   let utter = []; // เสียงของประโยคที่กำลังพูด
   let utterBytes = 0;
   let keepAlive = null;
@@ -474,7 +480,7 @@ wss.on("connection", (ws) => {
 
   const handleUserText = (text) => {
     if (hasCrisisSignal(text)) {
-      send({ type: "crisis", text: config.crisisMessage });
+      send({ type: "crisis", text: crisisText });
     }
     send({ type: "user_text", text });
   };
@@ -499,7 +505,9 @@ wss.on("connection", (ws) => {
       if (!limiter.allow(msg.token)) {
         return send({ type: "error", message: "วันนี้ใช้งานครบจำนวนแล้ว" });
       }
-      console.log(`เข้าใช้: ${person} โหมด ${mode}`);
+      lang = langOf(msg.lang);
+      if (lang && lang !== "th") crisisText = config.crisisMessageEn;
+      console.log(`เข้าใช้: ${person} โหมด ${mode}${lang ? ` ภาษา ${lang}` : ""}`);
       authed = true;
       if (mode === "dhamma" && !compose && !useFake) {
         authed = false;
@@ -556,8 +564,9 @@ wss.on("connection", (ws) => {
           : haiku
             ? READERS[mode]
             : voiceCounselPrompt(await readPrompt("counsel")) + (searchTeachings ? COUNSEL_RULES : "") + lengthNote) +
-        geminiSpeakerRule(speaker);
-      const search = searchTeachings && ((query) => runTool(mode, query, send, { haiku, onAnswer, length, speaker }));
+        geminiSpeakerRule(speaker) +
+        geminiLanguageRule(lang);
+      const search = searchTeachings && ((query) => runTool(mode, query, send, { haiku, onAnswer, length, speaker, lang }));
       const callbacks = {
         onAudio: (data) => paxaVoice || send({ type: "audio", data }),
         onUserText: (text) => {
@@ -637,7 +646,7 @@ wss.on("connection", (ws) => {
       utterBytes = 0;
       if (pcm.length < 16_000) return;
       try {
-        const { text } = await lab.ears.eleven(pcmToWav(pcm, 16000), null);
+        const { text } = await lab.ears.eleven(pcmToWav(pcm, 16000), null, lang);
         if (!text || !session) return;
         newUserTurn();
         handleUserText(text);
@@ -649,7 +658,7 @@ wss.on("connection", (ws) => {
     } else if (msg.type === "text" && typeof msg.text === "string") {
       const text = msg.text.slice(0, 1000);
       if (hasCrisisSignal(text)) {
-        send({ type: "crisis", text: config.crisisMessage });
+        send({ type: "crisis", text: crisisText });
         return;
       }
       session.sendText(text);

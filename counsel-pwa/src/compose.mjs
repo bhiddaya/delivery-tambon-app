@@ -104,6 +104,38 @@ export const foreignNote = (question) => {
   return `\n\n(คำถามนี้ไม่ใช่ภาษาไทย ต้องตอบทั้งหมดเป็น${lang}เท่านั้น ห้ามตอบเป็นภาษาไทยหรือภาษาอื่น แม้ไม่พบคำตอบในต้นฉบับก็ให้บอกเป็นภาษานั้น)`;
 };
 
+// ภาษาสนทนาที่ผู้ใช้เลือกได้ (เว็บและ NOVA บน PC): [ชื่อในภาษานั้น, ชื่อไทย, ชื่ออังกฤษ]
+// ไม่เลือก ("auto") = ตอบตามภาษาที่ผู้ใช้พูด (foreignNote ดูจากตัวอักษร)
+export const LANGS = {
+  th: ["ไทย", "ไทย", "Thai"],
+  en: ["English", "อังกฤษ", "English"],
+  zh: ["中文", "จีน", "Chinese (Mandarin)"],
+  ja: ["日本語", "ญี่ปุ่น", "Japanese"],
+  ko: ["한국어", "เกาหลี", "Korean"],
+  lo: ["ລາວ", "ลาว", "Lao"],
+  my: ["မြန်မာ", "พม่า", "Burmese"],
+  km: ["ខ្មែរ", "เขมร", "Khmer"],
+  vi: ["Tiếng Việt", "เวียดนาม", "Vietnamese"],
+  hi: ["हिन्दी", "ฮินดี", "Hindi"],
+  de: ["Deutsch", "เยอรมัน", "German"],
+  fr: ["Français", "ฝรั่งเศส", "French"],
+  es: ["Español", "สเปน", "Spanish"],
+};
+export const langOf = (code) => (LANGS[code] ? code : null);
+
+// คำกำกับท้ายคำขอให้ Haiku: เลือกภาษาไว้ = ตอบภาษานั้นเสมอ ไม่ว่าคำถามเป็นภาษาอะไร
+export const languageNote = (question, lang) =>
+  LANGS[lang]
+    ? `\n\n(ผู้ใช้เลือกภาษาสนทนาเป็นภาษา${LANGS[lang][1]} ต้องตอบทั้งหมดเป็นภาษา${LANGS[lang][1]}เท่านั้น ไม่ว่าคำถามจะเป็นภาษาใด และคงชื่อเฉพาะภาษาบาลีไว้)`
+    : foreignNote(question);
+
+// Gemini คุยสด: กติกาภาษาต่อท้าย system prompt
+export const geminiLanguageRule = (lang) =>
+  LANGS[lang]
+    ? `\n\nConversation language chosen by the user: ${LANGS[lang][2]}. Always speak and answer only in ${LANGS[lang][2]}, ` +
+      "whatever language the user speaks. Keep proper names and Pali terms as they are."
+    : "";
+
 // คำถามภาษาอื่น -> คำค้นภาษาไทยด้วยศัพท์ธรรมะ ก่อนค้นคลัง (คลังเป็นภาษาไทย คำค้นจีน "八明" หา "วิชชา ๘" ไม่เจอ)
 // คำตอบยังเป็นภาษาของผู้ถามตามเดิม ถ้าแปลไม่สำเร็จ ค้นด้วยคำถามเดิม
 export function createQueryTranslator(config, fetchFn = fetch) {
@@ -161,12 +193,12 @@ export function createChat(config, fetchFn = fetch) {
 
 export function createComposer(config, fetchFn = fetch) {
   const chat = createChat(config, fetchFn);
-  return async function compose({ systemPrompt, question, sourcesText, mode = "dhamma", length = 2, speaker = null }) {
+  return async function compose({ systemPrompt, question, sourcesText, mode = "dhamma", length = 2, speaker = null, lang = null }) {
     const json = await chat({
       max_tokens: length >= 4 ? 3500 : 1500, // ภาษาไทยใช้ token มาก คำตอบยาวต้องเผื่อ
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `${sourcesText}\nคำถาม: ${question}\n\n${spokenRule(mode, length, speaker)}${foreignNote(question)}` },
+        { role: "user", content: `${sourcesText}\nคำถาม: ${question}\n\n${spokenRule(mode, length, speaker)}${languageNote(question, lang)}` },
       ],
     });
     return json.choices[0].message.content;

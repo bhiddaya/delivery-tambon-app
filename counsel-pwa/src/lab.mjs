@@ -1,24 +1,11 @@
 // ห้องทดลอง /lab (รหัสเจ้าของ): ลองหู สมอง ปาก หลายแบบด้วยข้อความเดียวกัน แล้วเทียบคุณภาพ เวลา
 // ไม่ได้ใช้ในการคุยจริง ตัวไหนดีค่อยย้ายไปใช้ในโหมดหลัก
 
-import { createComposer, finishAnswer } from "./compose.mjs";
+import { LANGS, createComposer, finishAnswer } from "./compose.mjs";
 import { isMostlyThai, keepSpaces } from "./paxa.mjs";
 
-// ภาษาที่ตรวจคุณภาพได้ในหน้า lab (ชื่อในภาษานั้น, ชื่อไทย)
-export const LAB_LANGS = {
-  en: ["English", "อังกฤษ"],
-  zh: ["中文", "จีน"],
-  ja: ["日本語", "ญี่ปุ่น"],
-  ko: ["한국어", "เกาหลี"],
-  lo: ["ລາວ", "ลาว"],
-  my: ["မြန်မာ", "พม่า"],
-  km: ["ខ្មែរ", "เขมร"],
-  vi: ["Tiếng Việt", "เวียดนาม"],
-  hi: ["हिन्दी", "ฮินดี"],
-  de: ["Deutsch", "เยอรมัน"],
-  fr: ["Français", "ฝรั่งเศส"],
-  es: ["Español", "สเปน"],
-};
+// ภาษาที่ตรวจคุณภาพได้ในหน้า lab = ภาษาที่เลือกได้ทั้งหมดยกเว้นไทย ([ชื่อในภาษานั้น, ชื่อไทย, ชื่ออังกฤษ])
+export const LAB_LANGS = Object.fromEntries(Object.entries(LANGS).filter(([code]) => code !== "th"));
 // ผู้ตรวจเป็นคนละค่ายกับผู้ตอบ (Haiku) จะได้ไม่ให้คะแนนตัวเองเข้าข้าง
 const JUDGE_MODEL = "google/gemini-2.5-flash";
 
@@ -270,23 +257,29 @@ export function createLab(config, { searchTeachings, readPrompt, paxa, eleven, t
       return { text: (json.output || []).map((s) => s.text).join(" ").trim(), via: json.model };
     },
     // ElevenLabs Scribe v3: keyterms = คำช่วยฟัง (คิดเงินเพิ่ม 20%)
-    async eleven(wav, vocab) {
+    // lang = ภาษาที่ผู้ใช้เลือก: บอก Scribe ไว้ (ประโยคสั้นมากเคยเดาภาษาผิด จีนเป็นเกาหลี) ถ้า Scribe ไม่รับรหัสภาษานั้น ลองใหม่แบบตรวจเอง
+    async eleven(wav, vocab, lang = null) {
       if (!config.elevenApiKey) throw new Error("ยังไม่ได้ใส่คีย์ ElevenLabs (ELEVENLABS_API_KEY)");
-      const form = new FormData();
-      form.append("model_id", "scribe_v3"); // ไม่ระบุภาษา: ให้ Scribe ตรวจเอง ฟังได้ 90+ ภาษา (เดิมล็อกไทย)
-      form.append("tag_audio_events", "false");
-      for (const term of vocab || []) form.append("keyterms", term);
-      form.append("file", new Blob([wav], { type: "audio/wav" }), "audio.wav");
-      const res = await ok(
-        await fetchFn("https://api.elevenlabs.io/v1/speech-to-text", {
-          method: "POST",
-          headers: { "xi-api-key": config.elevenApiKey },
-          body: form,
-          signal: AbortSignal.timeout(120000),
-        }),
-        "ElevenLabs STT",
-      );
-      return { text: ((await res.json()).text || "").trim(), via: "scribe_v3" };
+      const call = async (code) => {
+        const form = new FormData();
+        form.append("model_id", "scribe_v3"); // ไม่ระบุภาษา: ให้ Scribe ตรวจเอง ฟังได้ 90+ ภาษา
+        form.append("tag_audio_events", "false");
+        if (code) form.append("language_code", code);
+        for (const term of vocab || []) form.append("keyterms", term);
+        form.append("file", new Blob([wav], { type: "audio/wav" }), "audio.wav");
+        const res = await ok(
+          await fetchFn("https://api.elevenlabs.io/v1/speech-to-text", {
+            method: "POST",
+            headers: { "xi-api-key": config.elevenApiKey },
+            body: form,
+            signal: AbortSignal.timeout(120000),
+          }),
+          "ElevenLabs STT",
+        );
+        return { text: ((await res.json()).text || "").trim(), via: "scribe_v3" };
+      };
+      if (!lang) return call(null);
+      return call(lang).catch(() => call(null));
     },
     async paxa(wav, vocab) {
       const form = new FormData();

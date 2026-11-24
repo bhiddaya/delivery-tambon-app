@@ -1,31 +1,59 @@
 // หน้า PWA: ส่งเสียงไมค์ขึ้นเซิร์ฟเวอร์ และเล่นเสียงตอบกลับ 24kHz
 // ใช้ ScriptProcessor เพื่อให้เรียบง่ายในขั้นแรก ควรย้ายไป AudioWorklet ภายหลัง
 
+import { TEXT } from "/texts.js";
+
 const $ = (id) => document.getElementById(id);
 const logEl = $("log");
 const statusEl = $("status");
 const talkEl = $("talk");
 const startBtns = [...document.querySelectorAll("button.start")];
 const stopBtn = $("stop");
-const MODE_TH = { counsel: "ปรึกษาปัญหาชีวิต", dhamma: "ถามธรรมะ", nova: "NOVA" };
 const tokenIn = $("token");
 const voiceSel = $("voice");
+const langSel = $("lang");
 const textIn = $("text");
 const orbEl = $("orb");
 
 // หน้า /nova: หน้าเดียวกันแต่แสดงแบบ NOVA ใช้รหัสเจ้าของ (เก็บแยกจากรหัสเชิญ) เสียงเริ่มต้น Charon เหมือน NOVA บนเครื่อง
 const IS_NOVA = location.pathname.replace(/\/$/, "") === "/nova";
 const KEYS = IS_NOVA
-  ? { token: "ownerToken", voice: "novaVoice", ear: "novaEar", length: "novaLength" }
-  : { token: "token", voice: "voice", ear: "ear", length: "length" };
+  ? { token: "ownerToken", voice: "novaVoice", ear: "novaEar", length: "novaLength", lang: "novaLang" }
+  : { token: "token", voice: "voice", ear: "ear", length: "length", lang: "lang" };
 if (IS_NOVA) {
-  document.title = "NOVA";
-  $("title").textContent = "NOVA";
-  $("tokenLabel").textContent = "รหัสเจ้าของ";
   startBtns.forEach((b) => (b.hidden = b.dataset.mode !== "nova"));
   orbEl.hidden = false;
   orbEl.className = "idle";
 }
+
+// ภาษาสนทนาที่เลือก -> ส่งให้เซิร์ฟเวอร์ (Gemini และ Haiku ตอบภาษานั้น) และเลือกตัวหนังสือบนหน้า: ไทย = ไทย, อื่น ๆ = อังกฤษ
+// ครั้งแรกดูจากภาษาของเครื่อง: เครื่องภาษาไทย = ไทย, ภาษาที่มีในรายการ = ภาษานั้น, นอกนั้น = อัตโนมัติ
+const deviceLang = (navigator.language || "").slice(0, 2).toLowerCase();
+let ui = "th";
+const t = (key, ...args) => {
+  const v = TEXT[ui][key] ?? TEXT.th[key];
+  return typeof v === "function" ? v(...args) : v;
+};
+const modeName = (mode) => t(mode === "nova" ? "novaMode" : mode);
+function applyTexts() {
+  ui = langSel.value === "th" || (langSel.value === "auto" && deviceLang === "th") ? "th" : "en";
+  document.documentElement.lang = ui;
+  document.querySelectorAll("[data-t]").forEach((el) => (el.textContent = t(el.dataset.t)));
+  document.querySelectorAll("[data-tp]").forEach((el) => (el.placeholder = t(el.dataset.tp)));
+  document.querySelectorAll("[data-tl]").forEach((el) => (el.label = t(el.dataset.tl)));
+  document.title = IS_NOVA ? "NOVA" : t("title");
+  if (IS_NOVA) {
+    $("title").textContent = "NOVA";
+    $("tokenLabel").textContent = t("ownerCode");
+  }
+  if (!ws) statusEl.textContent = t("notConnected");
+}
+langSel.onchange = () => {
+  try {
+    localStorage.setItem(KEYS.lang, langSel.value);
+  } catch {}
+  applyTexts();
+};
 
 let ws = null;
 let curMode = "";
@@ -43,6 +71,10 @@ const readStore = (key) => {
     return null;
   }
 };
+const hasLang = (code) => [...langSel.options].some((o) => o.value === code);
+const savedLang = readStore(KEYS.lang);
+langSel.value = hasLang(savedLang) ? savedLang : hasLang(deviceLang) ? deviceLang : "auto";
+applyTexts();
 tokenIn.value = readStore(KEYS.token) || "";
 const savedVoice = readStore(KEYS.voice);
 if (/^[1-5]$/.test(readStore(KEYS.length) || "")) $("length").value = readStore(KEYS.length);
@@ -51,17 +83,18 @@ voiceSel.value = savedVoice || (IS_NOVA ? "Charon" : "Kore");
 fetch("/config.json")
   .then((r) => r.json())
   .then(({ paxaVoices, elevenVoices, elevenEar }) => {
-    const addGroup = (label, voices) => {
+    const addGroup = (key, voices) => {
       const ids = Object.keys(voices || {});
       if (!ids.length) return;
       const group = document.createElement("optgroup");
-      group.label = label;
+      group.dataset.tl = key; // เปลี่ยนภาษาแล้วป้ายกลุ่มเปลี่ยนตาม
+      group.label = t(key);
       for (const id of ids) group.append(new Option(voices[id], id));
       voiceSel.append(group);
       if (savedVoice && voices[savedVoice]) voiceSel.value = savedVoice;
     };
-    addGroup("เสียง Paxa Labs (ไทย)", paxaVoices);
-    addGroup("เสียง ElevenLabs (รหัสเจ้าของเท่านั้น)", elevenVoices);
+    addGroup("paxaGroup", paxaVoices);
+    addGroup("elevenGroup", elevenVoices);
     if (elevenEar) {
       $("earBox").hidden = false;
       $("ear").value = readStore(KEYS.ear) || "gemini";
@@ -158,7 +191,7 @@ function watchTalk(on) {
   if (!on) return;
   talkTimer = setInterval(() => {
     const speaking = isSpeaking(0.5);
-    talkEl.textContent = speaking ? "🔊 กำลังพูด… ฟังจบแล้วพูดต่อได้เลย" : "🎤 กำลังฟัง… พูดได้เลย";
+    talkEl.textContent = t(speaking ? "speaking" : "listening");
     if (IS_NOVA) orbEl.className = speaking ? "speaking" : "";
   }, 250);
 }
@@ -206,18 +239,11 @@ async function askMic() {
 }
 
 function micHelp(e) {
-  const tail = " ระหว่างนี้พิมพ์ข้อความแทนได้";
-  if (IN_APP) return 'แอปนี้เปิดไมค์ไม่ได้ กด ⋮ (หรือ …) มุมบน แล้วเลือก "เปิดในเบราว์เซอร์" หรือ "เปิดใน Chrome" แล้วกดเริ่มใหม่' + tail;
-  if (e?.name === "NotAllowedError") {
-    return (
-      "สิทธิ์ไมค์ของเว็บนี้ถูกปิดอยู่ เปิดได้ 2 ทาง แล้วกด จบ และเริ่มใหม่:\n" +
-      "1) ใน Chrome: กด ⋮ > การตั้งค่า > การตั้งค่าเว็บไซต์ > ไมโครโฟน > counsel.srv2091778.hstgr.cloud > อนุญาต\n" +
-      "2) ถ้ายังไม่ได้: การตั้งค่ามือถือ > แอป > Chrome > สิทธิ์ > ไมโครโฟน > อนุญาต" +
-      tail
-    );
-  }
-  if (e?.name === "NotFoundError") return "ไม่พบไมโครโฟนในเครื่องนี้" + tail;
-  return `ใช้ไมค์ไม่ได้: ${e?.message || e}` + tail;
+  const tail = t("micTail");
+  if (IN_APP) return t("micInApp") + tail;
+  if (e?.name === "NotAllowedError") return t("micDenied") + tail;
+  if (e?.name === "NotFoundError") return t("micNone") + tail;
+  return t("micFail", e?.message || e) + tail;
 }
 
 // ส่งเสียงเฉพาะตอนมีคนพูด (หลักเดียวกับ NOVA บน PC: speech_gate.py) Gemini คิดเงินทุกวินาทีที่ได้รับ รวมช่วงเงียบ
@@ -259,7 +285,7 @@ function checkIdle() {
   if (isSpeaking(0)) return touch();
   if (performance.now() / 1000 - Math.max(lastActivity, gate.lastVoice) > IDLE_LIMIT_S) {
     stop();
-    addLine("sys", "ไม่มีเสียงพูด 3 นาที จึงตัดการเชื่อมต่อให้แล้ว ไม่เสียค่าใช้งานต่อ กดเริ่มใหม่ได้เลย");
+    addLine("sys", t("idle"));
   }
 }
 
@@ -303,12 +329,12 @@ function handle(msg) {
   touch(); // มีอะไรเข้ามาจากเซิร์ฟเวอร์ = ยังคุยกันอยู่
   switch (msg.type) {
     case "ready":
-      statusEl.textContent = `${MODE_TH[msg.mode] || ""} · ${voiceSel.selectedOptions[0]?.text || msg.voice} · คุยต่อเนื่องได้เลย ไม่ต้องกดอะไรอีก`;
+      statusEl.textContent = `${modeName(msg.mode)} · ${voiceSel.selectedOptions[0]?.text || msg.voice} · ${t("ready")}`;
       if (micStream && !proc) startMic(); // ต่อใหม่หลังหลุด: ไมค์ทำงานอยู่แล้ว ไม่ต้องต่อซ้ำ
       if (micStream) watchTalk(true);
       break;
     case "reconnecting":
-      statusEl.textContent = "การเชื่อมต่อหลุด กำลังต่อใหม่ให้เอง…";
+      statusEl.textContent = t("reconnecting");
       break;
     case "audio":
       playChunk(msg.data);
@@ -333,24 +359,24 @@ function handle(msg) {
       addLine("crisis", msg.text);
       break;
     case "searching":
-      statusEl.textContent = "กำลังค้นคำสอน…";
+      statusEl.textContent = t("searching");
       break;
     case "sources":
-      if (msg.items?.length) addLine("src", "ที่มาที่ค้นเจอ:\n" + msg.items.map((c, i) => `${i + 1}. ${c}`).join("\n"));
-      statusEl.textContent = "กำลังตอบ…";
+      if (msg.items?.length) addLine("src", t("sourcesHead") + "\n" + msg.items.map((c, i) => `${i + 1}. ${c}`).join("\n"));
+      statusEl.textContent = t("answering");
       break;
     case "error":
       addLine("sys", msg.message);
       break;
     case "closed":
-      statusEl.textContent = "จบการเชื่อมต่อแล้ว";
+      statusEl.textContent = t("closed");
       break;
   }
 }
 
 async function start(mode) {
   const token = tokenIn.value.trim();
-  if (!token) return addLine("sys", IS_NOVA ? "ใส่รหัสเจ้าของก่อน" : "ใส่รหัสเชิญก่อน");
+  if (!token) return addLine("sys", t(IS_NOVA ? "needOwner" : "needToken"));
   try {
     localStorage.setItem(KEYS.token, token);
     localStorage.setItem(KEYS.voice, voiceSel.value);
@@ -367,15 +393,17 @@ async function start(mode) {
   voiceSel.disabled = true; // เสียงตั้งตอนเริ่มเท่านั้น ล็อกไว้ให้สิ่งที่เห็นตรงกับเสียงที่ได้ยิน
   $("ear").disabled = true;
   $("length").disabled = true;
+  langSel.disabled = true;
   stopBtn.disabled = false;
-  statusEl.textContent = "กำลังเชื่อมต่อ...";
-  addLine("sys", `เริ่มโหมด${MODE_TH[mode]}`);
+  statusEl.textContent = t("connecting");
+  addLine("sys", t("started", modeName(mode)));
   curMode = mode;
   const scheme = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${scheme}://${location.host}/ws`);
   const ear = $("earBox").hidden ? "gemini" : $("ear").value;
   const length = Number($("length").value) || 2;
-  ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token, mode, voice: voiceSel.value, ear, length }));
+  const lang = langSel.value === "auto" ? null : langSel.value;
+  ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token, mode, voice: voiceSel.value, ear, length, lang }));
   ws.onmessage = (e) => handle(JSON.parse(e.data));
   ws.onclose = () => stop();
   Object.assign(gate, { lead: [], lastVoice: -Infinity, lastSent: -Infinity, wasTalking: false });
@@ -407,8 +435,9 @@ function stop() {
   voiceSel.disabled = false;
   $("ear").disabled = false;
   $("length").disabled = false;
+  langSel.disabled = false;
   stopBtn.disabled = true;
-  statusEl.textContent = "ยังไม่ได้เชื่อมต่อ";
+  statusEl.textContent = t("notConnected");
 }
 
 stopBtn.onclick = stop;
@@ -427,7 +456,7 @@ $("form").onsubmit = (e) => {
 $("wrong").onclick = async () => {
   const bots = logEl.querySelectorAll("p.bot");
   const answer = bots[bots.length - 1];
-  if (!answer) return addLine("sys", "ยังไม่มีคำตอบให้รายงาน");
+  if (!answer) return addLine("sys", t("noAnswer"));
   const sources = [];
   let question = answer.previousElementSibling;
   while (question && question.className !== "user" && question.className !== "me") {
@@ -435,8 +464,8 @@ $("wrong").onclick = async () => {
     question = question.previousElementSibling;
   }
   const picked = $("wrongFile").files[0];
-  if (picked && picked.size > 10 * 1024 * 1024) return addLine("sys", "ไฟล์แนบใหญ่เกิน 10 MB");
-  const correct = prompt("ตอบไม่ถูกตรงไหน หรือคำตอบที่ถูกควรเป็นอย่างไร (เว้นว่างได้)");
+  if (picked && picked.size > 10 * 1024 * 1024) return addLine("sys", t("fileTooBig"));
+  const correct = prompt(t("askCorrect"));
   if (correct === null) return; // กดยกเลิก
   try {
     // ไฟล์แนบส่งเป็น base64 ในก้อนเดียวกัน เซิร์ฟเวอร์เช็กหัวไฟล์จริงอีกชั้น
@@ -466,14 +495,14 @@ $("wrong").onclick = async () => {
       }),
     });
     if (res.ok) {
-      addLine("sys", `บันทึกแล้ว${picked ? ` พร้อมไฟล์ ${picked.name}` : ""} ขอบคุณครับ จะนำไปปรับคำตอบ`);
+      addLine("sys", t("saved", picked?.name));
       $("wrongFile").value = "";
     } else {
       const why = (await res.json().catch(() => ({}))).error;
-      addLine("sys", `บันทึกไม่สำเร็จ: ${why || "ตรวจรหัสแล้วลองใหม่"}`);
+      addLine("sys", t("saveFail", why));
     }
   } catch {
-    addLine("sys", "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    addLine("sys", t("saveRetry"));
   }
 };
 
