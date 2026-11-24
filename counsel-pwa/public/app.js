@@ -22,6 +22,8 @@ const KEYS = IS_NOVA
   : { token: "token", voice: "voice", ear: "ear", length: "length", lang: "lang", langA: "langA", langB: "langB", speed: "speed" };
 if (IS_NOVA) {
   startBtns.forEach((b) => (b.hidden = b.dataset.mode !== "nova" && b.dataset.mode !== "interpret"));
+  // หน้า NOVA ไม่มีปุ่ม "ตอบไม่ถูก": รายงานถูกเก็บไว้เฉย ๆ ไม่มีระบบนำไปแก้เอง (เจ้าของให้เอาออก 25 พ.ย. 2569)
+  for (const el of [$("wrong"), $("wrongFile"), document.querySelector('label[for="wrongFile"]')]) el.hidden = true;
   orbEl.hidden = false;
   orbEl.className = "idle";
 }
