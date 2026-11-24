@@ -29,9 +29,12 @@ export const SPEAKER_RULE = {
 const LANGUAGE_RULE =
   "ตอบเป็นภาษาเดียวกับคำถาม ถ้าคำถามเป็นภาษาอื่นให้แปลเนื้อหาจาก <sources> ภาษาไทยเป็นภาษานั้น และคงชื่อเฉพาะภาษาบาลีไว้";
 
+// ชื่อผู้สอน: รายงาน "ตอบไม่ถูก" 24 พ.ย. 2569 คำตอบใช้ "อาจารย์ท่าน" เจ้าของให้แทนด้วย สมณะโพธิรักษ์ หรือ พ่อครู
+const TEACHER_NAME_RULE = "ถ้าต้องเอ่ยถึงผู้สอน ให้เรียกว่า พ่อครูสมณะโพธิรักษ์ หรือ พ่อครู ห้ามใช้คำว่า อาจารย์ หรือ พ่อครูบวรไทย";
+
 export function spokenRule(mode, level = 2, speaker = null) {
   const voiceRule = SPEAKER_RULE[speaker] ? ` ${SPEAKER_RULE[speaker]}` : "";
-  return spokenRuleBase(mode, level).replace(/\)$/, `${voiceRule} ${LANGUAGE_RULE})`);
+  return spokenRuleBase(mode, level).replace(/\)$/, `${voiceRule} ${TEACHER_NAME_RULE} ${LANGUAGE_RULE})`);
 }
 
 function spokenRuleBase(mode, level) {
