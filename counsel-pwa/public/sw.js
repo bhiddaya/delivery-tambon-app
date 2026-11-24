@@ -1,7 +1,7 @@
 // หน้าเปลือกแอป: ดึงจากเซิร์ฟเวอร์ก่อนทุกครั้ง ใช้แคชเฉพาะตอนออฟไลน์
 // (แบบเดิมใช้แคชก่อน ทำให้มือถือ/เบราว์เซอร์ที่เคยเปิดค้างอยู่กับหน้าเก่าหลังอัปเดต)
 // ไม่แคช WebSocket และไม่แคชคำตอบจากโมเดล
-const CACHE = "counsel-shell-v18";
+const CACHE = "counsel-shell-v19";
 const SHELL = ["/", "/index.html", "/app.js", "/texts.js", "/manifest.json", "/icon.svg"];
 
 self.addEventListener("install", (e) => {

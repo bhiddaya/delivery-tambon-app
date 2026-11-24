@@ -260,7 +260,8 @@ function micHelp(e) {
 // ส่งเสียงก่อนเริ่มพูดสั้น ๆ (คำแรกไม่ขาด) และหลังหยุดพูด 1.2 วินาที (Gemini รู้ว่าพูดจบ)
 // ช่วงเงียบส่งชิ้นเดียวทุก 10 วินาที กันการเชื่อมต่อถูกปิดเพราะเงียบ
 // ponytail: ตัดสินจากความดังอย่างเดียว ถ้าเสียงพื้นห้องดังจนส่งตลอด ค่อยเปลี่ยนเป็นตัวจับเสียงพูดจริง
-const GATE = { peak: 0.03, tailS: 1.2, leadChunks: 4, keepaliveS: 10 };
+// peak 0.01 (เดิม 0.03): ไมค์โน้ตบุ๊กของเจ้าของพูดได้แค่ ~0.02 จนเสียงไม่ถึง Gemini ห้องเสียงดังใช้ 3 เท่าของเสียงพื้นห้องแทน
+const GATE = { peak: 0.01, tailS: 1.2, leadChunks: 4, keepaliveS: 10 };
 const gate = { lead: [], lastVoice: -Infinity, lastSent: -Infinity, floor: 0.01 };
 function gateFeed(msg, peak, now) {
   const talking = now - gate.lastVoice <= GATE.tailS;
