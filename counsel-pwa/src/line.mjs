@@ -58,3 +58,16 @@ export function lineMessages({ question, mode, define, voice, history, lesson, p
     },
   ];
 }
+
+// Haiku บางครั้งต่อรหัสทุกชิ้นที่ใช้ไปแล้วไว้ท้ายย่อหน้า ([S13][S1][S2]…[S14]) -> LINE แสดง "¹⁰ ¹ ² ³ …" (เห็นครั้งแรก 24 พ.ย. 2569)
+// กลุ่มที่มีตั้งแต่ 4 รหัส: ตัดรหัสที่อ้างไปแล้วก่อนหน้า เก็บเฉพาะรหัสใหม่ กลุ่มปกติ 1-3 รหัสไม่แตะ (รูปแบบกลุ่มเดียวกับ n8n "ตรวจอ้างอิงและจัดรูป")
+export function trimTagDumps(text) {
+  const seen = new Set();
+  return String(text).replace(/(?:\[S\d+\]\s*)+/g, (group) => {
+    const tags = [...group.matchAll(/\[S(\d+)\]/g)].map((m) => m[1]);
+    const keep = tags.length >= 4 ? tags.filter((t) => !seen.has(t)) : tags;
+    tags.forEach((t) => seen.add(t));
+    const tail = group.match(/\s*$/)[0];
+    return keep.map((t) => `[S${t}]`).join("") + tail;
+  });
+}

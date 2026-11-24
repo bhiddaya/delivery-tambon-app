@@ -13,7 +13,7 @@ import { createDailyLimiter } from "./ratelimit.mjs";
 import { connectGeminiLive, createFakeProvider } from "./provider.mjs";
 import { createTeachingSearch, formatSources } from "./teachings.mjs";
 import { SPEAKER_RULE, createChat, createComposer, createQueryTranslator, finishAnswer, lengthOf } from "./compose.mjs";
-import { LINE_PIECE_CHARS, lineMessages, linePlan } from "./line.mjs";
+import { LINE_PIECE_CHARS, lineMessages, linePlan, trimTagDumps } from "./line.mjs";
 import { checkAttachment } from "./feedback.mjs";
 import { createLab, LAB_LANGS, LAB_VOCAB, pcmToWav } from "./lab.mjs";
 import {
@@ -264,6 +264,7 @@ async function handleLineAnswer(req, res) {
     const found = await searchTeachings(await toThaiQuery(query), d.mode, { quota: plan.quota, pieceChars: LINE_PIECE_CHARS });
     found.sources.forEach((s, i) => (s.tag = `S${i + 1}`));
     const json = await chat({ messages: lineMessages({ ...d, question }, plan, found.sources), max_tokens: 16000, timeout: 230000 });
+    json.choices[0].message.content = trimTagDumps(json.choices[0].message.content);
     console.log(`api/line: ${d.mode}${d.define ? "+นิยาม" : ""} ยาว ${plan.length} ชิ้น ${found.sources.length} | ${question.slice(0, 80)}`);
     reply(res, 200, { ...json, sources: found.sources });
   } catch (e) {

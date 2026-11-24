@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lineMessages, linePlan } from "../src/line.mjs";
+import { lineMessages, linePlan, trimTagDumps } from "../src/line.mjs";
 
 const prompts = { common: "COMMON", mode: "MODE", define: "DEFINE" };
 const src = [{ tag: "S1", type: "book", cite: "หนังสือ ก", text: "เนื้อหา" }];
@@ -25,4 +25,9 @@ test("LINE: พรอมต์ ข้อความกำกับ บริบ
   assert.match(cuser.content, /ไม่เกิน 4 ประโยค[\s\S]*ไม่ใช่ภาษาไทย/);
   const [dsys] = lineMessages({ question: "นิยาม บุญ", mode: "buddhayana", define: true, prompts }, linePlan({ mode: "buddhayana", define: true }), src);
   assert.match(dsys.content, /^COMMON\n\nDEFINE/);
+});
+
+test("LINE: ตัดรหัสที่ Haiku ต่อทุกตัวไว้ท้ายย่อหน้า เก็บรหัสใหม่และกลุ่มปกติ", () => {
+  const raw = "ก [S1][S2] ข [S3] ค [S2][S5]\n\nง [S13] [S1][S2][S3][S5]\n\nจ [S6][S7][S8][S9]";
+  assert.equal(trimTagDumps(raw), "ก [S1][S2] ข [S3] ค [S2][S5]\n\nง [S13]\n\nจ [S6][S7][S8][S9]");
 });
