@@ -91,6 +91,10 @@
         <option value="Fenrir">Fenrir</option>
       </optgroup>
     </select>
+    <!-- ความเร็วพูด: ใช้ได้กับเสียง Paxa และ ElevenLabs (เสียง Gemini ปรับไม่ได้ ปิดแถบไว้) -->
+    <label for="speed"><span data-t="speedLabel">ความเร็วพูด</span> <b id="speedVal">1.00×</b></label>
+    <input id="speed" type="range" min="0.7" max="1.2" step="0.05" value="1" style="padding:0">
+    <p id="speedNote" class="hint" data-t="speedGemini" hidden>เสียง Gemini ปรับความเร็วไม่ได้ เลือกเสียง Paxa หรือ ElevenLabs ถ้าต้องการปรับ</p>
     <label for="length" data-t="lengthLabel">ความยาวคำตอบ (เลือกก่อนกดเริ่ม)</label>
     <select id="length">
       <option value="1" data-t="len1">๑ สั้นมาก (1-2 ประโยค)</option>

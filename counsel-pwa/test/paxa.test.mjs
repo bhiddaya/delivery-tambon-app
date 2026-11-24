@@ -83,3 +83,8 @@ test("ตัดช่องว่างกลางคำไทยจากค�
   const chunks = pcmChunks(Buffer.alloc(100000));
   assert.deepEqual(chunks.map((c) => Buffer.from(c, "base64").length), [48000, 48000, 4000]);
 });
+
+test("ความเร็วพูด: จำกัด 0.7-1.2 ขั้นละ 0.05 ค่าแปลกเป็น 1", async () => {
+  const { speedOf } = await import("../src/paxa.mjs");
+  assert.deepEqual([0.5, 0.72, 1, 1.13, 2, "x", undefined].map((v) => speedOf(v).toFixed(2)), ["0.70", "0.70", "1.00", "1.15", "1.20", "1.00", "1.00"]);
+});

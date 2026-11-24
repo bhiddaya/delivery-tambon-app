@@ -29,6 +29,7 @@ import { createLab, LAB_LANGS, LAB_VOCAB, pcmToWav } from "./lab.mjs";
 import {
   ELEVEN_PREFIX,
   PAXA_VOICES,
+  speedOf,
   createChunker,
   createEleven,
   createPaxa,
@@ -69,7 +70,9 @@ const paxa = config.paxaApiKey ? createPaxa(config.paxaApiKey) : null;
 const eleven = config.elevenApiKey ? createEleven(config.elevenApiKey) : null;
 // เสียงพูดแทน Gemini: "el:<voice_id>" = ElevenLabs, ชื่อใน PAXA_VOICES = Paxa
 const isElevenVoice = (v) => !!eleven && typeof v === "string" && v.startsWith(ELEVEN_PREFIX) && v.length > ELEVEN_PREFIX.length;
-const synth = (text, voice) => (isElevenVoice(voice) ? eleven(text, voice.slice(ELEVEN_PREFIX.length)) : paxa(text, voice));
+// speed: ความเร็วพูด 0.7-1.2 (แถบเลื่อนบนเว็บและ NOVA บน PC) ใช้ได้กับ Paxa และ ElevenLabs เท่านั้น
+const synth = (text, voice, speed = 1) =>
+  isElevenVoice(voice) ? eleven(text, voice.slice(ELEVEN_PREFIX.length), speed) : paxa(text, voice, speed);
 
 // รายชื่อเสียง ElevenLabs ในบัญชี (โหลดครั้งแรกที่มีคนขอ แล้วจำไว้ 1 ชั่วโมง)
 let elevenVoiceCache = { at: 0, voices: {} };
@@ -316,9 +319,10 @@ const ttsLimiter = createDailyLimiter(3000);
 async function handleTts(req, res) {
   const token = bearer(req);
   if (!config.ownerToken || token !== config.ownerToken) return reply(res, 401, { error: "รหัสไม่ถูกต้อง" });
-  let text, voice;
+  let text, voice, speed;
   try {
     const d = await readJson(req);
+    speed = speedOf(d.speed ?? 1);
     // raw = ข้อความที่ Haiku เขียน (เก็บช่องว่าง) ไม่ใช่ raw = คำถอดเสียงของ Gemini (ลบช่องว่างกลางคำ)
     text = d.raw ? keepSpaces(String(d.text || "").slice(0, 2000)) : tidyThai(String(d.text || "").slice(0, 800));
     voice = (paxa && PAXA_VOICES[d.voice]) || isElevenVoice(d.voice) ? d.voice : null;
@@ -328,7 +332,7 @@ async function handleTts(req, res) {
   if (!text || !voice) return reply(res, 400, { error: "ไม่มีข้อความ หรือเสียงนี้ยังไม่เปิดใช้" });
   if (!ttsLimiter.allow(token)) return reply(res, 429, { error: "วันนี้ใช้งานครบจำนวนแล้ว" });
   try {
-    const pcm = await synth(text, voice);
+    const pcm = await synth(text, voice, speed);
     res.writeHead(200, { "content-type": "audio/pcm", "content-length": pcm.length }).end(pcm);
   } catch (e) {
     console.error("api/tts failed:", e.message);
@@ -541,6 +545,7 @@ wss.on("connection", (ws) => {
         keepAlive = setInterval(() => session?.sendAudio(SILENCE_100MS), 10_000);
       }
       const voice = [...VOICES.female, ...VOICES.male].includes(msg.voice) ? msg.voice : config.voice;
+      const speed = speedOf(msg.speed ?? 1); // ความเร็วพูดของเสียง Paxa/ElevenLabs (เสียง Gemini ปรับไม่ได้)
       let toolSpoke = false; // คำตอบของ Haiku เข้า Paxa ไปแล้ว ทิ้งคำถอดเสียงที่ Gemini อ่านตามในเทิร์นนี้
       let generation = 0; // ผู้ใช้พูดแทรก = เลิกส่งเสียงที่ยังค้างคิว
       // ส่งข้อความคู่กับเสียงของช่วงนั้น หน้าเว็บแสดงข้อความตอนเสียงช่วงนั้นเริ่มเล่น
@@ -549,7 +554,7 @@ wss.on("connection", (ws) => {
         if (!clean) return;
         const mine = generation;
         try {
-          const pcm = await synth(clean, paxaVoice);
+          const pcm = await synth(clean, paxaVoice, speed);
           if (mine !== generation) return;
           send({ type: "speech", text, chunks: pcmChunks(pcm) });
         } catch (e) {

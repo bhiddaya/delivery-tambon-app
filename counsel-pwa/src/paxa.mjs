@@ -11,18 +11,32 @@ export const PAXA_VOICES = {
   krayasat: "กระยาสารท (ชาย คุณตาใจดี)",
 };
 
+import { spawn } from "node:child_process";
+
 const PAXA_URL = "https://api.paxalabs.com/v1/tts";
+
+// ความเร็วพูดที่ผู้ใช้เลื่อนได้: ช่วงที่ทั้ง Paxa (0.5-1.5) และ ElevenLabs (0.7-1.2) รองรับ ขั้นละ 0.05
+// เสียงของ Gemini ปรับความเร็วไม่ได้
+export const SPEEDS = { min: 0.7, max: 1.2, step: 0.05 };
+export const speedOf = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.round(Math.min(SPEEDS.max, Math.max(SPEEDS.min, n)) / SPEEDS.step) * SPEEDS.step;
+};
 
 // ponytail: คิวเดียวทั้งเซิร์ฟเวอร์ เพราะแผนฟรีของ Paxa ทำได้ทีละงาน ถ้าอัปแผนแล้วค่อยขยายเป็นหลายงานพร้อมกัน
 let queue = Promise.resolve();
 
 export function createPaxa(apiKey, fetchFn = fetch) {
-  return function synthesize(text, voice) {
+  return function synthesize(text, voice, speed = 1) {
     const job = queue.then(async () => {
       const res = await fetchFn(PAXA_URL, {
         method: "POST",
         headers: { "content-type": "application/json", "x-api-key": apiKey },
-        body: JSON.stringify({ text, voice, model: "paxa-tts-flash-v2", format: "pcm", sample_rate: 24000 }),
+        body: JSON.stringify({
+          text, voice, model: "paxa-tts-flash-v2", format: "pcm", sample_rate: 24000,
+          ...(speed !== 1 ? { speed: Number(speed.toFixed(2)) } : {}),
+        }),
         signal: AbortSignal.timeout(30000),
       });
       if (!res.ok) throw new Error(`Paxa HTTP ${res.status}`);
@@ -41,7 +55,7 @@ export const ELEVEN_MODEL = "eleven_v4_turbo"; // พูดไทยได้ �
 let elevenQueue = Promise.resolve();
 
 export function createEleven(apiKey, fetchFn = fetch) {
-  return function synthesize(text, voiceId) {
+  return function synthesize(text, voiceId, speed = 1) {
     const job = elevenQueue.then(async () => {
       const res = await fetchFn(
         `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=pcm_24000`,
@@ -49,16 +63,37 @@ export function createEleven(apiKey, fetchFn = fetch) {
           method: "POST",
           headers: { "content-type": "application/json", "xi-api-key": apiKey },
           // ระบุไทยเฉพาะข้อความที่เป็นไทยเป็นหลัก ภาษาอื่น (รวมจีนที่มีคำบาลีไทยในวงเล็บ) ให้รุ่นเลือกเอง
-          body: JSON.stringify({ text, model_id: ELEVEN_MODEL, ...(isMostlyThai(text) ? { language_code: "th" } : {}) }),
+          body: JSON.stringify({
+            text,
+            model_id: ELEVEN_MODEL,
+            ...(isMostlyThai(text) ? { language_code: "th" } : {}),
+          }),
           signal: AbortSignal.timeout(30000),
         },
       );
       if (!res.ok) throw new Error(`ElevenLabs HTTP ${res.status}`);
-      return Buffer.from(await res.arrayBuffer());
+      const pcm = Buffer.from(await res.arrayBuffer());
+      return speed === 1 ? pcm : changeTempo(pcm, speed).catch(() => pcm); // ปรับไม่ได้ก็พูดความเร็วปกติ
     });
     elevenQueue = job.catch(() => {});
     return job;
   };
+}
+
+// ElevenLabs รุ่นที่พูดไทย (v4 Turbo) ไม่รับค่า speed: ทดสอบ 25 พ.ย. 2569 ที่ 0.7 และ 1.2 เท่ายาว 7.4 วินาทีเท่ากัน
+// จึงยืด/หดเสียงเองด้วย ffmpeg atempo (ระดับเสียงไม่เพี้ยน) pcm 16 บิต 24 kHz mono เข้าและออก
+export function changeTempo(pcm, speed, run = spawn) {
+  if (speed === 1) return Promise.resolve(pcm);
+  const fmt = ["-f", "s16le", "-ar", "24000", "-ac", "1"];
+  return new Promise((resolve, reject) => {
+    const ff = run("ffmpeg", ["-hide_banner", "-loglevel", "error", ...fmt, "-i", "pipe:0", "-filter:a", `atempo=${speed.toFixed(2)}`, ...fmt, "pipe:1"]);
+    const out = [];
+    ff.stdout.on("data", (chunk) => out.push(chunk));
+    ff.on("error", reject);
+    ff.on("close", (code) => (code === 0 ? resolve(Buffer.concat(out)) : reject(new Error(`ffmpeg exit ${code}`))));
+    ff.stdin.on("error", () => {});
+    ff.stdin.end(pcm);
+  });
 }
 
 // คำถอดเสียงของ Gemini เว้นวรรคกลางคำไทย ("หงุดหงิด กับ คน ในบ้าน") ถ้าไม่ตัดออก Paxa จะเว้นจังหวะผิดที่

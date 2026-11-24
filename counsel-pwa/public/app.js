@@ -18,8 +18,8 @@ const orbEl = $("orb");
 // หน้า /nova: หน้าเดียวกันแต่แสดงแบบ NOVA ใช้รหัสเจ้าของ (เก็บแยกจากรหัสเชิญ) เสียงเริ่มต้น Charon เหมือน NOVA บนเครื่อง
 const IS_NOVA = location.pathname.replace(/\/$/, "") === "/nova";
 const KEYS = IS_NOVA
-  ? { token: "ownerToken", voice: "novaVoice", ear: "novaEar", length: "novaLength", lang: "novaLang", langA: "novaLangA", langB: "novaLangB" }
-  : { token: "token", voice: "voice", ear: "ear", length: "length", lang: "lang", langA: "langA", langB: "langB" };
+  ? { token: "ownerToken", voice: "novaVoice", ear: "novaEar", length: "novaLength", lang: "novaLang", langA: "novaLangA", langB: "novaLangB", speed: "novaSpeed" }
+  : { token: "token", voice: "voice", ear: "ear", length: "length", lang: "lang", langA: "langA", langB: "langB", speed: "speed" };
 if (IS_NOVA) {
   startBtns.forEach((b) => (b.hidden = b.dataset.mode !== "nova" && b.dataset.mode !== "interpret"));
   orbEl.hidden = false;
@@ -84,8 +84,28 @@ pairSels.forEach((sel, i) => {
 });
 tokenIn.value = readStore(KEYS.token) || "";
 const savedVoice = readStore(KEYS.voice);
+
+// ความเร็วพูด 0.7-1.2 เท่า: ใช้กับเสียง Paxa และ ElevenLabs เสียงของ Gemini ปรับไม่ได้ จึงปิดแถบและบอกไว้
+const speedIn = $("speed");
+const GEMINI_VOICES = new Set([...voiceSel.querySelectorAll('optgroup[data-tl^="g"] option')].map((o) => o.value));
+const savedSpeed = Number(readStore(KEYS.speed));
+if (savedSpeed >= 0.7 && savedSpeed <= 1.2) speedIn.value = String(savedSpeed);
+function updateSpeed() {
+  const gemini = GEMINI_VOICES.has(voiceSel.value);
+  speedIn.disabled = gemini || !!ws; // ตั้งตอนเริ่มเท่านั้น เหมือนเสียงและความยาว
+  $("speedNote").hidden = !gemini;
+  $("speedVal").textContent = gemini ? "—" : `${Number(speedIn.value).toFixed(2)}×`;
+}
+speedIn.oninput = () => {
+  updateSpeed();
+  try {
+    localStorage.setItem(KEYS.speed, speedIn.value);
+  } catch {}
+};
+voiceSel.addEventListener("change", updateSpeed);
 if (/^[1-5]$/.test(readStore(KEYS.length) || "")) $("length").value = readStore(KEYS.length);
 voiceSel.value = savedVoice || (IS_NOVA ? "Charon" : "Kore");
+updateSpeed();
 // เสียง Paxa Labs แสดงเฉพาะเมื่อเซิร์ฟเวอร์มี key
 fetch("/config.json")
   .then((r) => r.json())
@@ -102,6 +122,7 @@ fetch("/config.json")
     };
     addGroup("paxaGroup", paxaVoices);
     addGroup("elevenGroup", elevenVoices);
+    updateSpeed(); // เสียงที่บันทึกไว้อาจเป็น Paxa/ElevenLabs ที่เพิ่งโหลดมา
     if (elevenEar) {
       $("earBox").hidden = false;
       $("ear").value = readStore(KEYS.ear) || "gemini";
@@ -423,7 +444,9 @@ async function start(mode) {
   const ear = $("earBox").hidden ? "gemini" : $("ear").value;
   const length = Number($("length").value) || 2;
   const lang = langSel.value === "auto" ? null : langSel.value;
-  ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token, mode, voice: voiceSel.value, ear, length, lang, langA, langB }));
+  const speed = GEMINI_VOICES.has(voiceSel.value) ? 1 : Number(speedIn.value);
+  ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token, mode, voice: voiceSel.value, ear, length, lang, langA, langB, speed }));
+  updateSpeed(); // ws มีแล้ว: ล็อกแถบความเร็วระหว่างคุย
   ws.onmessage = (e) => handle(JSON.parse(e.data));
   ws.onclose = () => stop();
   Object.assign(gate, { lead: [], lastVoice: -Infinity, lastSent: -Infinity, wasTalking: false });
@@ -459,6 +482,7 @@ function stop() {
   $("length").disabled = false;
   langSel.disabled = false;
   pairSels.forEach((s) => (s.disabled = false));
+  updateSpeed();
   stopBtn.disabled = true;
   statusEl.textContent = t("notConnected");
 }
