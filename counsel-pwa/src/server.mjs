@@ -12,7 +12,8 @@ import { hasCrisisSignal } from "./safety.mjs";
 import { createDailyLimiter } from "./ratelimit.mjs";
 import { connectGeminiLive, createFakeProvider } from "./provider.mjs";
 import { createTeachingSearch, formatSources } from "./teachings.mjs";
-import { SPEAKER_RULE, createComposer, createQueryTranslator, finishAnswer, lengthOf } from "./compose.mjs";
+import { SPEAKER_RULE, createChat, createComposer, createQueryTranslator, finishAnswer, lengthOf } from "./compose.mjs";
+import { LINE_PIECE_CHARS, lineMessages, linePlan } from "./line.mjs";
 import { checkAttachment } from "./feedback.mjs";
 import { createLab, LAB_LANGS, LAB_VOCAB, pcmToWav } from "./lab.mjs";
 import {
@@ -50,6 +51,7 @@ const canSearch = !!(config.cfAccountId && config.cfApiToken && config.qdrantRea
 const searchTeachings = canSearch ? createTeachingSearch(config) : null;
 const canCompose = !!(config.openrouterKey || (config.llmBridgeUrl && config.llmBridgeSecret));
 const compose = canSearch && canCompose ? createComposer(config) : null;
+const chat = canSearch && canCompose ? createChat(config) : null;
 // คำถามภาษาอื่น: แปลเป็นคำค้นไทยก่อนค้นคลัง (คำตอบยังเป็นภาษาของผู้ถาม)
 const toThaiQuery = canCompose ? createQueryTranslator(config) : async (q) => q;
 const paxa = config.paxaApiKey ? createPaxa(config.paxaApiKey) : null;
@@ -240,6 +242,36 @@ async function handleRead(req, res) {
   }
 }
 
+// POST /api/line/answer (กุญแจ LINE_API_TOKEN ของ n8n): LINE OA บวรไทยค้นและเรียบเรียงคำตอบธรรมะที่นี่ ที่เดียวกับเว็บและ NOVA
+// body { question, query, mode, define, voice, length, history: [คำถามก่อนหน้า], lesson, prompts: {common, mode, define} }
+// -> JSON ของ OpenRouter (choices, model, usage) + sources [{id,type,cite,text,tag}] ให้ n8n "ตรวจอ้างอิงและจัดรูป" ใช้ต่อ
+const lineLimiter = createDailyLimiter(2000); // กันค่าใช้จ่ายบานถ้ามีคนยิงซ้ำ ปกติ LINE ใช้วันละหลักสิบ
+async function handleLineAnswer(req, res) {
+  if (!config.lineToken || bearer(req) !== config.lineToken) return reply(res, 401, { error: "กุญแจไม่ถูกต้อง" });
+  if (!chat) return reply(res, 503, { error: "ยังไม่เปิดใช้การค้นและเรียบเรียง" });
+  let d;
+  try {
+    d = await readJson(req, 400_000); // พรอมต์ทั้งชุดมากับคำขอ
+  } catch {
+    return reply(res, 400, { error: "รูปแบบข้อมูลไม่ถูกต้อง" });
+  }
+  const question = String(d.question || "").trim().slice(0, 4000);
+  const query = String(d.query || question).trim().slice(0, 1000);
+  if (!question || !d.prompts?.mode) return reply(res, 400, { error: "ไม่มีคำถามหรือพรอมต์" });
+  if (!lineLimiter.allow("line")) return reply(res, 429, { error: "วันนี้ใช้งานครบจำนวนแล้ว" });
+  const plan = linePlan(d);
+  try {
+    const found = await searchTeachings(await toThaiQuery(query), d.mode, { quota: plan.quota, pieceChars: LINE_PIECE_CHARS });
+    found.sources.forEach((s, i) => (s.tag = `S${i + 1}`));
+    const json = await chat({ messages: lineMessages({ ...d, question }, plan, found.sources), max_tokens: 16000, timeout: 230000 });
+    console.log(`api/line: ${d.mode}${d.define ? "+นิยาม" : ""} ยาว ${plan.length} ชิ้น ${found.sources.length} | ${question.slice(0, 80)}`);
+    reply(res, 200, { ...json, sources: found.sources });
+  } catch (e) {
+    console.error("api/line failed:", e.message);
+    reply(res, 502, { error: `ค้นหรือเรียบเรียงไม่สำเร็จ: ${e.message}` });
+  }
+}
+
 // POST /api/stt (รหัสเจ้าของ): NOVA บน PC ใช้ ElevenLabs เป็นหู ส่งเสียงทีละประโยค (wav) -> { text }
 async function handleStt(req, res) {
   const token = bearer(req);
@@ -397,6 +429,7 @@ const server = createServer(async (req, res) => {
   if (path === "/api/feedback" && req.method === "POST") return handleFeedback(req, res);
   if (path === "/api/tts" && req.method === "POST") return handleTts(req, res);
   if (path === "/api/read" && req.method === "POST") return handleRead(req, res);
+  if (path === "/api/line/answer" && req.method === "POST") return handleLineAnswer(req, res);
   if (path === "/api/stt" && req.method === "POST") return handleStt(req, res);
   const urlPath = path === "/" || path === "/nova" ? "/index.html" : path === "/lab" ? "/lab.html" : path; // /nova = หน้าเดียวกัน แสดงแบบ NOVA
   if (urlPath === "/config.json") {

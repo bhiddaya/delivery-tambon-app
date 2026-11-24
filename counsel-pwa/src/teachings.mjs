@@ -35,7 +35,7 @@ async function postJson(fetchFn, url, body, headers) {
 }
 
 // เลือกชิ้นตามโควตาของแต่ละประเภท ข้ามชิ้นที่มาจากเรื่อง/หน้าเดียวกัน (คีย์เดียวกับ n8n)
-export function pickSources(result, quota = QUOTAS.counsel) {
+export function pickSources(result, quota = QUOTAS.counsel, pieceChars = PIECE_CHARS) {
   const sources = [];
   result.forEach((group, i) => {
     const seen = new Set();
@@ -44,7 +44,7 @@ export function pickSources(result, quota = QUOTAS.counsel) {
       const key = [pl.file, pl.entry, pl.vol, pl.item, pl.book, pl.page].join("|");
       if (seen.has(key)) continue;
       seen.add(key);
-      sources.push({ type: pl.type, cite: pl.cite || "", text: String(pl.text || "").slice(0, PIECE_CHARS) });
+      sources.push({ id: pt.id, type: pl.type, cite: pl.cite || "", text: String(pl.text || "").slice(0, pieceChars) });
       if (seen.size >= quota[i]) break;
     }
   });
@@ -73,8 +73,9 @@ export function createTeachingSearch(config, fetchFn = fetch) {
   const embedUrl = `https://api.cloudflare.com/client/v4/accounts/${config.cfAccountId}/ai/run/@cf/baai/bge-m3`;
   const queryUrl = `${config.qdrantUrl}/collections/dhamma_v1/points/query/batch`;
   // -> { sources, text: "<sources>…</sources>", cites: ["ที่มา", …] }
-  return async function searchTeachings(query, mode = "counsel") {
-    const quota = QUOTAS[mode] || QUOTAS.counsel;
+  // opts { quota: [หนังสือ, คำเทศน์, พระไตรปิฎก], pieceChars } สำหรับ LINE ที่ใช้โควตาตามความยาวคำตอบ
+  return async function searchTeachings(query, mode = "counsel", opts = {}) {
+    const quota = opts.quota || QUOTAS[mode] || QUOTAS.counsel;
     const emb = await postJson(fetchFn, embedUrl, { text: [String(query).slice(0, 500)] }, {
       authorization: `Bearer ${config.cfApiToken}`,
     });
@@ -87,7 +88,7 @@ export function createTeachingSearch(config, fetchFn = fetch) {
       filter: { must: [{ key: "type", match: { value: kind } }] },
     }));
     const res = await postJson(fetchFn, queryUrl, { searches }, { "api-key": config.qdrantReadKey });
-    const sources = pickSources(res.result || [], quota);
+    const sources = pickSources(res.result || [], quota, opts.pieceChars);
     return { sources, text: formatSources(sources), cites: sources.map((s) => `${KIND_TH[s.type] || s.type}: ${shortCite(s.cite)}`) };
   };
 }

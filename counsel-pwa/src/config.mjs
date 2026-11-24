@@ -33,6 +33,8 @@ export function loadConfig(env = process.env) {
     inviteToken: env.INVITE_TOKEN || "",
     // รหัสเจ้าของ: เข้าหน้า NOVA (/nova) ได้ และใช้โหมดอื่นได้ด้วย
     ownerToken: env.OWNER_TOKEN || "",
+    // กุญแจของ n8n (LINE OA บวรไทย) เรียก /api/line/answer
+    lineToken: env.LINE_API_TOKEN || "",
     codesFile: env.CODES_FILE || "access/codes.json",
     dailyLimitPerToken: Number(env.DAILY_LIMIT || 30),
     // ค้นคำสอน: ครบทั้งสี่ค่าจึงเปิดเครื่องมือค้น

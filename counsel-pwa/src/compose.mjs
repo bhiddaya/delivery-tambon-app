@@ -140,29 +140,35 @@ export function createQueryTranslator(config, fetchFn = fetch) {
 }
 
 // เรียก OpenRouter ตรงด้วย OPENROUTER_API_KEY หรือผ่าน n8n bridge (agent-llm) ที่ถือ credential OpenRouter อยู่แล้ว
-export function createComposer(config, fetchFn = fetch) {
+// -> JSON เต็มของ OpenRouter (choices, model, usage.cost) ใช้ทั้งคำตอบเสียงและ LINE
+export function createChat(config, fetchFn = fetch) {
   const direct = !!config.openrouterKey;
   const url = direct ? "https://openrouter.ai/api/v1/chat/completions" : config.llmBridgeUrl;
   const auth = direct ? { authorization: `Bearer ${config.openrouterKey}` } : { "x-bridge-secret": config.llmBridgeSecret };
-  return async function compose({ systemPrompt, question, sourcesText, mode = "dhamma", length = 2, speaker = null }) {
+  return async function chat({ messages, max_tokens = 1500, timeout = 60000 }) {
     const res = await fetchFn(url, {
       method: "POST",
       headers: { "content-type": "application/json", ...auth },
-      body: JSON.stringify({
-        model: config.composeModel,
-        max_tokens: length >= 4 ? 3500 : 1500, // ภาษาไทยใช้ token มาก คำตอบยาวต้องเผื่อ
-        reasoning: { enabled: false },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `${sourcesText}\nคำถาม: ${question}\n\n${spokenRule(mode, length, speaker)}${foreignNote(question)}` },
-        ],
-      }),
-      signal: AbortSignal.timeout(60000),
+      body: JSON.stringify({ model: config.composeModel, max_tokens, reasoning: { enabled: false }, usage: { include: true }, messages }),
+      signal: AbortSignal.timeout(timeout),
     });
     if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
     const json = await res.json();
-    const content = json?.choices?.[0]?.message?.content;
-    if (!content) throw new Error(json?.error?.message || json?.error?.description || "LLM ไม่มีคำตอบ");
-    return content;
+    if (!json?.choices?.[0]?.message?.content) throw new Error(json?.error?.message || json?.error?.description || "LLM ไม่มีคำตอบ");
+    return json;
+  };
+}
+
+export function createComposer(config, fetchFn = fetch) {
+  const chat = createChat(config, fetchFn);
+  return async function compose({ systemPrompt, question, sourcesText, mode = "dhamma", length = 2, speaker = null }) {
+    const json = await chat({
+      max_tokens: length >= 4 ? 3500 : 1500, // ภาษาไทยใช้ token มาก คำตอบยาวต้องเผื่อ
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `${sourcesText}\nคำถาม: ${question}\n\n${spokenRule(mode, length, speaker)}${foreignNote(question)}` },
+      ],
+    });
+    return json.choices[0].message.content;
   };
 }
