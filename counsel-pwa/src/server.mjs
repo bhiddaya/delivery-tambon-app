@@ -12,7 +12,17 @@ import { hasCrisisSignal } from "./safety.mjs";
 import { createDailyLimiter } from "./ratelimit.mjs";
 import { connectGeminiLive, createFakeProvider } from "./provider.mjs";
 import { createTeachingSearch, formatSources } from "./teachings.mjs";
-import { SPEAKER_RULE, createChat, createComposer, createQueryTranslator, finishAnswer, geminiLanguageRule, langOf, lengthOf } from "./compose.mjs";
+import {
+  SPEAKER_RULE,
+  createChat,
+  createComposer,
+  createQueryTranslator,
+  finishAnswer,
+  geminiLanguageRule,
+  interpretPrompt,
+  langOf,
+  lengthOf,
+} from "./compose.mjs";
 import { LINE_PIECE_CHARS, lineMessages, linePlan, trimTagDumps } from "./line.mjs";
 import { checkAttachment } from "./feedback.mjs";
 import { createLab, LAB_LANGS, LAB_VOCAB, pcmToWav } from "./lab.mjs";
@@ -38,6 +48,7 @@ const MODES = {
   counsel: { promptFile: "counsel.txt" },
   dhamma: { promptFile: "dhamma.txt" },
   nova: { promptFile: null }, // หน้า /nova เฉพาะรหัสเจ้าของ คุยสด ค้น Google + คำสอน
+  interpret: { promptFile: null }, // แปลสดระหว่างสองคน (langA <-> langB) ไม่มีเครื่องมือ
 };
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -507,7 +518,11 @@ wss.on("connection", (ws) => {
       }
       lang = langOf(msg.lang);
       if (lang && lang !== "th") crisisText = config.crisisMessageEn;
-      console.log(`เข้าใช้: ${person} โหมด ${mode}${lang ? ` ภาษา ${lang}` : ""}`);
+      // แปลสด: สองภาษาของสองคน (ค่าเริ่มต้น ไทย <-> อังกฤษ) หูไม่ได้รับคำใบ้ภาษาเดียว เพราะได้ยินสองภาษา
+      const pair = mode === "interpret" ? [langOf(msg.langA) || "th", langOf(msg.langB) || "en"] : null;
+      if (pair && pair[0] === pair[1]) return send({ type: "error", message: "เลือกสองภาษาที่ต่างกัน · Choose two different languages" });
+      if (pair) lang = null;
+      console.log(`เข้าใช้: ${person} โหมด ${mode}${pair ? ` ${pair.join("<->")}` : lang ? ` ภาษา ${lang}` : ""}`);
       authed = true;
       if (mode === "dhamma" && !compose && !useFake) {
         authed = false;
@@ -558,15 +573,16 @@ wss.on("connection", (ws) => {
           : `\n\nความยาวคำตอบที่ผู้ใช้เลือก: ระดับ ${length} จาก 5 (${L.say}${L.list ? " ตอบเป็นข้อได้เมื่อคำตอบเป็นรายการ" : ""}) ใช้แทนกติกาความยาวด้านบน`;
       // เพศของเสียงที่จะได้ยินจริง (Paxa/ElevenLabs ถ้าเลือก ไม่งั้นเสียง Gemini) -> คำลงท้ายครับ/ค่ะ ให้ตรง
       const speaker = await voiceGender(paxaVoice || voice);
-      const systemPrompt =
-        (mode === "nova"
+      const systemPrompt = pair
+        ? interpretPrompt(...pair) + geminiSpeakerRule(speaker)
+        : (mode === "nova"
           ? NOVA_PROMPT + lengthNote
           : haiku
             ? READERS[mode]
             : voiceCounselPrompt(await readPrompt("counsel")) + (searchTeachings ? COUNSEL_RULES : "") + lengthNote) +
         geminiSpeakerRule(speaker) +
         geminiLanguageRule(lang);
-      const search = searchTeachings && ((query) => runTool(mode, query, send, { haiku, onAnswer, length, speaker, lang }));
+      const search = !pair && searchTeachings && ((query) => runTool(mode, query, send, { haiku, onAnswer, length, speaker, lang }));
       const callbacks = {
         onAudio: (data) => paxaVoice || send({ type: "audio", data }),
         onUserText: (text) => {

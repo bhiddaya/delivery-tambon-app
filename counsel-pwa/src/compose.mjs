@@ -136,6 +136,21 @@ export const geminiLanguageRule = (lang) =>
       "whatever language the user speaks. Keep proper names and Pali terms as they are."
     : "";
 
+// โหมดแปลสด (เว็บ และ NOVA บน PC มีสำเนาภาษา Python ใน config_manager.py): Gemini เป็นล่ามระหว่างสองคน แปลอย่างเดียว ไม่ตอบเอง
+export const interpretPrompt = (a, b) => {
+  const [A, B] = [LANGS[a][2], LANGS[b][2]];
+  return [
+    `You are a live voice interpreter between two people talking face to face. Person 1 speaks ${A}. Person 2 speaks ${B}.`,
+    `- When you hear ${A}, say the same thing in ${B}. When you hear ${B}, say the same thing in ${A}.`,
+    "- Interpret only. Never answer questions, give advice, add comments, greet or explain anything yourself. " +
+      'Do not say "he says" or "she asks": speak as the speaker, in the first person.',
+    "- Keep the speaker's meaning, tone and politeness. Keep names, numbers and places exactly. " +
+      "Keep Pali and Buddhist terms in their usual form for the target language.",
+    "- If you cannot understand, or hear another language, say briefly in the speaker's language that you did not catch it and ask them to repeat.",
+    "- A typed message is interpreted the same way as speech.",
+  ].join("\n");
+};
+
 // คำถามภาษาอื่น -> คำค้นภาษาไทยด้วยศัพท์ธรรมะ ก่อนค้นคลัง (คลังเป็นภาษาไทย คำค้นจีน "八明" หา "วิชชา ๘" ไม่เจอ)
 // คำตอบยังเป็นภาษาของผู้ถามตามเดิม ถ้าแปลไม่สำเร็จ ค้นด้วยคำถามเดิม
 export function createQueryTranslator(config, fetchFn = fetch) {

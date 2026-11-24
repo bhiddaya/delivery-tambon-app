@@ -18,10 +18,10 @@ const orbEl = $("orb");
 // หน้า /nova: หน้าเดียวกันแต่แสดงแบบ NOVA ใช้รหัสเจ้าของ (เก็บแยกจากรหัสเชิญ) เสียงเริ่มต้น Charon เหมือน NOVA บนเครื่อง
 const IS_NOVA = location.pathname.replace(/\/$/, "") === "/nova";
 const KEYS = IS_NOVA
-  ? { token: "ownerToken", voice: "novaVoice", ear: "novaEar", length: "novaLength", lang: "novaLang" }
-  : { token: "token", voice: "voice", ear: "ear", length: "length", lang: "lang" };
+  ? { token: "ownerToken", voice: "novaVoice", ear: "novaEar", length: "novaLength", lang: "novaLang", langA: "novaLangA", langB: "novaLangB" }
+  : { token: "token", voice: "voice", ear: "ear", length: "length", lang: "lang", langA: "langA", langB: "langB" };
 if (IS_NOVA) {
-  startBtns.forEach((b) => (b.hidden = b.dataset.mode !== "nova"));
+  startBtns.forEach((b) => (b.hidden = b.dataset.mode !== "nova" && b.dataset.mode !== "interpret"));
   orbEl.hidden = false;
   orbEl.className = "idle";
 }
@@ -34,7 +34,7 @@ const t = (key, ...args) => {
   const v = TEXT[ui][key] ?? TEXT.th[key];
   return typeof v === "function" ? v(...args) : v;
 };
-const modeName = (mode) => t(mode === "nova" ? "novaMode" : mode);
+const modeName = (mode) => t({ nova: "novaMode", interpret: "interpretMode" }[mode] || mode);
 function applyTexts() {
   ui = langSel.value === "th" || (langSel.value === "auto" && deviceLang === "th") ? "th" : "en";
   document.documentElement.lang = ui;
@@ -75,6 +75,13 @@ const hasLang = (code) => [...langSel.options].some((o) => o.value === code);
 const savedLang = readStore(KEYS.lang);
 langSel.value = hasLang(savedLang) ? savedLang : hasLang(deviceLang) ? deviceLang : "auto";
 applyTexts();
+// แปลสด: สองช่องภาษาใช้รายการเดียวกับช่องภาษาด้านบน (ไม่มี อัตโนมัติ) ค่าเริ่มต้น ไทย ⇄ อังกฤษ
+const pairSels = [$("langA"), $("langB")];
+pairSels.forEach((sel, i) => {
+  for (const o of langSel.options) if (o.value !== "auto") sel.append(new Option(o.text, o.value));
+  const saved = readStore(i ? KEYS.langB : KEYS.langA);
+  sel.value = hasLang(saved) && saved !== "auto" ? saved : i ? "en" : "th";
+});
 tokenIn.value = readStore(KEYS.token) || "";
 const savedVoice = readStore(KEYS.voice);
 if (/^[1-5]$/.test(readStore(KEYS.length) || "")) $("length").value = readStore(KEYS.length);
@@ -107,7 +114,10 @@ function addLine(kind, text) {
   const last = logEl.lastElementChild;
   if ((kind === "bot" || kind === "user") && last?.className === kind) {
     // รหัสอ้างอิงอาจมาแยกเป็นสองท่อน ("[P1," + " P5]") จึงลบหลังต่อข้อความแล้ว
-    last.textContent = (last.textContent + text).replace(/\s*\[[^\]]*?\b[SP]\d+[^\]]*\]/g, "");
+    // คำถอดเสียงจีน/ญี่ปุ่นมาเป็นท่อนพร้อมช่องว่างแทรก ("很高 兴认识") ลบช่องว่างระหว่างอักษรจีน/ญี่ปุ่น
+    last.textContent = (last.textContent + text)
+      .replace(/\s*\[[^\]]*?\b[SP]\d+[^\]]*\]/g, "")
+      .replace(/([぀-ヿ㐀-鿿])\s+(?=[぀-ヿ㐀-鿿])/g, "$1");
     logEl.scrollTop = logEl.scrollHeight;
     return;
   }
@@ -377,7 +387,11 @@ function handle(msg) {
 async function start(mode) {
   const token = tokenIn.value.trim();
   if (!token) return addLine("sys", t(IS_NOVA ? "needOwner" : "needToken"));
+  const [langA, langB] = pairSels.map((s) => s.value);
+  if (mode === "interpret" && langA === langB) return addLine("sys", t("sameLang"));
   try {
+    localStorage.setItem(KEYS.langA, langA);
+    localStorage.setItem(KEYS.langB, langB);
     localStorage.setItem(KEYS.token, token);
     localStorage.setItem(KEYS.voice, voiceSel.value);
     localStorage.setItem(KEYS.ear, $("ear").value);
@@ -394,16 +408,18 @@ async function start(mode) {
   $("ear").disabled = true;
   $("length").disabled = true;
   langSel.disabled = true;
+  pairSels.forEach((s) => (s.disabled = true));
   stopBtn.disabled = false;
   statusEl.textContent = t("connecting");
   addLine("sys", t("started", modeName(mode)));
+  if (mode === "interpret") addLine("sys", t("interpretHow", ...pairSels.map((s) => s.selectedOptions[0].text)));
   curMode = mode;
   const scheme = location.protocol === "https:" ? "wss" : "ws";
   ws = new WebSocket(`${scheme}://${location.host}/ws`);
   const ear = $("earBox").hidden ? "gemini" : $("ear").value;
   const length = Number($("length").value) || 2;
   const lang = langSel.value === "auto" ? null : langSel.value;
-  ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token, mode, voice: voiceSel.value, ear, length, lang }));
+  ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token, mode, voice: voiceSel.value, ear, length, lang, langA, langB }));
   ws.onmessage = (e) => handle(JSON.parse(e.data));
   ws.onclose = () => stop();
   Object.assign(gate, { lead: [], lastVoice: -Infinity, lastSent: -Infinity, wasTalking: false });
@@ -436,6 +452,7 @@ function stop() {
   $("ear").disabled = false;
   $("length").disabled = false;
   langSel.disabled = false;
+  pairSels.forEach((s) => (s.disabled = false));
   stopBtn.disabled = true;
   statusEl.textContent = t("notConnected");
 }

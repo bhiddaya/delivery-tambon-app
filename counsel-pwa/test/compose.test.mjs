@@ -53,3 +53,11 @@ test("ภาษาที่เลือก: Haiku และ Gemini ตอบภ�
   assert.equal(langOf("xx"), null);
   assert.equal(langOf("zh"), "zh");
 });
+
+test("แปลสด: พรอมต์ล่ามสองภาษา แปลอย่างเดียว", async () => {
+  const { interpretPrompt } = await import("../src/compose.mjs");
+  const p = interpretPrompt("th", "ja");
+  assert.match(p, /Person 1 speaks Thai\. Person 2 speaks Japanese\./);
+  assert.match(p, /When you hear Japanese, say the same thing in Thai/);
+  assert.match(p, /Interpret only/);
+});

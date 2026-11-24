@@ -106,11 +106,18 @@
         <option value="eleven" data-t="earEleven">ElevenLabs (ฟังทีละประโยค รหัสเจ้าของเท่านั้น)</option>
       </select>
     </div>
+    <!-- แปลสด: ภาษาของสองคน ใช้กับปุ่ม แปลสด เท่านั้น (app.js เติมรายการภาษาจากช่องภาษาด้านบน) -->
+    <label data-t="interpretLabel">แปลสดระหว่างสองคน: ภาษาของคนที่ ๑ และคนที่ ๒</label>
+    <div class="row">
+      <select id="langA" aria-label="Person 1 language"></select>
+      <select id="langB" aria-label="Person 2 language"></select>
+    </div>
     <div style="height:12px"></div>
     <label data-t="modeLabel">เลือกโหมดแล้วเริ่มพูดได้เลย</label>
     <div class="row">
       <button class="start" data-mode="counsel" data-t="counsel">ปรึกษาปัญหาชีวิต</button>
       <button class="start" data-mode="dhamma" data-t="dhamma">ถามธรรมะ</button>
+      <button class="start" data-mode="interpret" data-t="interpret">แปลสด</button>
       <button class="start" data-mode="nova" data-t="nova" hidden>เริ่มคุยกับ NOVA</button>
     </div>
     <div style="height:8px"></div>
