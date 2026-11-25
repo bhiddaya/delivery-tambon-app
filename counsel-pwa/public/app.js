@@ -24,6 +24,7 @@ if (IS_NOVA) {
   startBtns.forEach((b) => (b.hidden = b.dataset.mode !== "nova" && b.dataset.mode !== "interpret"));
   // หน้า NOVA ไม่มีปุ่ม "ตอบไม่ถูก": รายงานถูกเก็บไว้เฉย ๆ ไม่มีระบบนำไปแก้เอง (เจ้าของให้เอาออก 25 พ.ย. 2569)
   for (const el of [$("wrong"), $("wrongFile"), document.querySelector('label[for="wrongFile"]')]) el.hidden = true;
+  $("plus").hidden = false; // ปุ่ม + แนบไฟล์หรือลิงก์ (แบบ NOVA บน PC)
   orbEl.hidden = false;
   orbEl.className = "idle";
 }
@@ -398,6 +399,14 @@ function handle(msg) {
     case "searching":
       statusEl.textContent = t("searching");
       break;
+    case "reading":
+      statusEl.textContent = t("reading");
+      break;
+    case "file_ok":
+      addLine("sys", t("fileSent", msg.name));
+      if (!textIn.value.trim()) textIn.value = t("filePrefill");
+      textIn.focus();
+      break;
     case "sources":
       if (msg.items?.length) addLine("src", t("sourcesHead") + "\n" + msg.items.map((c, i) => `${i + 1}. ${c}`).join("\n"));
       statusEl.textContent = t("answering");
@@ -499,6 +508,31 @@ $("form").onsubmit = (e) => {
   addLine("me", text);
   touch();
   textIn.value = "";
+};
+
+// ปุ่ม + (หน้า NOVA): แนบไฟล์ให้ NOVA อ่าน หรือวางลิงก์ลงช่องพิมพ์พร้อมคำขอสรุป แก้คำขอได้ก่อนกดส่ง
+$("plus").onclick = () => ($("plusMenu").hidden = !$("plusMenu").hidden);
+$("addLink").onclick = () => {
+  $("plusMenu").hidden = true;
+  const url = (prompt(t("linkAsk")) || "").trim();
+  if (!url) return;
+  textIn.value = t("linkPrefill", url);
+  textIn.focus();
+};
+$("attachFile").onclick = () => {
+  $("plusMenu").hidden = true;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return addLine("sys", t("startFirst"));
+  $("attach").click();
+};
+$("attach").onchange = () => {
+  const picked = $("attach").files[0];
+  $("attach").value = "";
+  if (!picked) return;
+  if (picked.size > 10 * 1024 * 1024) return addLine("sys", t("fileTooBig"));
+  if (!ws || ws.readyState !== WebSocket.OPEN) return addLine("sys", t("startFirst"));
+  const r = new FileReader();
+  r.onload = () => ws?.send(JSON.stringify({ type: "file", name: picked.name, mime: picked.type, data: String(r.result).split(",")[1] }));
+  r.readAsDataURL(picked);
 };
 
 // ตอบไม่ถูก: ส่งคำตอบล่าสุด คำถามก่อนหน้า ที่มา และคำตอบที่ถูก (ถ้าผู้ใช้พิมพ์) ไปเก็บไว้ใช้ปรับ prompt

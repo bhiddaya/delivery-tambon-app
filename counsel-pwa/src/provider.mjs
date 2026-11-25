@@ -24,20 +24,28 @@ export const stripTags = (text) => text.replace(/\s*\[[^\]]*?\b[SP]\d+[^\]]*\]/g
 // googleSearch: เปิดเครื่องมือค้น Google ในตัวของ Gemini (หน้า NOVA)
 // manualTurns: แปลสด ปิด VAD ของ Google และไม่คิดก่อนพูด หน้าเว็บบอกเองว่าพูดจบ
 // (วัดจริง 24 พ.ย. 2569: VAD + คิดก่อนพูด 4.1-5.5 วินาที, บอกพูดจบเอง + ไม่คิด 1.4-1.8 วินาที นับจากพูดจบ)
-export async function connectGeminiLive({ config, systemPrompt, callbacks, searchTeachings, googleSearch = false, manualTurns = false }) {
+// tools: เครื่องมือเพิ่ม [{ declaration, run(args) -> ข้อความ }] (หน้า NOVA: read_link, read_file)
+export async function connectGeminiLive({ config, systemPrompt, callbacks, searchTeachings, tools: extra = [], googleSearch = false, manualTurns = false }) {
   // SDK v3 ใช้ v1 เป็นค่าเริ่มต้น แต่โมเดล Live รุ่น preview อยู่ที่ v1beta (v1 ตอบ 404)
   const ai = new GoogleGenAI({ apiKey: config.geminiApiKey, httpOptions: { apiVersion: "v1beta" } });
   let session = null;
+  const tools = [
+    ...(searchTeachings
+      ? [{ declaration: TOOL_DECLARATION, run: (a) => searchTeachings(a.query || ""), fallback: "ค้นคำสอนไม่สำเร็จ ให้ใช้หลัก P1-P6 อย่างเดียว" }]
+      : []),
+    ...extra,
+  ];
   const answerToolCalls = async (calls) => {
     const functionResponses = await Promise.all(
       calls.map(async (call) => {
+        const tool = tools.find((t) => t.declaration.name === call.name);
         let result;
         try {
-          if (call.name !== TOOL_DECLARATION.name || !searchTeachings) throw new Error("ไม่มีเครื่องมือนี้");
-          result = await searchTeachings(call.args?.query || "");
+          if (!tool) throw new Error("ไม่มีเครื่องมือนี้");
+          result = await tool.run(call.args || {});
         } catch (e) {
-          console.error("search_teachings failed:", e.message);
-          result = "ค้นคำสอนไม่สำเร็จ ให้ใช้หลัก P1-P6 อย่างเดียว";
+          console.error(`${call.name} failed:`, e.message);
+          result = tool?.fallback || "เครื่องมือขัดข้อง ให้บอกผู้ใช้ตรง ๆ";
         }
         return { id: call.id, name: call.name, response: { result } };
       }),
@@ -59,10 +67,10 @@ export async function connectGeminiLive({ config, systemPrompt, callbacks, searc
       ...(manualTurns
         ? { realtimeInputConfig: { automaticActivityDetection: { disabled: true } }, thinkingConfig: { thinkingBudget: 0 } }
         : {}),
-      ...(searchTeachings || googleSearch
+      ...(tools.length || googleSearch
         ? {
             tools: [
-              ...(searchTeachings ? [{ functionDeclarations: [TOOL_DECLARATION] }] : []),
+              ...(tools.length ? [{ functionDeclarations: tools.map((t) => t.declaration) }] : []),
               ...(googleSearch ? [{ googleSearch: {} }] : []),
             ],
           }

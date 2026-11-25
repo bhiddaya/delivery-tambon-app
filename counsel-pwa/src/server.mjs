@@ -41,6 +41,7 @@ import {
 import { COUNSEL_RULES, NOVA_PROMPT, READERS, voiceCounselPrompt } from "./prompts.mjs";
 import { PRONOUNCE, sayWords } from "./pronounce.mjs";
 import { createKeyPicker } from "./gemini-keys.mjs";
+import { MAX_FILE, READ_FILE_TOOL, READ_LINK_TOOL, createLinkReader, toContent } from "./links.mjs";
 
 // ใครเขียนคำตอบ:
 //   ถามธรรมะ (ทุกเสียง)          -> Haiku จากคลัง แล้วอ่านออกเสียง
@@ -225,13 +226,7 @@ async function handleRead(req, res) {
   } catch {
     return reply(res, 400, { error: "รูปแบบข้อมูลไม่ถูกต้องหรือใหญ่เกิน" });
   }
-  const content = (Array.isArray(d.parts) ? d.parts : []).slice(0, 20).map((p) =>
-    p.type === "image"
-      ? { type: "image_url", image_url: { url: `data:${String(p.mime || "image/png")};base64,${p.data}` } }
-      : p.type === "pdf"
-        ? { type: "file", file: { filename: String(p.name || "file.pdf"), file_data: `data:application/pdf;base64,${p.data}` } }
-        : { type: "text", text: String(p.text ?? "").slice(0, 200_000) },
-  );
+  const content = toContent(Array.isArray(d.parts) ? d.parts : []);
   if (!content.length) return reply(res, 400, { error: "ไม่มีเนื้อหา" });
   try {
     const r = await fetch(config.llmBridgeUrl, {
@@ -400,6 +395,8 @@ async function handleFeedback(req, res) {
 
 // POST /api/lab/{stt,brain,tts} (รหัสเจ้าของ): หน้า /lab เทียบหู สมอง ปาก หลายแบบ
 const lab = createLab(config, { searchTeachings, readPrompt, paxa, eleven, toThaiQuery });
+// หน้า NOVA: อ่านลิงก์ (คลิป หน้าเว็บ PDF) และไฟล์ที่แนบด้วยปุ่ม + แล้ว Haiku ตอบ (links.mjs)
+const links = canCompose ? createLinkReader({ chat: createChat(config), ears: lab.ears }) : null;
 async function handleLab(req, res, what) {
   const token = bearer(req);
   if (!config.ownerToken || token !== config.ownerToken) return reply(res, 401, { error: "รหัสไม่ถูกต้อง" });
@@ -494,6 +491,8 @@ wss.on("connection", (ws) => {
   let utterBytes = 0;
   let keepAlive = null;
   let newUserTurn = () => {};
+  let novaMode = false;
+  let attached = null; // ไฟล์ที่แนบล่าสุดบนหน้า NOVA { name, mime, data(base64) } ให้ read_file อ่าน
 
   const send = (obj) => {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(obj));
@@ -533,6 +532,7 @@ wss.on("connection", (ws) => {
       if (pair && pair[0] === pair[1]) return send({ type: "error", message: "เลือกสองภาษาที่ต่างกัน · Choose two different languages" });
       if (pair) lang = null;
       interpreting = !!pair;
+      novaMode = mode === "nova";
       console.log(`เข้าใช้: ${person} โหมด ${mode}${pair ? ` ${pair.join("<->")}` : lang ? ` ภาษา ${lang}` : ""}`);
       authed = true;
       if (mode === "dhamma" && !compose && !useFake) {
@@ -596,6 +596,23 @@ wss.on("connection", (ws) => {
         geminiSpeakerRule(speaker) +
         geminiLanguageRule(lang);
       const search = !pair && searchTeachings && ((query) => runTool(mode, query, send, { haiku, onAnswer, length, speaker, lang }));
+      // หน้า NOVA: อ่านลิงก์และไฟล์ที่แนบ ผลให้ Gemini อ่านออกเสียง (เปลี่ยนคำที่อ่านผิดก่อน)
+      // log: ดูย้อนหลังได้ว่า NOVA อ่านอะไร (docker logs counsel-pwa | grep nova:)
+      const reading = async (what, job) => {
+        send({ type: "reading" });
+        console.log(`nova: ${what}`);
+        return sayWords(await job());
+      };
+      const novaTools =
+        mode === "nova" && links
+          ? [
+              { declaration: READ_LINK_TOOL, run: (a) => reading(`read_link ${String(a.url || "").slice(0, 200)}`, () => links.readLink(a)) },
+              {
+                declaration: READ_FILE_TOOL,
+                run: (a) => (attached ? reading(`read_file ${attached.name}`, () => links.readFile(attached, a.question)) : "ผู้ใช้ยังไม่ได้แนบไฟล์ บอกให้กดปุ่ม + ข้างช่องพิมพ์แล้วเลือกแนบไฟล์"),
+              },
+            ]
+          : [];
       const callbacks = {
         onAudio: (data) => paxaVoice || send({ type: "audio", data }),
         onUserText: (text) => {
@@ -647,6 +664,7 @@ wss.on("connection", (ws) => {
                 systemPrompt,
                 callbacks,
                 searchTeachings: search,
+                tools: novaTools,
                 googleSearch: mode === "nova",
                 manualTurns: !!pair,
               });
@@ -660,6 +678,16 @@ wss.on("connection", (ws) => {
       };
       await openSession();
       return;
+    }
+
+    if (msg.type === "file") {
+      // ปุ่ม + บนหน้า NOVA: เก็บไฟล์ไว้ให้ read_file อ่านเมื่อผู้ใช้ถาม (ไฟล์ล่าสุดไฟล์เดียว)
+      if (!novaMode) return send({ type: "error", message: "แนบไฟล์ได้เฉพาะหน้า NOVA" });
+      const data = String(msg.data || "");
+      if (!data || data.length > (MAX_FILE * 4) / 3 + 4) return send({ type: "error", message: "ไฟล์ว่างหรือใหญ่เกิน 10 MB" });
+      attached = { name: String(msg.name || "file").slice(0, 120), mime: String(msg.mime || "").slice(0, 100), data };
+      console.log(`แนบไฟล์: ${attached.name} (${attached.mime || "?"}, ${Math.round((data.length * 3) / 4 / 1024)} KB)`);
+      return send({ type: "file_ok", name: attached.name });
     }
 
     if (!session) return send({ type: "error", message: "ยังไม่ได้เชื่อมต่อกับโมเดล" });
