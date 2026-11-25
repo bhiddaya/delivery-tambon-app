@@ -39,6 +39,7 @@ import {
   tidyThai,
 } from "./paxa.mjs";
 import { COUNSEL_RULES, NOVA_PROMPT, READERS, voiceCounselPrompt } from "./prompts.mjs";
+import { PRONOUNCE, sayWords } from "./pronounce.mjs";
 
 // ใครเขียนคำตอบ:
 //   ถามธรรมะ (ทุกเสียง)          -> Haiku จากคลัง แล้วอ่านออกเสียง
@@ -136,7 +137,8 @@ const geminiSpeakerRule = (speaker) =>
 async function runTool(mode, query, send, { haiku, onAnswer, length = 2, speaker = null, lang = null }) {
   send({ type: "searching" });
   const found = await searchTeachings(await toThaiQuery(query), mode);
-  if (!haiku) return formatSources(found.sources, mode === "nova" ? "named" : false); // ไม่มีรหัส [S#] ให้ Gemini พูดตาม
+  // ข้อความที่ Gemini จะอ่านออกเสียงเอง: เปลี่ยนคำที่อ่านผิดเป็นตัวสะกดตามเสียง (pronounce.mjs) บอกในพรอมต์แล้ว Gemini อ่านคำอธิบายออกมาด้วย
+  if (!haiku) return sayWords(formatSources(found.sources, mode === "nova" ? "named" : false)); // ไม่มีรหัส [S#] ให้ Gemini พูดตาม
   try {
     const { text, cites } = await haikuAnswer(mode, query, found, length, speaker, lang);
     if (mode === "dhamma" && cites.length) send({ type: "sources", items: cites });
@@ -146,7 +148,7 @@ async function runTool(mode, query, send, { haiku, onAnswer, length = 2, speaker
       // (เสียงของ Gemini ถูกทิ้งอยู่แล้ว ถ้าอ่านข้อความนี้ออกมาผู้ใช้ก็ไม่ได้ยิน) คำตอบใส่ไว้ให้ Gemini รู้บริบทคำถามถัดไป
       return `ระบบพูดคำตอบนี้ให้ผู้ใช้ฟังแล้ว ไม่ต้องอ่านซ้ำ ตอบสั้น ๆ ว่า "ครับ" แล้วรอฟังผู้ใช้\n\n${text}`;
     }
-    return text; // ไม่ใส่คำสั่งนำหน้า (Gemini อ่านคำสั่งออกเสียงด้วย) กติกาการอ่านอยู่ใน READERS
+    return sayWords(text); // ไม่ใส่คำสั่งนำหน้า (Gemini อ่านคำสั่งออกเสียงด้วย) กติกาการอ่านอยู่ใน READERS
   } catch (e) {
     console.error("compose failed:", e.message);
     return "ระบบเรียบเรียงคำตอบขัดข้อง ให้บอกผู้ใช้ว่าขออภัย ลองถามใหม่อีกครั้งครับ ห้ามตอบเอง";
@@ -455,7 +457,8 @@ const server = createServer(async (req, res) => {
   if (urlPath === "/config.json") {
     res.writeHead(200, { "content-type": MIME[".json"], "cache-control": "no-store" });
     // elevenVoices: เลือกได้ทุกคน แต่ใช้จริงได้เฉพาะรหัสเจ้าของ (คนอื่นจะได้เสียง Gemini แทน)
-    res.end(JSON.stringify({ paxaVoices: paxa ? PAXA_VOICES : {}, elevenVoices: await elevenVoiceList(), elevenEar: !!eleven }));
+    // pronounce: คำอ่านเฉพาะ NOVA บน PC เอาไปใส่ system prompt ของ Gemini (แก้ที่ pronounce.mjs ที่เดียว)
+    res.end(JSON.stringify({ paxaVoices: paxa ? PAXA_VOICES : {}, elevenVoices: await elevenVoiceList(), elevenEar: !!eleven, pronounce: PRONOUNCE }));
     return;
   }
   const filePath = normalize(join(publicDir, urlPath));

@@ -12,6 +12,7 @@ export const PAXA_VOICES = {
 };
 
 import { spawn } from "node:child_process";
+import { sayWords } from "./pronounce.mjs";
 
 const PAXA_URL = "https://api.paxalabs.com/v1/tts";
 
@@ -153,7 +154,8 @@ export const isMostlyThai = (text) => {
 };
 
 export function sayable(input) {
-  const text = String(input).replace(/[*_#`]+/g, ""); // markdown (*puñña*, **หัวข้อ**) ไม่ให้เครื่องอ่านออกเสียง
+  // คำอ่านเฉพาะ (อนิยต -> อะนิยะตะ) ก่อนอย่างอื่น: pronounce.mjs
+  const text = sayWords(String(input).replace(/[*_#`]+/g, "")); // markdown (*puñña*, **หัวข้อ**) ไม่ให้เครื่องอ่านออกเสียง
   if (!isMostlyThai(text)) {
     // ภาษาอื่น: ตัดแค่เครื่องหมายคำพูด/วงเล็บ ตัวเลขให้เครื่องอ่านตามภาษานั้นเอง ("Chapter 9" ไม่กลายเป็น "เก้า")
     return String(text).replace(/["“”‘’()«»]/g, " ").replace(/\s+/g, " ").trim();

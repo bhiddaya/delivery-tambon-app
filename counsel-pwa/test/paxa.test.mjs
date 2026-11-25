@@ -88,3 +88,10 @@ test("ความเร็วพูด: จำกัด 0.7-1.2 ขั้นล
   const { speedOf } = await import("../src/paxa.mjs");
   assert.deepEqual([0.5, 0.72, 1, 1.13, 2, "x", undefined].map((v) => speedOf(v).toFixed(2)), ["0.70", "0.70", "1.00", "1.15", "1.20", "1.00", "1.00"]);
 });
+
+test("คำอ่านเฉพาะ: อนิยต/นิยต เปลี่ยนเป็นตัวสะกดตามเสียงก่อนอ่าน", async () => {
+  const { sayWords } = await import("../src/pronounce.mjs");
+  const { sayable } = await import("../src/paxa.mjs");
+  assert.equal(sayWords("ขั้นที่ 3 คืออนิยตโพธิสัตว์ ต่างจากนิยตโพธิสัตว์"), "ขั้นที่ 3 คืออะนิยะตะโพธิสัตว์ ต่างจากนิยะตะโพธิสัตว์");
+  assert.match(sayable("อนิยตโพธิสัตว์"), /อะนิยะตะโพธิสัตว์/);
+});
