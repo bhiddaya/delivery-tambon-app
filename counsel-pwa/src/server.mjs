@@ -40,6 +40,7 @@ import {
 } from "./paxa.mjs";
 import { COUNSEL_RULES, NOVA_PROMPT, READERS, voiceCounselPrompt } from "./prompts.mjs";
 import { PRONOUNCE, sayWords } from "./pronounce.mjs";
+import { createKeyPicker } from "./gemini-keys.mjs";
 
 // ใครเขียนคำตอบ:
 //   ถามธรรมะ (ทุกเสียง)          -> Haiku จากคลัง แล้วอ่านออกเสียง
@@ -58,6 +59,7 @@ const publicDir = join(here, "..", "public");
 const promptDir = process.env.PROMPT_DIR || join(here, "..", "prompt");
 
 const config = loadConfig();
+const geminiKeys = createKeyPicker(config.geminiApiKey, config.geminiApiKeyPaid);
 const limiter = createDailyLimiter(config.dailyLimitPerToken);
 const useFake = process.env.PROVIDER === "fake";
 const canSearch = !!(config.cfAccountId && config.cfApiToken && config.qdrantReadKey);
@@ -623,6 +625,7 @@ wss.on("connection", (ws) => {
         onClose: (reason) => {
           session = null;
           // Gemini ปิด session เอง (หมดเวลา เครือข่าย) ระหว่างที่ผู้ใช้ยังเปิดหน้าอยู่: ต่อใหม่ให้เอง ไม่ต้องกดเริ่มอีก
+          if (geminiKeys.noteError(reason)) reconnects = 0; // โควตาฟรีหมด: ต่อใหม่ด้วยคีย์เสียเงิน
           if (ws.readyState === ws.OPEN && reconnects < 3) {
             reconnects++;
             console.error(`gemini closed (${reason}), reconnect ${reconnects}`);
@@ -640,7 +643,7 @@ wss.on("connection", (ws) => {
           session = useFake
             ? createFakeProvider(callbacks)
             : await connectGeminiLive({
-                config: { ...config, voice },
+                config: { ...config, voice, geminiApiKey: geminiKeys.current() },
                 systemPrompt,
                 callbacks,
                 searchTeachings: search,
@@ -651,6 +654,7 @@ wss.on("connection", (ws) => {
           const voiceLabel = !paxaVoice ? voice : isElevenVoice(paxaVoice) ? "ElevenLabs" : `Paxa ${paxaVoice}`;
           send({ type: "ready", voice: voiceLabel, ear: elevenEar ? "ElevenLabs" : "Gemini", length, mode });
         } catch (e) {
+          if (geminiKeys.noteError(e.message)) return openSession(); // โควตาฟรีหมด: ลองคีย์เสียเงินทันที
           send({ type: "error", message: `เชื่อมต่อไม่สำเร็จ: ${e.message}` });
         }
       };

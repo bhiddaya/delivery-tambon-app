@@ -26,6 +26,8 @@ export function loadConfig(env = process.env) {
   return {
     port: Number(env.PORT || 8080),
     geminiApiKey: env.GEMINI_API_KEY || "",
+    // คีย์แผนเสียเงิน: ใช้เมื่อคีย์ฟรีข้างบนติดโควตา (gemini-keys.mjs) ไม่ใส่ = ใช้แต่คีย์ฟรี
+    geminiApiKeyPaid: env.GEMINI_API_KEY_PAID || "",
     // ตรวจชื่อโมเดลกับหน้า deprecations ของ Google ก่อนใช้งานจริง
     liveModel: env.LIVE_MODEL || "gemini-2.5-flash-native-audio-preview-12-2025",
     voice: allowed.includes(voice) ? voice : "Kore",
