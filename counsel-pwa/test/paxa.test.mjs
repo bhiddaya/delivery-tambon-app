@@ -95,3 +95,11 @@ test("คำอ่านเฉพาะ: อนิยต/นิยต เปล�
   assert.equal(sayWords("ขั้นที่ 3 คืออนิยตโพธิสัตว์ ต่างจากนิยตโพธิสัตว์"), "ขั้นที่ 3 คืออะนิยะตะโพธิสัตว์ ต่างจากนิยะตะโพธิสัตว์");
   assert.match(sayable("อนิยตโพธิสัตว์"), /อะนิยะตะโพธิสัตว์/);
 });
+
+test("คำสะกดผิดจากต้นฉบับ: หดหู -> หดหู่ (ไม่ซ้ำวรรณยุกต์) และ ํา -> ำ แก้ตอนค้นเจอ", async () => {
+  const { fixSpelling } = await import("../src/pronounce.mjs");
+  const { pickSources } = await import("../src/teachings.mjs");
+  assert.equal(fixSpelling("จิตหดหู เข้าสู่ หดหู่แล้ว ทําวัตร"), "จิตหดหู่ เข้าสู่ หดหู่แล้ว ทำวัตร");
+  const [s] = pickSources([{ points: [{ id: 1, payload: { type: "book", book: "ก", text: "จิตหดหู", cite: "ค่ํา" } }] }], [1, 0, 0]);
+  assert.deepEqual([s.text, s.cite], ["จิตหดหู่", "ค่ำ"]);
+});

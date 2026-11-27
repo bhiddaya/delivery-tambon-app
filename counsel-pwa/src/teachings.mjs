@@ -2,6 +2,8 @@
 // คำถาม -> เวกเตอร์ bge-m3 (Cloudflare Workers AI) -> ค้นแยก หนังสือ / คำเทศน์ / พระไตรปิฎก
 // ใช้กุญแจอ่านอย่างเดียวของ Qdrant แก้อะไรในคลังไม่ได้
 
+import { fixSpelling } from "./pronounce.mjs";
+
 const KINDS = ["book", "sermon", "tipitaka"];
 export const KIND_TH = { book: "หนังสือ", sermon: "คำเทศน์", tipitaka: "พระไตรปิฎก" };
 // จำนวนชิ้น [หนังสือ, คำเทศน์, พระไตรปิฎก] ต่อโหมด คำตอบเสียงสั้นกว่า LINE
@@ -44,7 +46,7 @@ export function pickSources(result, quota = QUOTAS.counsel, pieceChars = PIECE_C
       const key = [pl.file, pl.entry, pl.vol, pl.item, pl.book, pl.page].join("|");
       if (seen.has(key)) continue;
       seen.add(key);
-      sources.push({ id: pt.id, type: pl.type, cite: pl.cite || "", text: String(pl.text || "").slice(0, pieceChars) });
+      sources.push({ id: pt.id, type: pl.type, cite: fixSpelling(pl.cite || ""), text: fixSpelling(String(pl.text || "").slice(0, pieceChars)) });
       if (seen.size >= quota[i]) break;
     }
   });

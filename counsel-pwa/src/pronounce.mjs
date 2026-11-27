@@ -15,3 +15,11 @@ const PATTERN = WORDS.length ? new RegExp(WORDS.join("|"), "g") : null;
 // ข้อความสำหรับเครื่องสังเคราะห์เสียง: ใช้คำอ่านติดกันไม่มีขีด ("อะนิยะตะโพธิสัตว์")
 export const sayWords = (text) => (PATTERN ? String(text).replace(PATTERN, (w) => PRONOUNCE[w].replace(/-/g, "")) : String(text));
 
+// คำที่คลังคำสอนสะกดผิดมาจากต้นฉบับ (สแกน/พิมพ์ผิด): แก้ตอนค้นเจอ (pickSources ใน teachings.mjs)
+// Haiku จึงเห็นคำที่ถูก ทั้งเว็บ NOVA และ LINE เพิ่มคำใหม่ที่นี่ แล้ว deploy
+const SPELLING = [
+  [/หดหู(?![่-๋])/g, "หดหู่"], // เจ้าของแก้ 28 พ.ย. 2569 (หนังสือ "สัจจะชีวิต ภาค 2" พิมพ์ "จิตหดหู") เสียงอ่านเป็น หด-หู
+  [/ํา/g, "ำ"], // นิคหิต+สระอา (ทําวัตร ค่ํา) -> สระอำ ตัวเดียว (ข้อความจากการแปลง PDF)
+];
+export const fixSpelling = (text) => SPELLING.reduce((t, [re, to]) => t.replace(re, to), String(text));
+

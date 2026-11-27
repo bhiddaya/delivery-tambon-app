@@ -31,10 +31,13 @@ const LANGUAGE_RULE =
 
 // ชื่อผู้สอน: รายงาน "ตอบไม่ถูก" 24 พ.ย. 2569 คำตอบใช้ "อาจารย์ท่าน" เจ้าของให้แทนด้วย สมณะโพธิรักษ์ หรือ พ่อครู
 const TEACHER_NAME_RULE = "ถ้าต้องเอ่ยถึงผู้สอน ให้เรียกว่า พ่อครูสมณะโพธิรักษ์ หรือ พ่อครู ห้ามใช้คำว่า อาจารย์ หรือ พ่อครูบวรไทย";
+// ต้นฉบับบางส่วนมาจากการสแกน มีคำไทยทั่วไปที่ขาดวรรณยุกต์ (เจ้าของเจอ "หดหู" 28 พ.ย. 2569) คำที่รู้แล้วแก้ใน pronounce.mjs
+// ห้ามแก้ศัพท์บาลีและคำเฉพาะของพ่อครู (อาริยะ ไม่ใช่ อริยะ)
+const SPELLING_RULE = "ต้นฉบับบางส่วนมาจากการสแกน คำไทยทั่วไปที่ขาดหรือเกินวรรณยุกต์หรือสระชัดเจนให้สะกดให้ถูก แต่ห้ามแก้ศัพท์บาลีและคำเฉพาะของพ่อครู เช่น อาริยะ โลกุตระ ถีนมิทธะ";
 
 export function spokenRule(mode, level = 2, speaker = null) {
   const voiceRule = SPEAKER_RULE[speaker] ? ` ${SPEAKER_RULE[speaker]}` : "";
-  return spokenRuleBase(mode, level).replace(/\)$/, `${voiceRule} ${TEACHER_NAME_RULE} ${LANGUAGE_RULE})`);
+  return spokenRuleBase(mode, level).replace(/\)$/, `${voiceRule} ${TEACHER_NAME_RULE} ${SPELLING_RULE} ${LANGUAGE_RULE})`);
 }
 
 function spokenRuleBase(mode, level) {
